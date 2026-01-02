@@ -627,6 +627,7 @@ print_menu() {
   printf "  %s61)%s Mirror check entre hash_index (faltantes/corrupción)\n" "$C_GRN" "$C_RESET"
   printf "  %s66)%s Plan LUFS (análisis, sin normalizar)\n" "$C_GRN" "$C_RESET"
   printf "  %s67)%s Auto-cues por onsets (librosa)\n" "$C_GRN" "$C_RESET"
+  printf "  %s68)%s Cadenas automatizadas (10 flujos)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%sL)%s Librerías DJ & Cues (submenú)\n" "$C_GRN" "$C_RESET"
@@ -3006,6 +3007,138 @@ EOF
   printf "%s[OK]%s Pipeline limpieza: %s\n" "$C_GRN" "$C_RESET" "$pipeline"
   pause_enter
 }
+
+# === Cadenas automatizadas (combinan acciones existentes) ===
+
+chain_run_header() {
+  print_header
+  printf "%s[INFO]%s Ejecutando cadena: %s\n" "$C_CYN" "$C_RESET" "$1"
+}
+
+chain_1_backup_snapshot() {
+  chain_run_header "Backup seguro + snapshot (8 -> 27)"
+  action_8_backup_dj
+  action_27_snapshot
+  printf "%s[OK]%s Cadena completada: backups y snapshot.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_2_dedup_quarantine() {
+  chain_run_header "Dedup exacto y quarantine (10 -> 11)"
+  action_10_dupes_plan
+  action_11_quarantine_from_plan
+  printf "%s[OK]%s Cadena completada: duplicados en quarantine.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_3_metadata_names() {
+  chain_run_header "Limpieza de metadatos y nombres (39 -> 34)"
+  action_39_clean_web_tags
+  action_34_normalize_names
+  printf "%s[OK]%s Cadena completada: tags limpiados y nombres normalizados.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_4_health_scan() {
+  chain_run_header "Escaneo rápido de salud de media (18 -> 14 -> 15)"
+  action_18_rescan_intelligent
+  action_14_playlists_per_folder
+  action_15_relink_helper
+  printf "%s[OK]%s Cadena completada: catálogo, playlists y relink TSV.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_5_show_prep() {
+  chain_run_header "Prep de show (8 -> 27 -> 10 -> 11 -> 14 -> 8)"
+  action_8_backup_dj
+  action_27_snapshot
+  action_10_dupes_plan
+  action_11_quarantine_from_plan
+  action_14_playlists_per_folder
+  action_8_backup_dj
+  printf "%s[OK]%s Cadena completada: pre/post backup, duplicados y playlists.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_6_media_integrity() {
+  chain_run_header "Media integrity + corruptos (13 -> 18)"
+  action_13_ffprobe_report
+  action_18_rescan_intelligent
+  printf "%s[OK]%s Cadena completada: reporte corruptos y rescan actualizado.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_7_efficiency_plan() {
+  chain_run_header "Plan de eficiencia (42 -> 44 -> 43)"
+  action_42_efficiency_optimizer
+  action_44_integrated_dedup
+  action_43_smart_workflow
+  printf "%s[OK]%s Cadena completada: planes de eficiencia/dedup/workflow.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_8_ml_org_basic() {
+  chain_run_header "ML organización básica (45 -> 46)"
+  action_45_ml_organization
+  action_46_metadata_harmonizer
+  printf "%s[OK]%s Cadena completada: organización ML y armonizador.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_9_predictive_backup() {
+  chain_run_header "Backup predictivo (47 -> 8 -> 27)"
+  action_47_predictive_backup
+  action_8_backup_dj
+  action_27_snapshot
+  printf "%s[OK]%s Cadena completada: plan + backup + snapshot.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_10_cross_sync() {
+  chain_run_header "Sync multiplataforma (48 -> 39 -> 8 -> 8)"
+  action_48_cross_platform_sync
+  action_39_clean_web_tags
+  action_8_backup_dj
+  action_8_backup_dj
+  printf "%s[OK]%s Cadena completada: sync plan, limpieza metadatos y backups.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+submenu_A_chains() {
+  while true; do
+    clear
+    print_header
+    printf "%s=== Cadenas automatizadas ===%s\n" "$C_CYN" "$C_RESET"
+    printf "%s1)%s Backup seguro + snapshot (8 -> 27)\n" "$C_YLW" "$C_RESET"
+    printf "%s2)%s Dedup exacto y quarantine (10 -> 11)\n" "$C_YLW" "$C_RESET"
+    printf "%s3)%s Limpieza de metadatos y nombres (39 -> 34)\n" "$C_YLW" "$C_RESET"
+    printf "%s4)%s Escaneo salud media (18 -> 14 -> 15)\n" "$C_YLW" "$C_RESET"
+    printf "%s5)%s Prep de show (8 -> 27 -> 10 -> 11 -> 14 -> 8)\n" "$C_YLW" "$C_RESET"
+    printf "%s6)%s Media integrity + corruptos (13 -> 18)\n" "$C_YLW" "$C_RESET"
+    printf "%s7)%s Plan de eficiencia (42 -> 44 -> 43)\n" "$C_YLW" "$C_RESET"
+    printf "%s8)%s ML organización básica (45 -> 46)\n" "$C_YLW" "$C_RESET"
+    printf "%s9)%s Backup predictivo (47 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
+    printf "%s10)%s Sync multiplataforma (48 -> 39 -> 8 -> 8)\n" "$C_YLW" "$C_RESET"
+    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
+    printf "%sOpción:%s " "$C_BLU" "$C_RESET"
+    read -r aop
+    case "$aop" in
+      1) chain_1_backup_snapshot ;;
+      2) chain_2_dedup_quarantine ;;
+      3) chain_3_metadata_names ;;
+      4) chain_4_health_scan ;;
+      5) chain_5_show_prep ;;
+      6) chain_6_media_integrity ;;
+      7) chain_7_efficiency_plan ;;
+      8) chain_8_ml_org_basic ;;
+      9) chain_9_predictive_backup ;;
+      10) chain_10_cross_sync ;;
+      B|b) break ;;
+      *) invalid_option ;;
+    esac
+  done
+}
+
 submenu_L_libraries() {
   while true; do
     clear
@@ -4568,6 +4701,7 @@ main_loop() {
       65) submenu_T_tensorflow_lab ;;
       66) action_audio_lufs_plan ;;
       67) action_audio_cues_onsets ;;
+      68) submenu_A_chains ;;
       L|l) submenu_L_libraries ;;
       D|d) submenu_D_dupes_general ;;
       V|v) submenu_V_visuals ;;

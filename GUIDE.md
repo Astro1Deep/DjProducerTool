@@ -37,6 +37,7 @@ chmod +x install_djpt.sh
 - Índices y reportes (sha256, duplicados, integridad de media).
 - Herramientas de mirror/organización y presets de exclusiones (audio, proyectos).
 - Menús agrupados (Core, Media, Doctor, etc.) con líneas de estado y spinner 👻.
+- Menú 68: “Cadenas automatizadas” con 10 flujos predefinidos (backup + snapshot, dedup + quarantine, limpieza de metadatos/nombres, prep de show, integridad, eficiencia, ML básico, backup predictivo, sync multiplataforma).
 
 ## Banners y color
 - Ambos scripts usan el mismo banner ASCII; el gradiente es distinto por idioma:

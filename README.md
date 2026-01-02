@@ -42,5 +42,8 @@ Este repositorio solo contiene scripts; no se suben datos ni configuraciones per
 ## Guía completa
 Consulta `GUIDE.md` para ver instalación, uso y recursos visuales.
 
+## Cadenas automatizadas
+- Menú 68 abre 10 flujos predefinidos (backup + snapshot, dedup + quarantine, limpieza de metadatos y más) para ejecutar varias acciones en secuencia.
+
 ## Licencia
 DJProducerTools License (Attribution + Revenue Share). Consulta el archivo `LICENSE`.
