@@ -424,6 +424,7 @@ maybe_activate_ml_env() {
   done
 
   printf "%s[INFO]%s %s requires an isolated ML env.\n" "$C_CYN" "$C_RESET" "$context"
+  printf "%s[WARN]%s Needs Internet connection. Estimated download: ~%s MB.\n" "$C_YLW" "$C_RESET" "$est_mb"
   printf "Create venv at %s and install pip + %s (~%s MB)? [y/N]: " "$VENV_DIR" "$pkgs" "$est_mb"
   read -r ans
   case "$ans" in
