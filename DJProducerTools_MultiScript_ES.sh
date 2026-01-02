@@ -3271,6 +3271,7 @@ submenu_L_libraries() {
     printf "%s3)%s Detectar duplicados audio desde catálogo maestro (L3)\n" "$C_YLW" "$C_RESET"
     printf "%s4)%s Extraer Cues desde Rekordbox XML (L4)\n" "$C_YLW" "$C_RESET"
     printf "%s5)%s Generar ableton_locators.csv desde dj_cues.tsv (L5)\n" "$C_YLW" "$C_RESET"
+    printf "%s6)%s Inventario de librerías (Serato/Rekordbox/Traktor/Ableton)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver al menú principal\n" "$C_YLW" "$C_RESET"
     printf "%sSelecciona una opción:%s " "$C_BLU" "$C_RESET"
     read -r lop
@@ -3411,6 +3412,45 @@ submenu_L_libraries() {
           printf "%s[OK]%s ableton_locators.csv generado: %s\n" "$C_GRN" "$C_RESET" "$out"
           pause_enter
         fi
+        ;;
+      6)
+        clear
+        out="$REPORTS_DIR/library_inventory.tsv"
+        printf "%s[INFO]%s Inventario de librerías DJ -> %s\n" "$C_CYN" "$C_RESET" "$out"
+        {
+          printf "Plataforma\tEstado\tRuta\n"
+          if [ -d "$BASE_PATH/_Serato_" ]; then
+            printf "Serato\tENCONTRADO\t%s/_Serato_\n" "$BASE_PATH"
+          else
+            printf "Serato\tNO\t-\n"
+          fi
+          if find "$BASE_PATH" -maxdepth 4 -type f -iname "*rekordbox*.xml" 2>/dev/null | head -1 | grep -q .; then
+            p=$(find "$BASE_PATH" -maxdepth 4 -type f -iname "*rekordbox*.xml" 2>/dev/null | head -1)
+            printf "Rekordbox XML\tENCONTRADO\t%s\n" "$p"
+          else
+            printf "Rekordbox XML\tNO\t-\n"
+          fi
+          if find "$BASE_PATH" -maxdepth 4 -type f -iname "*collection*.nml" 2>/dev/null | head -1 | grep -q .; then
+            p=$(find "$BASE_PATH" -maxdepth 4 -type f -iname "*collection*.nml" 2>/dev/null | head -1)
+            printf "Traktor NML\tENCONTRADO\t%s\n" "$p"
+          else
+            printf "Traktor NML\tNO\t-\n"
+          fi
+          if find "$BASE_PATH" -maxdepth 4 -type f -iname "*.als" 2>/dev/null | head -1 | grep -q .; then
+            p=$(find "$BASE_PATH" -maxdepth 4 -type f -iname "*.als" 2>/dev/null | head -1)
+            printf "Ableton ALS\tENCONTRADO\t%s\n" "$p"
+          else
+            printf "Ableton ALS\tNO\t-\n"
+          fi
+          if find "$BASE_PATH" -maxdepth 4 -type f -iname "*.svd" 2>/dev/null | head -1 | grep -q .; then
+            p=$(find "$BASE_PATH" -maxdepth 4 -type f -iname "*.svd" 2>/dev/null | head -1)
+            printf "Serato Video SVD\tENCONTRADO\t%s\n" "$p"
+          else
+            printf "Serato Video SVD\tNO\t-\n"
+          fi
+        } >"$out"
+        printf "%s[OK]%s Inventario generado.\n" "$C_GRN" "$C_RESET"
+        pause_enter
         ;;
       B|b)
         break ;;
@@ -4588,6 +4628,57 @@ EOF
   pause_enter
 }
 
+action_V13_dmx_fixtures_inventory() {
+  print_header
+  out="$REPORTS_DIR/dmx_fixtures_inventory.tsv"
+  printf "%s[INFO]%s Inventario fixtures DMX/Láser -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  search_root="$BASE_PATH"
+  printf "Ruta de búsqueda (ENTER usa BASE_PATH=%s): " "$BASE_PATH"
+  read -e -r v
+  v=$(strip_quotes "$v")
+  if [ -n "$v" ] && [ -d "$v" ]; then
+    search_root="$v"
+  fi
+  printf "%s[INFO]%s Buscando fixtures (.ift, .qxf, .ssl, .d4) en %s\n" "$C_CYN" "$C_RESET" "$search_root"
+  printf "Archivo\tNombre\tRuta\n" >"$out"
+  find "$search_root" -type f \( -iname "*.ift" -o -iname "*.qxf" -o -iname "*.ssl" -o -iname "*.d4" \) 2>/dev/null | head -200 | while IFS= read -r f; do
+    base=$(basename "$f")
+    name="${base%.*}"
+    printf "%s\t%s\t%s\n" "$base" "$name" "$f" >>"$out"
+  done
+  printf "%s[OK]%s Inventario generado (máx 200 resultados). Ajusta ruta si necesitas más.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+action_V14_visuals_transcode_adv() {
+  print_header
+  out="$PLANS_DIR/visuals_transcode_adv.tsv"
+  printf "%s[INFO]%s Plan de transcode avanzado (sugerencias ffmpeg) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  printf "Codec destino (ENTER=libx264, opciones: libx264/libx265/libvpx-vp9): "
+  read -r codec
+  [ -z "$codec" ] && codec="libx264"
+  printf "Bitrate objetivo (ENTER=15M): "
+  read -r br
+  [ -z "$br" ] && br="15M"
+  printf "Resolución destino (ENTER=1920x1080): "
+  read -r res
+  [ -z "$res" ] && res="1920x1080"
+  printf "Archivos a incluir (ENTER=por defecto: mp4,mov,mkv): "
+  read -r exts
+  [ -z "$exts" ] && exts="mp4,mov,mkv"
+  IFS=',' read -r -a arr_exts <<<"$exts"
+  printf "Input\tOutput\tComando_sugerido\n" >"$out"
+  find "$BASE_PATH" -type f \( $(printf -- '-iname "*.%s" -o ' "${arr_exts[@]}" | sed 's/ -o $//') \) 2>/dev/null | head -100 | while IFS= read -r f; do
+    dir=$(dirname "$f")
+    base=$(basename "$f")
+    out_name="${base%.*}_h264.mp4"
+    cmd="ffmpeg -i \"$f\" -c:v $codec -b:v $br -vf scale=$res -c:a aac -b:a 192k \"$dir/$out_name\""
+    printf "%s\t%s\t%s\n" "$f" "$dir/$out_name" "$cmd" >>"$out"
+  done
+  printf "%s[OK]%s Plan generado (hasta 100 archivos). Revisa comandos antes de ejecutar.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 submenu_V_visuals() {
   while true; do
     clear
@@ -4604,6 +4695,8 @@ submenu_V_visuals() {
     printf "%s10)%s Plan OSC desde playlist (.m3u/.m3u8)\n" "$C_GRN" "$C_RESET"
     printf "%s11)%s Plan DMX desde playlist (escenas Intro/Drop/Outro)\n" "$C_GRN" "$C_RESET"
     printf "%s12)%s Presets DMX beam+láser (plantilla editable)\n" "$C_GRN" "$C_RESET"
+    printf "%s13)%s Inventario fixtures DMX/Láser (busca .ift/.qxf/.ssl/.d4)\n" "$C_GRN" "$C_RESET"
+    printf "%s14)%s Plan transcode visual avanzado (ffmpeg sugerido)\n" "$C_GRN" "$C_RESET"
     printf "%sB)%s Volver al menú principal\n" "$C_YLW" "$C_RESET"
     printf "%sSelecciona una opción:%s " "$C_BLU" "$C_RESET"
     read -r vop
@@ -4620,6 +4713,8 @@ submenu_V_visuals() {
       10) action_V10_osc_from_playlist ;;
       11) action_V11_dmx_from_playlist ;;
       12) action_V12_dmx_presets ;;
+      13) action_V13_dmx_fixtures_inventory ;;
+      14) action_V14_visuals_transcode_adv ;;
       B|b)
         break
         ;;
@@ -4696,18 +4791,19 @@ action_H_help_info() {
 
   printf "%sSubmenú A) Automatizaciones (cadenas):%s\n" "$C_YLW" "$C_RESET"
   printf "  A1-A10: flujos predefinidos (backup+snapshot, dedup+quarantine, limpieza metadatos/nombres, health scan, prep show, integridad, eficiencia, ML básica, backup predictivo, sync multi).\n"
-  printf "  A11: Diagnóstico rápido (estado + resumen + top carpetas/archivos).\n"
-  printf "  A12: Salud Serato (backup Serato + health-check de estado).\n"
-  printf "  Qué aporta: encadena acciones existentes para no ir opción por opción.\n"
-  printf "  Tip: si SafeMode/DJ_SAFE_LOCK está activo, sigue respetando bloqueos/quarantine.\n\n"
+  printf "  A11-A14: diagnóstico rápido, salud Serato, hash+mirror check, audio prep (tags+LUFS+cues).\n"
+  printf "  A15-A20: auditoría integridad, limpieza+backup, prep sync, salud visuales, org audio avanzada, seguridad Serato.\n"
+  printf "  Tip: SafeMode/DJ_SAFE_LOCK siguen activos; quarantine y operaciones peligrosas respetan bloqueos.\n\n"
 
   printf "%sSubmenú V) Visuales / DAW / OSC / DMX:%s\n" "$C_YLW" "$C_RESET"
   printf "  V1-V2: reportes Ableton .als y catálogo de visuales.\n"
   printf "  V4-V5: Serato Video (reporte + plan transcode).\n"
   printf "  V6-V9: ffprobe para resolución/duración, buckets por resolución, duplicados por hash, sugerir H.264 1080p.\n"
-  printf "  V10-V11: generar plan OSC/DMX desde playlist (.m3u/.m3u8) para sincronizar clips/escenas.\n"
+  printf "  V10-V11: plan OSC/DMX desde playlist (.m3u/.m3u8) para sincronizar clips/escenas.\n"
   printf "  V12: presets DMX para Spider 8x6W + láser ALIEN; ajusta canales/valores a tu mapeo.\n"
-  printf "  Nota: los TSV generados son plantillas; revísalos antes de enviarlos a tu software DMX/OSC.\n\n"
+  printf "  V13: inventario fixtures DMX/láser (.ift/.qxf/.ssl/.d4) – ayuda a mapear modelos.\n"
+  printf "  V14: plan transcode avanzado con comando ffmpeg sugerido (elige codec/bitrate/resolución).\n"
+  printf "  Nota: los TSV generados son plantillas; revisa antes de enviar a tu software DMX/OSC o lanzar ffmpeg.\n\n"
 
   printf "%sModelos TF disponibles (pros/cons + peso aprox descarga inicial):%s\n" "$C_YLW" "$C_RESET"
   printf "  YAMNet (~40MB): rápido, generalista (eventos/ambiente), bueno para similitud básica.\n"
@@ -4721,7 +4817,8 @@ action_H_help_info() {
   printf "  L2) Catálogo audio multi-librería.\n"
   printf "  L3) Duplicados por basename+tamaño.\n"
   printf "  L4) Cues Rekordbox -> dj_cues.tsv (placeholder).\n"
-  printf "  L5) dj_cues.tsv -> ableton_locators.csv (placeholder).\n\n"
+  printf "  L5) dj_cues.tsv -> ableton_locators.csv (placeholder).\n"
+  printf "  L6) Inventario de librerías (Serato/Traktor/Rekordbox/Ableton/Serato Video).\n\n"
 
   printf "%sSubmenú D) Duplicados generales:%s\n" "$C_YLW" "$C_RESET"
   printf "  D1) Catálogo general por disco.\n"

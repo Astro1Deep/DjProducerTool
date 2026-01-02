@@ -73,7 +73,7 @@ chmod +x install_djpt.sh
 - **Deep/ML (40-52, 62-65)**: análisis/predictor/optimizador, flujos inteligentes, dedup integrado, organización ML, armonizador metadata, backup predictivo, sync multiplataforma, análisis avanzado, motor integración, recomendaciones, pipeline automático. Opciones 62-65 gestionan ML evolutivo/TensorFlow/Lab.
 - **Extras (53-67)**: reset estado, perfiles de rutas, Ableton Tools, import cues, gestor de exclusiones, comparar hash_index, health-check de estado, export/import config, mirror check, LUFS, auto-cues.
 - **Automatizaciones A/68**: submenú con cadenas predefinidas (ver abajo). Acceso con `A` o `a`, o con opción `68`.
-- **Submenús L/D/V**: librerías DJ & cues, duplicados avanzados, visuales/OSC/DMX.
+- **Submenús L/D/V**: librerías DJ & cues, duplicados avanzados, visuales/OSC/DMX (incluye inventario fixtures y plan transcode avanzado).
 - **Help H**: resumen detallado de opciones y notas técnicas.
 
 ## Cadenas automatizadas (A/68)
