@@ -633,10 +633,10 @@ print_menu() {
 
   printf "\n"
   printf "%s🔮 A) Automations (chains)%s\n" "$C_GRN" "$C_RESET"
-  printf "%sL)%s DJ Libraries & Cues (submenu)\n" "$C_GRN" "$C_RESET"
-  printf "%sD)%s General duplicates (submenu)\n" "$C_GRN" "$C_RESET"
-  printf "%sV)%s Visuals / DAW / OSC (submenu)\n" "$C_GRN" "$C_RESET"
-  printf "%sH)%s Help & INFO\n" "$C_GRN" "$C_RESET"
+  printf "%s📚 L)%s DJ Libraries & Cues (submenu)\n" "$C_GRN" "$C_RESET"
+  printf "%s♻️  D)%s General duplicates (submenu)\n" "$C_GRN" "$C_RESET"
+  printf "%s🎥 V)%s Visuals / DAW / OSC (submenu)\n" "$C_GRN" "$C_RESET"
+  printf "%sℹ️  H)%s Help & INFO\n" "$C_GRN" "$C_RESET"
   printf "%s0)%s Exit\n" "$C_GRN" "$C_RESET"
 }
 

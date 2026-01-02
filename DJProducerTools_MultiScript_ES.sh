@@ -632,10 +632,10 @@ print_menu() {
 
   printf "\n"
   printf "%s🔮 A) Automatizaciones (cadenas)%s\n" "$C_GRN" "$C_RESET"
-  printf "%sL)%s Librerías DJ & Cues (submenú)\n" "$C_GRN" "$C_RESET"
-  printf "%sD)%s Duplicados generales (submenú)\n" "$C_GRN" "$C_RESET"
-  printf "%sV)%s Visuales / DAW / OSC (submenú)\n" "$C_GRN" "$C_RESET"
-  printf "%sH)%s Help & INFO\n" "$C_GRN" "$C_RESET"
+  printf "%s📚 L)%s Librerías DJ & Cues (submenú)\n" "$C_GRN" "$C_RESET"
+  printf "%s♻️  D)%s Duplicados generales (submenú)\n" "$C_GRN" "$C_RESET"
+  printf "%s🎥 V)%s Visuales / DAW / OSC (submenú)\n" "$C_GRN" "$C_RESET"
+  printf "%sℹ️  H)%s Help & INFO\n" "$C_GRN" "$C_RESET"
   printf "%s0)%s Salir\n" "$C_GRN" "$C_RESET"
 }
 
