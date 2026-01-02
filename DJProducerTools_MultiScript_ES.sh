@@ -631,7 +631,7 @@ print_menu() {
   printf "  %s68)%s Cadenas automatizadas (14 flujos)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
-  printf "%sA)%s Automatizaciones (cadenas)\n" "$C_GRN" "$C_RESET"
+  printf "%s🔮 A) Automatizaciones (cadenas)%s\n" "$C_GRN" "$C_RESET"
   printf "%sL)%s Librerías DJ & Cues (submenú)\n" "$C_GRN" "$C_RESET"
   printf "%sD)%s Duplicados generales (submenú)\n" "$C_GRN" "$C_RESET"
   printf "%sV)%s Visuales / DAW / OSC (submenú)\n" "$C_GRN" "$C_RESET"
