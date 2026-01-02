@@ -629,7 +629,7 @@ print_menu() {
   printf "  %s61)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
   printf "  %s66)%s LUFS plan (analysis, no normalize)\n" "$C_GRN" "$C_RESET"
   printf "  %s67)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
-  printf "  %s68)%s Automated chains (20 workflows)\n" "$C_GRN" "$C_RESET"
+  printf "  %s68)%s Automated chains (21 workflows)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%s🔮 A) Automations (chains)%s\n" "$C_GRN" "$C_RESET"
@@ -3208,6 +3208,17 @@ chain_20_serato_safe() {
   pause_enter
 }
 
+chain_21_multidisk_dedup() {
+  chain_run_header "Multi-disk dedup + mirror (9 -> 10 -> 44 -> 11 -> 61)"
+  action_9_hash_index
+  action_10_dupes_plan
+  action_44_integrated_dedup
+  action_11_quarantine_from_plan
+  action_mirror_integrity_check
+  printf "%s[OK]%s Chain done: hash, dupes plan, quarantine, mirror check.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 submenu_A_chains() {
   while true; do
     clear
@@ -3233,6 +3244,7 @@ submenu_A_chains() {
     printf "%s18)%s Visual/video health (V2 -> V6 -> V8 -> V9 -> 8)\n" "$C_YLW" "$C_RESET"
     printf "%s19)%s Advanced audio org (31 -> 30 -> 35 -> 45 -> 46)\n" "$C_YLW" "$C_RESET"
     printf "%s20)%s Serato safety hardening (7 -> 8 -> 59 -> 12 -> 47)\n" "$C_YLW" "$C_RESET"
+    printf "%s21)%s Multi-disk dedup + mirror (9 -> 10 -> 44 -> 11 -> 61)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
     printf "%sChoice:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3257,6 +3269,7 @@ submenu_A_chains() {
       18) chain_18_visual_health ;;
       19) chain_19_audio_advanced ;;
       20) chain_20_serato_safe ;;
+      21) chain_21_multidisk_dedup ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
