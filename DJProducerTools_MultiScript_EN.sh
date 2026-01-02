@@ -4734,6 +4734,7 @@ main_loop() {
       66) action_audio_lufs_plan ;;
       67) action_audio_cues_onsets ;;
       68) submenu_A_chains ;;
+      A|a) submenu_A_chains ;;
       L|l) submenu_L_libraries ;;
       D|d) submenu_D_dupes_general ;;
       V|v) submenu_V_visuals ;;
