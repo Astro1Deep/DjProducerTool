@@ -16,10 +16,20 @@ C_CYN="${ESC}[1;36m"
 C_PURP="${ESC}[38;5;129m"
 BANNER="${ESC}[1;37;44m"
 
+# Ancla al directorio del script (doble click) y mantiene la ventana abierta al salir
+SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
+LAUNCH_NON_INTERACTIVE=0
+if [ -z "${PS1:-}" ] && [ -z "${TMUX:-}" ] && [ -z "${SSH_CONNECTION:-}" ]; then
+  LAUNCH_NON_INTERACTIVE=1
+fi
+trap 'code=$?; if [ "$LAUNCH_NON_INTERACTIVE" -eq 1 ]; then echo; echo "[INFO] Script terminado (código $code). Pulsa ENTER para cerrar..."; read -r _; fi' EXIT
+
 # Asegura TERM para evitar cortes raros en terminales mínimos
 export TERM="${TERM:-xterm-256color}"
 
-# Polyfill mapfile para Bash 3.2 en macOS
+# Polyfill mapfile para Bash 3.2 en macOS (con escape de comillas y backslash)
 if ! command -v mapfile >/dev/null 2>&1; then
   mapfile() {
     local opt tflag=0
@@ -29,10 +39,12 @@ if ! command -v mapfile >/dev/null 2>&1; then
     eval "$arr_name=()"
     local line
     while IFS= read -r line; do
+      local esc_line="${line//\\/\\\\}"
+      esc_line="${esc_line//\"/\\\"}"
       if [ $tflag -eq 1 ]; then
-        eval "$arr_name+=(\"$line\")"
+        eval "$arr_name+=(\"$esc_line\")"
       else
-        eval "$arr_name+=(\"$line\n\")"
+        eval "$arr_name+=(\"$esc_line\n\")"
       fi
     done
   }
@@ -462,20 +474,39 @@ print_header() {
     sed "s/^/$C_PURP/;s/$/$C_RESET/" "$BANNER_FILE"
     printf "%s\n" "$C_RESET"
   else
-    printf "%s" "$C_PURP"
-    cat <<'EOF'
-    __     __     ______     __  __        ______     ______   ______     ______     ______     ______     ______     __  __     __     ______                          
-   /\ \  _ \ \   /\  __ \   /\_\_\_\      /\  ___\   /\  == \ /\  __ \   /\  ___\   /\  ___\   /\  ___\   /\ \_\ \   /\ \   /\  == \                         
-   \ \ \/ ".\ \  \ \  __ \  \/_/\_\/_     \ \___  \  \ \  _-/ \ \  __ \  \ \ \____  \ \  __\   \ \___  \  \ \  __ \  \ \ \  \ \  _-/                         
-    \ \__/".~\_\  \ \_\ \_\   /\_\/\_\     \/\_____\  \ \_\    \ \_\ \_\  \ \_____\  \ \_____\  \/\_____\  \ \_\ \_\  \ \_\  \ \_\                           
-     \/_/   \/_/   \/_/\/_/   \/_/\/_/      \/_____/   \/_/     \/_/\/_/   \/_____/   \/_____/   \/_____/   \/_/\/_/   \/_/   \/_/                           
- _____       __     ______   ______     ______     _____     __  __     ______     ______     ______     ______   ______     ______     __         ______    
-/\  __-.    /\ \   /\  == \ /\  == \   /\  __ \   /\  __-.  /\ \/\ \   /\  ___\   /\  ___\   /\  == \   /\__  _\ /\  __ \   /\  __ \   /\ \       /\  ___\   
-\ \ \/\ \  _\_\ \  \ \  _-/ \ \  __<   \ \ \/\ \  \ \ \/\ \ \ \ \_\ \  \ \ \____  \ \  __\   \ \  __<   \/_/\ \/ \ \ \/\ \  \ \ \/\ \  \ \ \____  \ \___  \  
- \ \____- /\_____\  \ \_\    \ \_\ \_\  \ \_____\  \ \____-  \ \_____\  \ \_____\  \ \_____\  \ \_\ \_\    \ \_\  \ \_____\  \ \_____\  \ \_____\  \/\_____\ 
-  \/____/ \/_____/   \/_/     \/_/ /_/   \/_____/   \/____/   \/_____/   \/_____/   \/_____/   \/_/ /_/     \/_/   \/_____/   \/_____/   \/_____/   \/_____/ 
+    cols=$(tput cols 2>/dev/null || echo 80)
+    # Mismo banner ASCII que EN pero con gradiente alternativo (cálido→frío)
+    local colors=("$C_PURP" "$C_RED" "$C_YLW" "$C_GRN" "$C_CYN" "$C_BLU")
+    local banner_lines
+    mapfile -t banner_lines <<'EOF'
+@@@  @@@  @@@  @@@@@@  @@@  @@@  @@@@@@ @@@@@@@   @@@@@@   @@@@@@@ @@@@@@@@  @@@@@@ @@@  @@@ @@@ @@@@@@@
+@@!  @@!  @@! @@!  @@@ @@!  !@@ !@@     @@!  @@@ @@!  @@@ !@@      @@!      !@@     @@!  @@@ @@! @@!  @@@
+@!!  !!@  @!@ @!@!@!@!  !@@!@!   !@@!!  @!@@!@!  @!@!@!@! !@!      @!!!:!    !@@!!  @!@!@!@! !!@ @!@@!@!
+ !:  !!:  !!  !!:  !!!  !: :!!      !:! !!:      !!:  !!! :!!      !!:          !:! !!:  !!! !!: !!:
+  ::.:  :::    :   : : :::  ::: ::.: :   :        :   : :  :: :: : : :: ::: ::.: :   :   : : :    :
+
+@@@@@@@      @@@ @@@@@@@  @@@@@@@   @@@@@@  @@@@@@@  @@@  @@@  @@@@@@@ @@@@@@@@ @@@@@@@
+@@!  @@@     @@! @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ !@@      @@!      @@!  @@@
+@!@  !@!     !!@ @!@@!@!  @!@!!@!  @!@  !@! @!@  !@! @!@  !@! !@!      @!!!:!   @!@!!@!
+!!:  !!! .  .!!  !!:      !!: :!!  !!:  !!! !!:  !!! !!:  !!! :!!      !!:      !!: :!!
+:: :  :  ::.::    :        :   : :  : :. :  :: :  :   :.:: :   :: :: : : :: :::  :   : :
+
+@@@@@@@  @@@@@@   @@@@@@  @@@
+  @@!   @@!  @@@ @@!  @@@ @@!
+  @!!   @!@  !@! @!@  !@! @!!
+  !!:   !!:  !!! !!:  !!! !!:
+   :     : :. :   : :. :  : ::.: :
 EOF
-    printf "%s\n" "$C_RESET"
+    for idx in "${!banner_lines[@]}"; do
+      local color="${colors[$((idx % ${#colors[@]}))]}"
+      local line="${banner_lines[$idx]}"
+      local pad=0
+      local len=${#line}
+      if [ "$cols" -gt "$len" ]; then
+        pad=$(((cols - len) / 2))
+      fi
+      printf "%*s%s%s%s\n" "$pad" "" "$color" "$line" "$C_RESET"
+    done
   fi
   printf "%s⚡ By Astro One Deep 🎵%s\n\n" "$C_PURP" "$C_RESET"
 

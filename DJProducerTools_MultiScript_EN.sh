@@ -476,7 +476,7 @@ print_header() {
     printf "%s\n" "$C_RESET"
   else
     cols=$(tput cols 2>/dev/null || echo 80)
-    # Gradient using the script palette starting in green
+    # Gradient (cool→warm) for EN using script palette
     local colors=("$C_GRN" "$C_CYN" "$C_BLU" "$C_PURP" "$C_RED" "$C_YLW")
     local banner_lines
     mapfile -t banner_lines <<'EOF'
