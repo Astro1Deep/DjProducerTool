@@ -894,6 +894,28 @@ action_11_quarantine_from_plan() {
     printf "Muestra de las primeras 10 entradas:\n"
     awk -F'\t' '$2=="QUARANTINE"{print NR": "$3}' "$plan_tsv" | head -10
   fi
+
+  # Calcula espacio necesario para mover a quarantine
+  needed_bytes=0
+  while IFS=$'\t' read -r _ action f; do
+    [ "$action" != "QUARANTINE" ] && continue
+    sz=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d ' ')
+    needed_bytes=$((needed_bytes + sz))
+  done <"$plan_tsv"
+  avail_bytes=$(df -k "$QUAR_DIR" 2>/dev/null | awk 'NR==2{print $4*1024}')
+  if [ -z "$avail_bytes" ]; then
+    avail_bytes=0
+  fi
+  printf "Espacio necesario estimado: %.2f MB | Disponible: %.2f MB\n" "$(echo "$needed_bytes/1048576" | bc -l)" "$(echo "$avail_bytes/1048576" | bc -l)"
+  if [ "$avail_bytes" -lt "$needed_bytes" ] && [ "$needed_bytes" -gt 0 ]; then
+    printf "%s[WARN]%s Espacio insuficiente en quarantine. ¿Continuar de todas formas? (y/N): " "$C_YLW" "$C_RESET"
+    read -r space_ans
+    case "$space_ans" in
+      y|Y) ;;
+      *) printf "%s[INFO]%s Cancelado por espacio insuficiente.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
+    esac
+  fi
+
   printf "Confirmar mover archivos marcados como QUARANTINE? (y/N): "
   read -r ans
   case "$ans" in

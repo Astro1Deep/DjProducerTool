@@ -895,6 +895,26 @@ action_11_quarantine_from_plan() {
     printf "Sample of first 10 entries:\n"
     awk -F'\t' '$2=="QUARANTINE"{print NR": "$3}' "$plan_tsv" | head -10
   fi
+
+  # Estimate needed space for quarantine moves
+  needed_bytes=0
+  while IFS=$'\t' read -r _ action f; do
+    [ "$action" != "QUARANTINE" ] && continue
+    sz=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d ' ')
+    needed_bytes=$((needed_bytes + sz))
+  done <"$plan_tsv"
+  avail_bytes=$(df -k "$QUAR_DIR" 2>/dev/null | awk 'NR==2{print $4*1024}')
+  [ -z "$avail_bytes" ] && avail_bytes=0
+  printf "Estimated needed: %.2f MB | Available: %.2f MB\n" "$(echo "$needed_bytes/1048576" | bc -l)" "$(echo "$avail_bytes/1048576" | bc -l)"
+  if [ "$avail_bytes" -lt "$needed_bytes" ] && [ "$needed_bytes" -gt 0 ]; then
+    printf "%s[WARN]%s Not enough space in quarantine. Continue anyway? (y/N): " "$C_YLW" "$C_RESET"
+    read -r space_ans
+    case "$space_ans" in
+      y|Y) ;;
+      *) printf "%s[INFO]%s Cancelled due to insufficient space.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
+    esac
+  fi
+
   printf "Confirm moving files marked as QUARANTINE? (y/N): "
   read -r ans
   case "$ans" in
