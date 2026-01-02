@@ -46,6 +46,26 @@ chmod +x install_djpt.sh
 - `BASE_PATH`: raíz de trabajo; configurable en opción 2. Se autodetecta al inicio y guarda histórico.
 - Safe guards: `SAFE_MODE` y `DJ_SAFE_LOCK` bloquean acciones peligrosas/quarantine; `DRYRUN_FORCE` simula ciertos planes.
 
+## Dónde se guarda cada cosa
+- Config y perfiles:
+  - `config/djpt.conf`: BASE_PATH, roots (GENERAL/AUDIO/SERATO/REKORDBOX/ABLETON), flags SafeMode/Lock/DryRun.
+  - `config/exclude_profiles.tsv`: patrones guardados del gestor de exclusiones (opción 57).
+  - `config/base_history.txt`, `general_history.txt`, `audio_history.txt`: histórico para autocompletar rutas.
+- Planes:
+  - `plans/dupes_plan.tsv` + `dupes_plan.json`: generado por opción 10; usado por 11 (quarantine) y cadenas.
+  - `plans/cleanup_pipeline_*.txt`: pipeline automático (52).
+  - `plans/integration_engine_*.txt`, `workflow_*.txt`, `efficiency_*.tsv`, `ml_organization_*.tsv`, `metadata_harmony_*.tsv`, `predictive_backup_*.txt`, `cross_platform_*.txt`, etc.
+  - `plans/ableton_sets_report.tsv` (submenú Ableton), `ableton_locators.csv` (submenú L5), `mirror_integrity_*.tsv` (61).
+- Reportes:
+  - `reports/hash_index.tsv` (9), `snapshot_hash_fast.tsv` (27), `media_corrupt.tsv` (13), `workspace_scan.tsv` (6), `playlists_per_folder.m3u8` (14), `dj_cues.tsv` (L), `ml_predictions_*.tsv` (41/62), `adaptive_recommendations_*.txt` (51), `state_health.txt` (59).
+  - Vídeo/visuales: `serato_video_report.tsv` (32), `serato_video_prep.tsv` (33), `visuals_inventory.tsv` (V2), `visuals_ffprobe.tsv` (V6).
+- Quarantine:
+  - `_DJProducerTools/quarantine/` recibe archivos movidos por opción 11 (y cadenas que la usen). Quarantine Manager (12) lista/restaura/borra.
+- Logs:
+  - `_DJProducerTools/logs/` guarda ejecuciones e instalaciones ML; visor de logs en opción 28.
+- Instalador/CLI:
+  - `install_djpt.sh` descarga siempre la última versión de los scripts desde GitHub.
+
 ## Qué hace (vista de menús)
 - **Core (1-12)**: estado, cambio de base, resumen, top dirs/files, backup Serato/DJ, hash_index, duplicados exactos, quarantine.
 - **Media/organización (13-24)**: ffprobe corruptos, playlists, relink helper, mirrors por género, rescan inteligente, diag herramientas, fix permisos/flags, instalar comando.
