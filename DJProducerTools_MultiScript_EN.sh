@@ -629,7 +629,7 @@ print_menu() {
   printf "  %s61)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
   printf "  %s66)%s LUFS plan (analysis, no normalize)\n" "$C_GRN" "$C_RESET"
   printf "  %s67)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
-  printf "  %s68)%s Automated chains (14 workflows)\n" "$C_GRN" "$C_RESET"
+  printf "  %s68)%s Automated chains (20 workflows)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%s🔮 A) Automations (chains)%s\n" "$C_GRN" "$C_RESET"
@@ -3142,6 +3142,72 @@ chain_14_audio_prep() {
   pause_enter
 }
 
+chain_15_integrity_audit() {
+  chain_run_header "Integrity audit (6 -> 9 -> 27 -> 61)"
+  action_6_scan_workspace
+  action_9_hash_index
+  action_27_snapshot
+  action_mirror_integrity_check
+  printf "%s[OK]%s Chain done: scan, hash_index, snapshot, mirror check.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_16_clean_backup() {
+  chain_run_header "Cleanup + safe backup (39 -> 34 -> 10 -> 11 -> 8 -> 27)"
+  action_39_clean_web_tags
+  action_34_normalize_names
+  action_10_dupes_plan
+  action_11_quarantine_from_plan
+  action_8_backup_dj
+  action_27_snapshot
+  printf "%s[OK]%s Chain done: metadata/name cleanup, dedup, backups, snapshot.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_17_sync_prep() {
+  chain_run_header "Sync prep (18 -> 14 -> 48 -> 8 -> 27)"
+  action_18_rescan_intelligent
+  action_14_playlists_per_folder
+  action_48_cross_platform_sync
+  action_8_backup_dj
+  action_27_snapshot
+  printf "%s[OK]%s Chain done: rescan, playlists, sync, backup, snapshot.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_18_visual_health() {
+  chain_run_header "Visual health (V2 -> V6 -> V8 -> V9 -> 8)"
+  action_V2_visuals_inventory
+  action_V6_visuals_ffprobe_report
+  action_V8_visuals_hash_dupes
+  action_V9_visuals_optimize_plan
+  action_8_backup_dj
+  printf "%s[OK]%s Chain done: inventory, ffprobe, visual dupes, optimize plan, backup.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_19_audio_advanced() {
+  chain_run_header "Advanced audio organization (31 -> 30 -> 35 -> 45 -> 46)"
+  action_31_report_tags
+  action_30_plan_tags
+  action_35_samples_by_type
+  action_45_ml_organization
+  action_46_metadata_harmonizer
+  printf "%s[OK]%s Chain done: tags, genre plan, samples, ML org, harmonizer.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_20_serato_safe() {
+  chain_run_header "Serato safety (7 -> 8 -> 59 -> 12 -> 47)"
+  action_7_backup_serato
+  action_8_backup_dj
+  action_state_health
+  action_12_quarantine_manager
+  action_47_predictive_backup
+  printf "%s[OK]%s Chain done: backups, health-check, quarantine review, predictive plan.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 submenu_A_chains() {
   while true; do
     clear
@@ -3161,6 +3227,12 @@ submenu_A_chains() {
     printf "%s12)%s Serato health (7 -> 59)\n" "$C_YLW" "$C_RESET"
     printf "%s13)%s Hash + mirror check (9 -> 61)\n" "$C_YLW" "$C_RESET"
     printf "%s14)%s Audio prep (31 -> 66 -> 67)\n" "$C_YLW" "$C_RESET"
+    printf "%s15)%s Integrity audit (6 -> 9 -> 27 -> 61)\n" "$C_YLW" "$C_RESET"
+    printf "%s16)%s Cleanup + safe backup (39 -> 34 -> 10 -> 11 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
+    printf "%s17)%s Library sync prep (18 -> 14 -> 48 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
+    printf "%s18)%s Visual/video health (V2 -> V6 -> V8 -> V9 -> 8)\n" "$C_YLW" "$C_RESET"
+    printf "%s19)%s Advanced audio org (31 -> 30 -> 35 -> 45 -> 46)\n" "$C_YLW" "$C_RESET"
+    printf "%s20)%s Serato safety hardening (7 -> 8 -> 59 -> 12 -> 47)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
     printf "%sChoice:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3179,6 +3251,12 @@ submenu_A_chains() {
       12) chain_12_serato_health ;;
       13) chain_13_hash_mirror_check ;;
       14) chain_14_audio_prep ;;
+      15) chain_15_integrity_audit ;;
+      16) chain_16_clean_backup ;;
+      17) chain_17_sync_prep ;;
+      18) chain_18_visual_health ;;
+      19) chain_19_audio_advanced ;;
+      20) chain_20_serato_safe ;;
       B|b) break ;;
       *) invalid_option ;;
     esac

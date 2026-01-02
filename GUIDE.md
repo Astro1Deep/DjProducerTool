@@ -90,6 +90,14 @@ Flujos que combinan acciones existentes (respetan SafeMode/DJ_SAFE_LOCK):
 10) Sync multiplataforma (48 -> 39 -> 8 -> 8)
 11) Diagnóstico rápido (1 -> 3 -> 4 -> 5)
 12) Salud Serato (7 -> 59)
+13) Hash + mirror check (9 -> 61)
+14) Audio prep (31 -> 66 -> 67)
+15) Auditoría de integridad (6 -> 9 -> 27 -> 61)
+16) Limpieza + backup seguro (39 -> 34 -> 10 -> 11 -> 8 -> 27)
+17) Prep sync librerías (18 -> 14 -> 48 -> 8 -> 27)
+18) Salud video/visuales (V2 -> V6 -> V8 -> V9 -> 8)
+19) Organización audio avanzada (31 -> 30 -> 35 -> 45 -> 46)
+20) Seguridad Serato reforzada (7 -> 8 -> 59 -> 12 -> 47)
 
 ## Salidas importantes
 - Reportes: `_DJProducerTools/reports/` (ej: `hash_index.tsv`, `media_corrupt.tsv`, `dupes_plan.tsv`, `playlists_per_folder.m3u8`, `workspace_scan.tsv`, `ml_predictions_*.tsv`, etc.).

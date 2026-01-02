@@ -43,7 +43,7 @@ Este repositorio solo contiene scripts; no se suben datos ni configuraciones per
 Consulta `GUIDE.md` para ver instalación, uso y recursos visuales.
 
 ## Cadenas automatizadas
-- Menú 68 (o tecla A/a) abre 14 flujos predefinidos: backup+snapshot, dedup+quarantine, limpieza de metadatos/nombres, health scan, prep de show, integridad/corruptos, eficiencia, ML básica, backup predictivo, sync multiplataforma, diagnóstico rápido, salud Serato, hash+mirror check y audio prep (tags+LUFS+cues).
+- Menú 68 (o tecla A/a) abre 20 flujos predefinidos: backup+snapshot, dedup+quarantine, limpieza de metadatos/nombres, health scan, prep de show, integridad/corruptos, eficiencia, ML básica, backup predictivo, sync multiplataforma, diagnóstico rápido, salud Serato, hash+mirror check, audio prep (tags+LUFS+cues), auditoría de integridad, limpieza+backup seguro, preparación de sync, salud de visuales, organización audio avanzada y seguridad Serato reforzada.
 
 ## Licencia
 DJProducerTools License (Attribution + Revenue Share). Consulta el archivo `LICENSE`.
