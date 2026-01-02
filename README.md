@@ -38,3 +38,6 @@ Si lo abres con doble clic, el script mantiene la ventana abierta al terminar pa
 
 ## Nota
 Este repositorio solo contiene scripts; no se suben datos ni configuraciones personales.
+
+## Licencia
+DJProducerTools License (Attribution + Revenue Share). Consulta el archivo `LICENSE`.
