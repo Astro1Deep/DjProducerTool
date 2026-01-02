@@ -628,7 +628,7 @@ print_menu() {
   printf "  %s61)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
   printf "  %s66)%s LUFS plan (analysis, no normalize)\n" "$C_GRN" "$C_RESET"
   printf "  %s67)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
-  printf "  %s68)%s Automated chains (10 workflows)\n" "$C_GRN" "$C_RESET"
+  printf "  %s68)%s Automated chains (14 workflows)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%sA)%s Automations (chains)\n" "$C_GRN" "$C_RESET"
@@ -3124,6 +3124,23 @@ chain_12_serato_health() {
   pause_enter
 }
 
+chain_13_hash_mirror_check() {
+  chain_run_header "Hash + mirror check (9 -> 61)"
+  action_9_hash_index
+  action_mirror_integrity_check
+  printf "%s[OK]%s Chain done: hash_index and mirror check.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_14_audio_prep() {
+  chain_run_header "Audio prep (31 -> 66 -> 67)"
+  action_31_report_tags
+  action_audio_lufs_plan
+  action_audio_cues_onsets
+  printf "%s[OK]%s Chain done: tags report, LUFS plan, onset cues.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 submenu_A_chains() {
   while true; do
     clear
@@ -3141,6 +3158,8 @@ submenu_A_chains() {
     printf "%s10)%s Cross-platform sync (48 -> 39 -> 8 -> 8)\n" "$C_YLW" "$C_RESET"
     printf "%s11)%s Quick diagnostics (1 -> 3 -> 4 -> 5)\n" "$C_YLW" "$C_RESET"
     printf "%s12)%s Serato health (7 -> 59)\n" "$C_YLW" "$C_RESET"
+    printf "%s13)%s Hash + mirror check (9 -> 61)\n" "$C_YLW" "$C_RESET"
+    printf "%s14)%s Audio prep (31 -> 66 -> 67)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
     printf "%sChoice:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3157,6 +3176,8 @@ submenu_A_chains() {
       10) chain_10_cross_sync ;;
       11) chain_11_quick_diag ;;
       12) chain_12_serato_health ;;
+      13) chain_13_hash_mirror_check ;;
+      14) chain_14_audio_prep ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
