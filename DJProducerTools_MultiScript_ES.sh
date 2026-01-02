@@ -630,6 +630,7 @@ print_menu() {
   printf "  %s68)%s Cadenas automatizadas (10 flujos)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
+  printf "%sA)%s Automatizaciones (cadenas)\n" "$C_GRN" "$C_RESET"
   printf "%sL)%s Librerías DJ & Cues (submenú)\n" "$C_GRN" "$C_RESET"
   printf "%sD)%s Duplicados generales (submenú)\n" "$C_GRN" "$C_RESET"
   printf "%sV)%s Visuales / DAW / OSC (submenú)\n" "$C_GRN" "$C_RESET"
@@ -3104,6 +3105,24 @@ chain_10_cross_sync() {
   pause_enter
 }
 
+chain_11_quick_diag() {
+  chain_run_header "Diagnóstico rápido (1 -> 3 -> 4 -> 5)"
+  action_1_status
+  action_3_summary
+  action_4_top_dirs
+  action_5_top_files
+  printf "%s[OK]%s Cadena completada: estado + resumen + top carpetas/archivos.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_12_serato_health() {
+  chain_run_header "Salud Serato (7 -> 59)"
+  action_7_backup_serato
+  action_state_health
+  printf "%s[OK]%s Cadena completada: backup Serato y health-check de estado.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 submenu_A_chains() {
   while true; do
     clear
@@ -3119,6 +3138,8 @@ submenu_A_chains() {
     printf "%s8)%s ML organización básica (45 -> 46)\n" "$C_YLW" "$C_RESET"
     printf "%s9)%s Backup predictivo (47 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
     printf "%s10)%s Sync multiplataforma (48 -> 39 -> 8 -> 8)\n" "$C_YLW" "$C_RESET"
+    printf "%s11)%s Diagnóstico rápido (1 -> 3 -> 4 -> 5)\n" "$C_YLW" "$C_RESET"
+    printf "%s12)%s Salud Serato (7 -> 59)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3133,6 +3154,8 @@ submenu_A_chains() {
       8) chain_8_ml_org_basic ;;
       9) chain_9_predictive_backup ;;
       10) chain_10_cross_sync ;;
+      11) chain_11_quick_diag ;;
+      12) chain_12_serato_health ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
@@ -4570,6 +4593,13 @@ action_H_help_info() {
   printf "  64: instala TensorFlow en el venv (no por defecto); 65 usa TF Hub (YAMNet/music tagging) si está.\n"
   printf "  66: calcula LUFS por archivo y sugiere ganancia (no modifica audio).\n"
   printf "  67: detecta onsets y propone cue inicial (no escribe tags, solo TSV).\n\n"
+
+  printf "%sSubmenú A) Automatizaciones (cadenas):%s\n" "$C_YLW" "$C_RESET"
+  printf "  A1-A10: flujos predefinidos (backup+snapshot, dedup+quarantine, limpieza metadatos/nombres, health scan, prep show, integridad, eficiencia, ML básica, backup predictivo, sync multi).\n"
+  printf "  A11: Diagnóstico rápido (estado + resumen + top carpetas/archivos).\n"
+  printf "  A12: Salud Serato (backup Serato + health-check de estado).\n"
+  printf "  Qué aporta: encadena acciones existentes para no ir opción por opción.\n"
+  printf "  Tip: si SafeMode/DJ_SAFE_LOCK está activo, sigue respetando bloqueos/quarantine.\n\n"
 
   printf "%sSubmenú V) Visuales / DAW / OSC / DMX:%s\n" "$C_YLW" "$C_RESET"
   printf "  V1-V2: reportes Ableton .als y catálogo de visuales.\n"

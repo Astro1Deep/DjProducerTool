@@ -631,6 +631,7 @@ print_menu() {
   printf "  %s68)%s Automated chains (10 workflows)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
+  printf "%sA)%s Automations (chains)\n" "$C_GRN" "$C_RESET"
   printf "%sL)%s DJ Libraries & Cues (submenu)\n" "$C_GRN" "$C_RESET"
   printf "%sD)%s General duplicates (submenu)\n" "$C_GRN" "$C_RESET"
   printf "%sV)%s Visuals / DAW / OSC (submenu)\n" "$C_GRN" "$C_RESET"
@@ -3105,6 +3106,24 @@ chain_10_cross_sync() {
   pause_enter
 }
 
+chain_11_quick_diag() {
+  chain_run_header "Quick diagnostics (1 -> 3 -> 4 -> 5)"
+  action_1_status
+  action_3_summary
+  action_4_top_dirs
+  action_5_top_files
+  printf "%s[OK]%s Chain done: status, summary, top dirs/files.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_12_serato_health() {
+  chain_run_header "Serato health (7 -> 59)"
+  action_7_backup_serato
+  action_state_health
+  printf "%s[OK]%s Chain done: Serato backup and state health-check.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 submenu_A_chains() {
   while true; do
     clear
@@ -3120,6 +3139,8 @@ submenu_A_chains() {
     printf "%s8)%s ML org basics (45 -> 46)\n" "$C_YLW" "$C_RESET"
     printf "%s9)%s Predictive backup (47 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
     printf "%s10)%s Cross-platform sync (48 -> 39 -> 8 -> 8)\n" "$C_YLW" "$C_RESET"
+    printf "%s11)%s Quick diagnostics (1 -> 3 -> 4 -> 5)\n" "$C_YLW" "$C_RESET"
+    printf "%s12)%s Serato health (7 -> 59)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
     printf "%sChoice:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3134,6 +3155,8 @@ submenu_A_chains() {
       8) chain_8_ml_org_basic ;;
       9) chain_9_predictive_backup ;;
       10) chain_10_cross_sync ;;
+      11) chain_11_quick_diag ;;
+      12) chain_12_serato_health ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
@@ -4579,6 +4602,13 @@ action_H_help_info() {
   printf "  64: installs TensorFlow in the venv (not by default); 65 uses TF Hub (YAMNet/music tagging) if present.\n"
   printf "  66: calculates LUFS per file and suggests gain (does not modify audio).\n"
   printf "  67: finds onsets and proposes initial cue (does not write tags, TSV only).\n\n"
+
+  printf "%sSubmenu A) Automations (chains):%s\n" "$C_YLW" "$C_RESET"
+  printf "  A1-A10: predefined flows (backup+snapshot, dedup+quarantine, metadata/name cleanup, health scan, show prep, integrity, efficiency, basic ML, predictive backup, cross-platform sync).\n"
+  printf "  A11: Quick diagnostics (status + summary + top dirs/files).\n"
+  printf "  A12: Serato health (Serato backup + state health-check).\n"
+  printf "  Value: bundles existing actions so you don’t run them one by one.\n"
+  printf "  Tip: SafeMode/DJ_SAFE_LOCK still apply (quarantine/ops stay protected).\n\n"
 
   printf "%sTF models available (pros/cons + approx first download size):%s\n" "$C_YLW" "$C_RESET"
   printf "  YAMNet (~40MB): fast, general (events/ambience), good for basic similarity.\n"
