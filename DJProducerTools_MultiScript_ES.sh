@@ -14,6 +14,11 @@ C_YLW="${ESC}[1;33m"
 C_BLU="${ESC}[1;34m"
 C_CYN="${ESC}[1;36m"
 C_PURP="${ESC}[38;5;129m"
+BANNER_SOFT="${ESC}[0;37;44m"
+C_GRN_SOFT="${ESC}[0;32m"
+C_YLW_SOFT="${ESC}[0;33m"
+C_CYN_SOFT="${ESC}[0;36m"
+C_PURP_SOFT="${ESC}[38;5;105m"
 BANNER="${ESC}[1;37;44m"
 
 # Ancla al directorio del script (doble click) y mantiene la ventana abierta al salir
@@ -77,10 +82,14 @@ append_extra_root() {
   local new="$1"
   [ -z "$new" ] && return
   [ ! -d "$new" ] && return
-  IFS=',' read -r -a arr <<<"${EXTRA_SOURCE_ROOTS}"
-  for r in "${arr[@]}"; do
-    [ "$r" = "$new" ] && return
-  done
+  local -a arr
+  arr=()
+  IFS=',' read -r -a arr <<<"${EXTRA_SOURCE_ROOTS:-}" 2>/dev/null || arr=()
+  if [ ${#arr[@]:-0} -gt 0 ]; then
+    for r in "${arr[@]:-}"; do
+      [ "$r" = "$new" ] && return
+    done
+  fi
   if [ -z "$EXTRA_SOURCE_ROOTS" ]; then
     EXTRA_SOURCE_ROOTS="$new"
   else
@@ -110,13 +119,16 @@ append_history() {
 select_from_candidates() {
   local prompt="$1"
   shift
-  local arr=("$@")
+  local -a arr
+  arr=("$@")
   local idx=1
   printf "%s\n" "$prompt"
-  for c in "${arr[@]}"; do
-    printf "  [%d] %s\n" "$idx" "$c"
-    idx=$((idx + 1))
-  done
+  if [ ${#arr[@]} -gt 0 ]; then
+    for c in "${arr[@]}"; do
+      printf "  [%d] %s\n" "$idx" "$c"
+      idx=$((idx + 1))
+    done
+  fi
   printf "  [M] Introducir manual\n"
   printf "Elección: "
   read -e -r choice
@@ -287,14 +299,18 @@ should_exclude_path() {
   local path="$1"
   local patterns="$2"
   [ -z "$patterns" ] && return 1
-  IFS=',' read -r -a arr <<<"$patterns"
-  for p in "${arr[@]}"; do
-    p_trim=$(printf "%s" "$p" | xargs)
-    [ -z "$p_trim" ] && continue
-    case "$path" in
-      $p_trim) return 0 ;;
-    esac
-  done
+  local -a arr
+  arr=()
+  IFS=',' read -r -a arr <<<"${patterns:-}" || arr=()
+  if [ ${#arr[@]} -gt 0 ]; then
+    for p in "${arr[@]}"; do
+      p_trim=$(printf "%s" "$p" | xargs)
+      [ -z "$p_trim" ] && continue
+      case "$path" in
+        $p_trim) return 0 ;;
+      esac
+    done
+  fi
   return 1
 }
 
@@ -476,8 +492,8 @@ print_header() {
     printf "%s\n" "$C_RESET"
   else
     cols=$(tput cols 2>/dev/null || echo 80)
-    # Mismo banner ASCII que EN pero con gradiente alternativo (cálido→frío)
-    local colors=("$C_PURP" "$C_RED" "$C_YLW" "$C_GRN" "$C_CYN" "$C_BLU")
+    # Mismo banner ASCII que EN pero con gradiente alternativo (frío→cálido)
+    local colors=("$C_PURP" "$C_BLU" "$C_CYN" "$C_GRN" "$C_YLW" "$C_RED")
     local banner_lines
     mapfile -t banner_lines <<'EOF'
 @@@  @@@  @@@  @@@@@@  @@@  @@@  @@@@@@ @@@@@@@   @@@@@@   @@@@@@@ @@@@@@@@  @@@@@@ @@@  @@@ @@@ @@@@@@@
@@ -629,13 +645,14 @@ print_menu() {
   printf "  %s66)%s Plan LUFS (análisis, sin normalizar)\n" "$C_GRN" "$C_RESET"
   printf "  %s67)%s Auto-cues por onsets (librosa)\n" "$C_GRN" "$C_RESET"
   printf "  %s68)%s Cadenas automatizadas (21 flujos)\n" "$C_GRN" "$C_RESET"
+  printf "  %s69)%s Perfiles/links de artista (plantilla para rellenar)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%s🔮 A) Automatizaciones (cadenas)%s\n" "$C_GRN" "$C_RESET"
-  printf "%s📚 L)%s Librerías DJ & Cues (submenú)\n" "$C_YLW" "$C_RESET"
-  printf "%s♻️  D)%s Duplicados generales (submenú)\n" "$C_CYN" "$C_RESET"
-  printf "%s🎥 V)%s Visuales / DAW / OSC (submenú)\n" "$C_PURP" "$C_RESET"
-  printf "%sℹ️  H)%s Help & INFO\n" "$C_GRN" "$C_RESET"
+  printf "%s📚 L)%s Librerías DJ & Cues (submenú)\n" "$C_GRN_SOFT" "$C_RESET"
+  printf "%s♻️  D)%s Duplicados generales (submenú)\n" "$C_CYN_SOFT" "$C_RESET"
+  printf "%s🎥 V)%s Visuales / DAW / OSC (submenú)\n" "$C_PURP_SOFT" "$C_RESET"
+  printf "%sℹ️  H)%s Help & INFO\n" "$C_GRN_SOFT" "$C_RESET"
   printf "%s0)%s Salir\n" "$C_GRN" "$C_RESET"
 }
 
@@ -834,7 +851,9 @@ action_10_dupes_plan() {
   plan_json="$PLANS_DIR/dupes_plan.json"
   printf "%s[INFO]%s Generando plan de duplicados EXACTO.\n" "$C_CYN" "$C_RESET"
   awk '
+  BEGIN { FS=OFS="\t" }
   {
+    if (NF < 3) next
     h=$1
     rel=$2
     full=$3
@@ -3240,6 +3259,60 @@ chain_21_multidisk_dedup() {
   pause_enter
 }
 
+action_69_artist_pages() {
+  print_header
+  local artist_file="$CONFIG_DIR/artist_pages.tsv"
+  local platforms=(
+    "Short_Bio" "Long_Bio_URL" "Press_Quotes" "Tech_Rider" "Stage_Plot" "DMX_Showfile" "Ableton_Set" "OBS_Overlays"
+    "Website" "Linktree" "EPK_PDF" "Press_Kit_Assets" "Media_Drive" "Artwork_Drive"
+    "Booking_Email" "Booking_Phone" "Management" "Label"
+    "Spotify" "Apple_Music" "YouTube" "YouTube_Music" "SoundCloud"
+    "Beatport" "Traxsource" "Bandcamp" "Bandcamp_Merch" "Mixcloud" "Audius" "Tidal" "Deezer" "Amazon_Music" "Shazam" "JunoDownload" "Pandora"
+    "Instagram" "TikTok" "Facebook" "Twitter/X" "Threads" "Resident_Advisor"
+    "Patreon" "Twitch" "Discord" "Telegram" "WhatsApp_Community" "Merch_Store" "Boiler_Room"
+  )
+
+  mkdir -p "$CONFIG_DIR"
+  if [ ! -f "$artist_file" ]; then
+    : >"$artist_file"
+  fi
+  # Garantiza que existan todas las claves; si falta alguna, se añade vacía
+  for p in "${platforms[@]}"; do
+    if ! awk -F'\t' -v k="$p" '$1==k{found=1} END{exit !found}' "$artist_file"; then
+      printf "%s\t\n" "$p" >>"$artist_file"
+    fi
+  done
+
+  printf "%s[INFO]%s Perfiles/links de artista (edita o completa).\n" "$C_CYN" "$C_RESET"
+  printf "Archivo: %s\n\n" "$artist_file"
+  if [ -s "$artist_file" ]; then
+    awk -F'\t' '{printf "- %-18s %s\n",$1,$2}' "$artist_file"
+  fi
+  printf "\n¿Quieres editar ahora? (y/N): "
+  read -r ans
+  case "$ans" in
+    y|Y)
+      tmp="$artist_file.tmp"
+      : >"$tmp"
+      for p in "${platforms[@]}"; do
+        current=$(awk -F'\t' -v k="$p" '$1==k{print $2}' "$artist_file")
+        printf "%s (actual: %s): " "$p" "${current:-vacío}"
+        read -e -r val
+        if [ -z "$val" ]; then
+          val="$current"
+        fi
+        printf "%s\t%s\n" "$p" "$val" >>"$tmp"
+      done
+      mv "$tmp" "$artist_file"
+      printf "%s[OK]%s Guardado en %s\n" "$C_GRN" "$C_RESET" "$artist_file"
+      ;;
+    *)
+      printf "%s[INFO]%s Sin cambios. Edita el archivo manualmente si prefieres.\n" "$C_CYN" "$C_RESET"
+      ;;
+  esac
+  pause_enter
+}
+
 submenu_A_chains() {
   while true; do
     clear
@@ -3383,7 +3456,7 @@ submenu_L_libraries() {
         cat_master="$REPORTS_DIR/catalog_audio_MASTER.tsv"
         >"$cat_master"
         for f in "$REPORTS_DIR"/catalog_audio_*.tsv; do
-          if [ -f "$f" ]; then
+          if [ -f "$f" ] && [ "$f" != "$cat_master" ]; then
             cat "$f" >>"$cat_master"
           fi
         done
@@ -3394,7 +3467,9 @@ submenu_L_libraries() {
           out="$PLANS_DIR/audio_dupes_from_catalog.tsv"
           printf "%s[INFO]%s Generando plan de duplicados por basename+tamaño -> %s\n" "$C_CYN" "$C_RESET" "$out"
           awk '
+          BEGIN { FS=OFS="\t" }
           {
+            if (NF < 2) next
             lib=$1
             path=$2
             n=split(path, a, "/")
@@ -4964,6 +5039,7 @@ main_loop() {
       66) action_audio_lufs_plan ;;
       67) action_audio_cues_onsets ;;
       68) submenu_A_chains ;;
+      69) action_69_artist_pages ;;
       A|a) submenu_A_chains ;;
       L|l) submenu_L_libraries ;;
       D|d) submenu_D_dupes_general ;;
