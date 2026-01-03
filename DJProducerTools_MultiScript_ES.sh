@@ -2906,47 +2906,71 @@ action_audio_lufs_plan() {
   printf "%s[INFO]%s Plan LUFS/normalización (solo análisis, no modifica audio).\n" "$C_CYN" "$C_RESET"
   out="$REPORTS_DIR/audio_lufs_plan.tsv"
   printf "Escaneando (mp3/wav/flac/m4a)...\n"
-  BASE="$BASE_PATH" OUT="$out" python3 - <<'PY'
-import os, sys, pathlib
+  python3 - <<'PY'
+import sys
 try:
     import pyloudnorm as pyln
     import soundfile as sf
 except Exception:
     sys.exit(1)
-
-base = pathlib.Path(os.environ.get("BASE") or ".")
-out = pathlib.Path(os.environ["OUT"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-meter = pyln.Meter(44100)
-rows = []
-for p in base.rglob("*"):
-    if p.suffix.lower() in audio_exts and p.is_file():
-        try:
-            data, sr = sf.read(p)
-            if data.ndim > 1:
-                data = data.mean(axis=1)
-            loud = meter.integrated_loudness(data)
-            rows.append((str(p), loud))
-        except Exception:
-            continue
-    if len(rows) >= 200:
-        break
-
-with out.open("w", encoding="utf-8") as f:
-    f.write("path\tlufs\tsugerencia_gain_db\n")
-    for path, lufs in rows:
-        target = -14.0
-        gain = target - lufs
-        f.write(f"{path}\t{lufs:.2f}\t{gain:.2f}\n")
-
-print(f"[OK] Plan LUFS: {out}")
 PY
   rc=$?
   if [ "$rc" -ne 0 ]; then
     printf "%s[ERR]%s Requiere python3 + pyloudnorm + soundfile.\n" "$C_RED" "$C_RESET"
-  else
-    printf "%s[OK]%s Plan LUFS generado: %s\n" "$C_GRN" "$C_RESET" "$out"
+    pause_enter
+    return
   fi
+
+  list_tmp=$(mktemp "${STATE_DIR}/lufs_list.XXXXXX") || list_tmp="/tmp/lufs_list.$$"
+  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.aiff" -o -iname "*.aif" \) 2>/dev/null | head -200 >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  if [ "$total" -eq 0 ]; then
+    rm -f "$list_tmp"
+    printf "%s[WARN]%s No se encontraron archivos.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  >"$out"
+  printf "path\tlufs\tsugerencia_gain_db\n" >>"$out"
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "LUFS" "$percent" "$(basename "$f")"
+    result=$(python3 - "$f" <<'PY'
+import sys
+try:
+    import pyloudnorm as pyln
+    import soundfile as sf
+except Exception:
+    sys.exit(2)
+
+path = sys.argv[1]
+try:
+    data, sr = sf.read(path)
+    if getattr(data, "ndim", 1) > 1:
+        data = data.mean(axis=1)
+    meter = pyln.Meter(sr)
+    loud = meter.integrated_loudness(data)
+    target = -14.0
+    gain = target - loud
+    print(f"{loud:.2f}\t{gain:.2f}")
+except Exception:
+    pass
+PY
+)
+    if [ -n "$result" ]; then
+      printf "%s\t%s\n" "$f" "$result" >>"$out"
+    fi
+  done <"$list_tmp"
+  finish_status_line
+  rm -f "$list_tmp"
+  printf "%s[OK]%s Plan LUFS generado: %s\n" "$C_GRN" "$C_RESET" "$out"
   pause_enter
 }
 
@@ -2954,44 +2978,67 @@ action_audio_cues_onsets() {
   print_header
   printf "%s[INFO]%s Auto-cues por onsets (librosa; plan TSV).\n" "$C_CYN" "$C_RESET"
   out="$REPORTS_DIR/auto_cues_onsets.tsv"
-  BASE="$BASE_PATH" OUT="$out" python3 - <<'PY'
-import os, sys, pathlib
+  python3 - <<'PY'
+import sys
 try:
     import librosa
 except Exception:
     sys.exit(1)
-
-base = pathlib.Path(os.environ.get("BASE") or ".")
-out = pathlib.Path(os.environ["OUT"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-rows = []
-for p in base.rglob("*"):
-    if p.suffix.lower() in audio_exts and p.is_file():
-        try:
-            y, sr = librosa.load(p, sr=44100, mono=True, duration=180)
-            onsets = librosa.onset.onset_detect(y=y, sr=sr, units="time")
-            if onsets.size == 0:
-                continue
-            first = onsets[0]
-            rows.append((str(p), first))
-        except Exception:
-            continue
-    if len(rows) >= 200:
-        break
-
-with out.open("w", encoding="utf-8") as f:
-    f.write("path\tcue_sec\n")
-    for path, t in rows:
-        f.write(f"{path}\t{t:.2f}\n")
-
-print(f"[OK] Auto-cues: {out}")
 PY
   rc=$?
   if [ "$rc" -ne 0 ]; then
     printf "%s[ERR]%s Requiere python3 + librosa.\n" "$C_RED" "$C_RESET"
-  else
-    printf "%s[OK]%s Auto-cues generado: %s\n" "$C_GRN" "$C_RESET" "$out"
+    pause_enter
+    return
   fi
+
+  list_tmp=$(mktemp "${STATE_DIR}/cues_list.XXXXXX") || list_tmp="/tmp/cues_list.$$"
+  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.aiff" -o -iname "*.aif" \) 2>/dev/null | head -200 >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  if [ "$total" -eq 0 ]; then
+    rm -f "$list_tmp"
+    printf "%s[WARN]%s No se encontraron archivos.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  >"$out"
+  printf "path\tcue_sec\n" >>"$out"
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "AUTO_CUES" "$percent" "$(basename "$f")"
+    cue=$(python3 - "$f" <<'PY'
+import sys
+try:
+    import librosa
+except Exception:
+    sys.exit(2)
+
+path = sys.argv[1]
+try:
+    y, sr = librosa.load(path, sr=44100, mono=True, duration=180)
+    onsets = librosa.onset.onset_detect(y=y, sr=sr, units="time")
+    if onsets.size == 0:
+        sys.exit(0)
+    first = float(onsets[0])
+    print(f"{first:.2f}")
+except Exception:
+    pass
+PY
+)
+    if [ -n "$cue" ]; then
+      printf "%s\t%s\n" "$f" "$cue" >>"$out"
+    fi
+  done <"$list_tmp"
+  finish_status_line
+  rm -f "$list_tmp"
+  printf "%s[OK]%s Auto-cues generado: %s\n" "$C_GRN" "$C_RESET" "$out"
   pause_enter
 }
 
@@ -3148,12 +3195,22 @@ action_34_normalize_names() {
   out="$PLANS_DIR/normalize_names_plan.tsv"
   printf "%s[INFO]%s Normalizar nombres (plan TSV) -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
+  total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
+  count=0
   find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "NAMES" "$percent" "$(basename "$f")"
     base="$(basename "$f")"
     dir="$(dirname "$f")"
     new="$dir/$base"
     printf "%s\t%s\n" "$f" "$new" >>"$out"
   done
+  finish_status_line
   printf "%s[OK]%s Plan de renombrado generado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
