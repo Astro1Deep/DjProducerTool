@@ -1264,6 +1264,13 @@ action_15_relink_helper() {
   out="$REPORTS_DIR/relink_helper.tsv"
   doctor_out="$REPORTS_DIR/relink_doctor.txt"
   printf "%s[INFO]%s Doctor: Relink Helper -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  include_hash=0
+  printf "Include SHA-256 hash per file? (may be slow) [y/N]: "
+  read -r hash_ans
+  case "$hash_ans" in
+    y|Y) include_hash=1 ;;
+    *) include_hash=0 ;;
+  esac
   >"$out"
   >"$doctor_out"
   total=0
@@ -1276,14 +1283,46 @@ action_15_relink_helper() {
     if [ "${size:-0}" -eq 0 ]; then
       zero_count=$((zero_count + 1))
     fi
-    printf "%s\t%s\t%s\t%s\n" "$rel" "$f" "$size" "$mtime" >>"$out"
+    if [ "$include_hash" -eq 1 ]; then
+      h=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')
+      printf "%s\t%s\t%s\t%s\t%s\n" "$rel" "$f" "$size" "$mtime" "$h" >>"$out"
+    else
+      printf "%s\t%s\t%s\t%s\n" "$rel" "$f" "$size" "$mtime" >>"$out"
+    fi
   done
   missing_tools=()
   for tool in ffprobe ffmpeg sox flac metaflac id3v2 mid3v2 shntool jq python3; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
+    if ! command -v "$tool" >/dev/null 2>/dev/null; then
       missing_tools+=("$tool")
     fi
   done
+  install_note="(no install attempted)"
+  if [ "${#missing_tools[@]}" -gt 0 ]; then
+    printf "%s[WARN]%s Missing tools: %s\n" "$C_YLW" "$C_RESET" "${missing_tools[*]}"
+    printf "Attempt auto-install with brew/pip? (y/N): "
+    read -r inst
+    case "$inst" in
+      y|Y)
+        install_note="(install attempted)"
+        if command -v brew >/dev/null 2>&1; then
+          brew_list=(ffmpeg sox flac id3v2 shntool jq)
+          todo=()
+          for pkg in "${brew_list[@]}"; do
+            if ! command -v "$pkg" >/dev/null 2>&1; then todo+=("$pkg"); fi
+          done
+          if [ "${#todo[@]}" -gt 0 ]; then
+            brew install "${todo[@]}" || echo "[WARN] brew install failed" | tee -a "$doctor_out"
+          fi
+        else
+          echo "[WARN] brew not available" | tee -a "$doctor_out"
+        fi
+        if command -v python3 >/dev/null 2>&1; then
+          python3 -m pip install --user mutagen >/dev/null 2>&1 && echo "[OK] mutagen installed" | tee -a "$doctor_out" || echo "[WARN] mutagen install failed" | tee -a "$doctor_out"
+        fi
+        ;;
+      *) ;;
+    esac
+  fi
   {
     echo "DOCTOR RELINK REPORT"
     echo "BASE_PATH: $BASE_PATH"
@@ -1291,7 +1330,7 @@ action_15_relink_helper() {
     echo "Zero-byte files: $zero_count"
     echo
     if [ "${#missing_tools[@]}" -gt 0 ]; then
-      echo "Missing tools:"
+      echo "Missing tools $install_note:"
       printf "  - %s\n" "${missing_tools[@]}"
       echo
       echo "Suggested (Homebrew):"
@@ -1302,7 +1341,11 @@ action_15_relink_helper() {
     fi
     echo
     echo "Recommendations:"
-    echo "  - Use relink_helper.tsv (col1=relative, col2=absolute, col3=size, col4=mtime) to map/move files."
+    if [ "$include_hash" -eq 1 ]; then
+      echo "  - Use relink_helper.tsv (col1=relative, col2=absolute, col3=size, col4=mtime, col5=hash) to map/move files."
+    else
+      echo "  - Use relink_helper.tsv (col1=relative, col2=absolute, col3=size, col4=mtime) to map/move files."
+    fi
     echo "  - Review zero-size files (col3=0) and replace from backup."
     echo "  - If mirrors are involved, run option 61 to compare hash_index."
   } >"$doctor_out"
