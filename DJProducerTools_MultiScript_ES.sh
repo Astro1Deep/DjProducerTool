@@ -2424,7 +2424,7 @@ with out.open("w", encoding="utf-8") as f:
             f.write(f"{p}\t{n1}\t{s1:.3f}\t{n2}\t{s2:.3f}\t{n3}\t{s3:.3f}\n")
         except Exception:
             continue
-print(f\"[OK] Auto-tagging {model_url}: {out}\")
+print(f"[OK] Auto-tagging {model_url}: {out}")
 PY
         rc=$?
         if [ "$rc" -ne 0 ]; then
