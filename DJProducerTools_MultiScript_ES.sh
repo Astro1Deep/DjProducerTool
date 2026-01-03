@@ -3262,6 +3262,59 @@ chain_21_multidisk_dedup() {
 action_69_artist_pages() {
   print_header
   local artist_file="$CONFIG_DIR/artist_pages.tsv"
+  default_val() {
+    case "$1" in
+      Short_Bio) echo "Bio corta (1-2 líneas)";;
+      Long_Bio_URL) echo "https://drive.google.com/tu_bio_larga.pdf";;
+      Press_Quotes) echo "\"Medio\" - cita destacada";;
+      Tech_Rider) echo "/ruta/a/Tech_Rider.pdf";;
+      Stage_Plot) echo "/ruta/a/Stage_Plot.pdf";;
+      DMX_Showfile) echo "/ruta/a/Showfile.dmx";;
+      Ableton_Set) echo "/ruta/a/LiveSet.als";;
+      OBS_Overlays) echo "/ruta/a/overlays/";;
+      Website) echo "https://tusitio.com";;
+      Linktree) echo "https://linktr.ee/tu_usuario";;
+      EPK_PDF) echo "https://drive.google.com/tu_epk.pdf";;
+      Press_Kit_Assets) echo "https://drive.google.com/carpeta_presskit";;
+      Media_Drive) echo "https://drive.google.com/carpeta_media";;
+      Artwork_Drive) echo "https://drive.google.com/carpeta_artwork";;
+      Booking_Email) echo "booking@tucorreo.com";;
+      Booking_Phone) echo "+34 600 000 000";;
+      Management) echo "Manager Nombre / correo";;
+      Label) echo "Tu sello o distribuidor";;
+      Spotify) echo "https://open.spotify.com/artist/TUID";;
+      Apple_Music) echo "https://music.apple.com/artist/TUID";;
+      YouTube) echo "https://youtube.com/@tu_usuario";;
+      YouTube_Music) echo "https://music.youtube.com/channel/TUID";;
+      SoundCloud) echo "https://soundcloud.com/tu_usuario";;
+      Beatport) echo "https://www.beatport.com/artist/TU-NOMBRE/ID";;
+      Traxsource) echo "https://www.traxsource.com/artist/ID/tu-nombre";;
+      Bandcamp) echo "https://tuusuario.bandcamp.com";;
+      Bandcamp_Merch) echo "https://tuusuario.bandcamp.com/merch";;
+      Mixcloud) echo "https://www.mixcloud.com/tu_usuario";;
+      Audius) echo "https://audius.co/tu_usuario";;
+      Tidal) echo "https://tidal.com/browse/artist/ID";;
+      Deezer) echo "https://www.deezer.com/artist/ID";;
+      Amazon_Music) echo "https://music.amazon.com/artists/ID";;
+      Shazam) echo "https://www.shazam.com/artist/ID";;
+      JunoDownload) echo "https://www.junodownload.com/artists/Tu+Nombre";;
+      Pandora) echo "https://www.pandora.com/artist/TuNombre/ID";;
+      Instagram) echo "https://instagram.com/tu_usuario";;
+      TikTok) echo "https://www.tiktok.com/@tu_usuario";;
+      Facebook) echo "https://facebook.com/tu_usuario";;
+      "Twitter/X") echo "https://twitter.com/tu_usuario";;
+      Threads) echo "https://www.threads.net/@tu_usuario";;
+      Resident_Advisor) echo "https://ra.co/dj/tu_usuario";;
+      Patreon) echo "https://www.patreon.com/tu_usuario";;
+      Twitch) echo "https://twitch.tv/tu_usuario";;
+      Discord) echo "https://discord.gg/ENLACE";;
+      Telegram) echo "https://t.me/tu_usuario";;
+      WhatsApp_Community) echo "https://chat.whatsapp.com/ENLACE";;
+      Merch_Store) echo "https://tu_tienda.com/tu_usuario";;
+      Boiler_Room) echo "https://boilerroom.tv/recording/tu_sesion";;
+      *) echo "";;
+    esac
+  }
   local platforms=(
     "Short_Bio" "Long_Bio_URL" "Press_Quotes" "Tech_Rider" "Stage_Plot" "DMX_Showfile" "Ableton_Set" "OBS_Overlays"
     "Website" "Linktree" "EPK_PDF" "Press_Kit_Assets" "Media_Drive" "Artwork_Drive"
@@ -3279,7 +3332,7 @@ action_69_artist_pages() {
   # Garantiza que existan todas las claves; si falta alguna, se añade vacía
   for p in "${platforms[@]}"; do
     if ! awk -F'\t' -v k="$p" '$1==k{found=1} END{exit !found}' "$artist_file"; then
-      printf "%s\t\n" "$p" >>"$artist_file"
+      printf "%s\t%s\n" "$p" "$(default_val "$p")" >>"$artist_file"
     fi
   done
 
@@ -3296,10 +3349,15 @@ action_69_artist_pages() {
       : >"$tmp"
       for p in "${platforms[@]}"; do
         current=$(awk -F'\t' -v k="$p" '$1==k{print $2}' "$artist_file")
-        printf "%s (actual: %s): " "$p" "${current:-vacío}"
+        def=$(default_val "$p")
+        printf "%s (actual: %s | por defecto: %s): " "$p" "${current:-vacío}" "${def:-vacío}"
         read -e -r val
         if [ -z "$val" ]; then
-          val="$current"
+          if [ -n "$current" ]; then
+            val="$current"
+          else
+            val="$def"
+          fi
         fi
         printf "%s\t%s\n" "$p" "$val" >>"$tmp"
       done
