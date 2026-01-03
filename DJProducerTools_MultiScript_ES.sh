@@ -1422,10 +1422,24 @@ action_13_ffprobe_report() {
 action_14_playlists_per_folder() {
   print_header
   printf "%s[INFO]%s Crear playlists .m3u8 por carpeta.\n" "$C_CYN" "$C_RESET"
+  local total idx percent rel
+  total=$(find "$BASE_PATH" -type d 2>/dev/null | wc -l | tr -d ' ')
+  [ -z "$total" ] && total=0
+  idx=0
   find "$BASE_PATH" -type d 2>/dev/null | while IFS= read -r d; do
+    idx=$((idx + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((idx * 100 / total))
+    else
+      percent=0
+    fi
+    rel="${d#"$BASE_PATH"/}"
+    [ "$d" = "$BASE_PATH" ] && rel="."
+    status_line "PLAYLISTS" "$percent" "$rel"
     playlist="$d/playlist.m3u8"
     find "$d" -maxdepth 1 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.m4a" \) 2>/dev/null >"$playlist"
   done
+  finish_status_line
   printf "%s[OK]%s Playlists generadas.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
