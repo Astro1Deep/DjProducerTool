@@ -700,18 +700,56 @@ maybe_activate_ml_env() {
   esac
 }
 
+spin_colors_for_task() {
+  case "$1" in
+    SCAN|RESCAN|CATALOG|INVENTORY|INDEX) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_BLU" ;;
+    HASH*) SPIN_COLOR_A="$C_PURP"; SPIN_COLOR_B="$C_WHT" ;;
+    DUP*|DEDUP*|QUARANTINE) SPIN_COLOR_A="$C_YLW"; SPIN_COLOR_B="$C_RED" ;;
+    SNAP* ) SPIN_COLOR_A="$C_GRN"; SPIN_COLOR_B="$C_CYN" ;;
+    BACKUP* ) SPIN_COLOR_A="$C_GRN"; SPIN_COLOR_B="$C_YLW" ;;
+    DOCTOR*|RELINK* ) SPIN_COLOR_A="$C_BLU"; SPIN_COLOR_B="$C_GRN" ;;
+    ML*|TF* ) SPIN_COLOR_A="$C_PURP"; SPIN_COLOR_B="$C_CYN" ;;
+    VIDEO*|VISUAL* ) SPIN_COLOR_A="$C_RED"; SPIN_COLOR_B="$C_YLW" ;;
+    PLAYLISTS ) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_PURP" ;;
+    *) SPIN_COLOR_A="$C_GRN"; SPIN_COLOR_B="$C_WHT" ;;
+  esac
+}
+
+status_emoji_for_task() {
+  case "$1" in
+    SCAN|RESCAN|CATALOG|INVENTORY|INDEX) echo "🔍" ;;
+    HASH*) echo "🔐" ;;
+    DUP*|DEDUP*|QUARANTINE) echo "♻️" ;;
+    SNAP*) echo "📸" ;;
+    BACKUP*) echo "💾" ;;
+    DOCTOR*|RELINK*) echo "🩺" ;;
+    ML*|TF*) echo "🧠" ;;
+    VIDEO*|VISUAL*) echo "🎥" ;;
+    PLAYLISTS) echo "🎵" ;;
+    *) echo "👻" ;;
+  esac
+}
+
 status_line() {
   task="$1"
   percent="$2"
   current="$3"
+  local emoji="$4"
   local frame="${SPIN_FRAMES[$SPIN_IDX]}"
+  local spin_idx="$SPIN_IDX"
   SPIN_IDX=$(((SPIN_IDX + 1) % ${#SPIN_FRAMES[@]}))
   local ghost_color="${GHOST_COLORS[$GHOST_IDX]}"
   GHOST_IDX=$(((GHOST_IDX + 1) % ${#GHOST_COLORS[@]}))
-  local spin_color="${SPIN_COLORS[$SPIN_COLOR_IDX]}"
-  SPIN_COLOR_IDX=$(((SPIN_COLOR_IDX + 1) % ${#SPIN_COLORS[@]}))
+  spin_colors_for_task "$task"
+  local spin_color="$SPIN_COLOR_A"
+  if [ $((spin_idx % 2)) -eq 1 ]; then
+    spin_color="$SPIN_COLOR_B"
+  fi
   local frame_colored="${spin_color}${frame}${C_RESET}"
-  printf "\r%s👻%s | %3s%% | %s | %s | %s" "$ghost_color" "$C_RESET" "$percent" "$frame_colored" "$task" "$current"
+  if [ -z "$emoji" ]; then
+    emoji=$(status_emoji_for_task "$task")
+  fi
+  printf "\r%s%s%s | %3s%% | %s | %s | %s" "$ghost_color" "$emoji" "$C_RESET" "$percent" "$frame_colored" "$task" "$current"
 }
 
 finish_status_line() {
