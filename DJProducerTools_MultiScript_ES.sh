@@ -381,10 +381,42 @@ VENV_ACTIVE=0
 ML_ENV_DISABLED=0
 ML_PKGS_BASIC="numpy pandas"
 ML_PKG_BASIC_MB=300
+ML_PKGS_LIGHT="numpy pandas scikit-learn joblib librosa"
+ML_PKG_LIGHT_MB=550
 ML_PKGS_EVO="numpy pandas scikit-learn joblib"
 ML_PKG_EVO_MB=450
-ML_PKGS_TF="tensorflow"
+if [ "$(uname -m)" = "arm64" ] && [ "$(uname -s)" = "Darwin" ]; then
+  ML_PKGS_TF="tensorflow-macos tensorflow-metal"
+else
+  ML_PKGS_TF="tensorflow"
+fi
+
+action_ml_profile() {
+  print_header
+  printf "%s[INFO]%s Perfil IA local actual: %s\n" "$C_CYN" "$C_RESET" "${ML_PROFILE:-LIGHT}"
+  printf "1) LIGHT (numpy+pandas+scikit-learn+joblib+librosa)\n"
+  printf "2) TF_ADV (LIGHT + %s)\n" "$ML_PKGS_TF"
+  printf "Opción: "
+  read -r prof
+  case "$prof" in
+    1)
+      ML_PROFILE="LIGHT"
+      save_conf
+      printf "%s[OK]%s Perfil IA local: LIGHT\n" "$C_GRN" "$C_RESET"
+      ;;
+    2)
+      ML_PROFILE="TF_ADV"
+      save_conf
+      printf "%s[OK]%s Perfil IA local: TF_ADV (%s)\n" "$C_GRN" "$C_RESET" "$ML_PKGS_TF"
+      ;;
+    *)
+      printf "%s[INFO]%s Sin cambios.\n" "$C_CYN" "$C_RESET"
+      ;;
+  esac
+  pause_enter
+}
 ML_PKG_TF_MB=600
+ML_PROFILE="LIGHT"
 PROFILES_DIR=""
 
 pause_enter() {
@@ -505,6 +537,7 @@ save_conf() {
   : "${DEFAULT_EXCLUDES:=}"
   : "${PROFILES_DIR:=}"
   : "${ML_ENV_DISABLED:=0}"
+  : "${ML_PROFILE:=LIGHT}"
   {
     printf 'BASE_PATH=%q\n' "$BASE_PATH"
     printf 'AUDIO_ROOT=%q\n' "${AUDIO_ROOT:-}"
@@ -519,6 +552,7 @@ save_conf() {
     printf 'DJ_SAFE_LOCK=%q\n' "$DJ_SAFE_LOCK"
     printf 'DRYRUN_FORCE=%q\n' "$DRYRUN_FORCE"
     printf 'ML_ENV_DISABLED=%q\n' "$ML_ENV_DISABLED"
+    printf 'ML_PROFILE=%q\n' "$ML_PROFILE"
   } >"$CONF_FILE"
 }
 
@@ -552,11 +586,18 @@ maybe_activate_ml_env() {
 
   local pkgs="$ML_PKGS_BASIC"
   local est_mb="$ML_PKG_BASIC_MB"
-  if [ "$want_evo" -eq 1 ]; then
+  if [ "${ML_PROFILE:-LIGHT}" = "LIGHT" ]; then
+    pkgs="$ML_PKGS_LIGHT"
+    est_mb="$ML_PKG_LIGHT_MB"
+  elif [ "${ML_PROFILE:-LIGHT}" = "TF_ADV" ]; then
+    pkgs="$ML_PKGS_LIGHT $ML_PKGS_TF"
+    est_mb=$((ML_PKG_LIGHT_MB + ML_PKG_TF_MB))
+  fi
+  if [ "$want_evo" -eq 1 ] && [ "${ML_PROFILE:-LIGHT}" = "BASIC" ]; then
     pkgs="$ML_PKGS_EVO"
     est_mb="$ML_PKG_EVO_MB"
   fi
-  if [ "$want_tf" -eq 1 ]; then
+  if [ "$want_tf" -eq 1 ] && [ "${ML_PROFILE:-LIGHT}" != "TF_ADV" ]; then
     pkgs="$pkgs $ML_PKGS_TF"
     est_mb=$((est_mb + ML_PKG_TF_MB))
   fi
@@ -791,6 +832,7 @@ print_menu() {
   printf "  %s63)%s Toggle ML ON/OFF (evita activar venv ML)\n" "$C_GRN" "$C_RESET"
   printf "  %s64)%s TensorFlow opcional (instalar/ideas avanzadas)\n" "$C_GRN" "$C_RESET"
   printf "  %s65)%s TensorFlow Lab (auto-tagging/similitud/etc.)\n" "$C_GRN" "$C_RESET"
+  printf "  %s70)%s Perfil IA local (LIGHT/TF)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
   printf "%s🧰 Extras / utilidades (53-67):%s\n" "$C_CYN" "$C_RESET"
@@ -5602,6 +5644,7 @@ action_H_help_info() {
   printf "  64: instala TensorFlow en el venv (no por defecto); 65 usa TF Hub (YAMNet/music tagging) si está.\n"
   printf "  66: calcula LUFS por archivo y sugiere ganancia (no modifica audio).\n"
   printf "  67: detecta onsets y propone cue inicial (no escribe tags, solo TSV).\n\n"
+  printf "  70: Perfil IA local (LIGHT recomendado; TF_ADV opcional para Apple Silicon).\n\n"
 
   printf "%sSubmenú A) Automatizaciones (cadenas):%s\n" "$C_YLW" "$C_RESET"
   printf "  A1-A10: flujos predefinidos (backup+snapshot, dedup+quarantine, limpieza metadatos/nombres, health scan, prep show, integridad, eficiencia, ML básica, backup predictivo, sync multi).\n"
@@ -5746,6 +5789,7 @@ main_loop() {
       63) action_toggle_ml ;;
       64) action_tensorflow_manager ;;
       65) submenu_T_tensorflow_lab ;;
+      70) action_ml_profile ;;
       66) action_audio_lufs_plan ;;
       67) action_audio_cues_onsets ;;
       68) submenu_A_chains ;;

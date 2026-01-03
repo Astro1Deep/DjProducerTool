@@ -57,7 +57,10 @@ El estado vive en `BASE_PATH/_DJProducerTools/` (config, reports, planes, quaran
 
 ## Requisitos
 - macOS con bash; acceso lectura/escritura a tus volúmenes de música/proyectos.
-- Dependencias opcionales (se auto-detectan y te preguntan): ffmpeg/ffprobe, sox/flac, jq, python3. TF es opcional (+~1GB) para auto-tagging/embeddings.
+- Dependencias opcionales (se auto-detectan y te preguntan): ffmpeg/ffprobe, sox/flac, jq, python3.
+- Perfil IA local (opción 70):  
+  - **LIGHT (recomendado)**: numpy+pandas+scikit-learn+joblib+librosa.  
+  - **TF_ADV (opcional, Apple Silicon)**: LIGHT + tensorflow-macos + tensorflow-metal (descarga grande).
 
 ## Licencia
 DJProducerTools License (Attribution + Revenue Share). Consulta `LICENSE`.

@@ -34,6 +34,7 @@ chmod +x install_djpt.sh
 - `python3` recomendado para ffprobe/librosa y ML opcional.
 - Espacio libre para `_DJProducerTools/` (config, logs, planes, quarantine).
 - ML opcional: descarga básica ~300 MB (numpy/pandas); evolutiva ~450 MB (scikit-learn/joblib); TensorFlow opcional +600 MB.
+ - Perfil IA local (opción 70): LIGHT recomendado (numpy+pandas+scikit-learn+joblib+librosa). TF_ADV opcional para Apple Silicon (tensorflow-macos + tensorflow-metal).
 
 ## 5) Uso básico
 ```bash
