@@ -1,0 +1,5 @@
+Area	Accion	Beneficio_Estimado	Referencia
+Duplicados	Revisar/quitar duplicados	Alto (5 candidatos)	Opción 10
+Metadatos	Limpiar URLs en tags	Medio	Opción 39
+Backup	Verificar backup reciente	Medio	Opción 8
+Snapshot	Hash rápido para control	Bajo	Opción 27

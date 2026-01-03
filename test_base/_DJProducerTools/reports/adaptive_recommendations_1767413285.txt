@@ -1,0 +1,13 @@
+RECOMENDACIONES ADAPTATIVAS BASADAS EN IA:
+
+URGENTE (Hoy):
+- Ejecutar opción 8: Crear backup
+- Ejecutar opción 10: Eliminar duplicados (5 pendientes)
+
+IMPORTANTE (Esta semana):
+- Ejecutar opción 34: Normalizar nombres
+- Ejecutar opción 39: Limpiar metadatos web
+
+NORMAL (Este mes):
+- Ejecutar opción 46: Armonizar metadatos
+- Ejecutar opción 48: Revisar sincronización entre plataformas

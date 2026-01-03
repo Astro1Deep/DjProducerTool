@@ -1,0 +1,9 @@
+FLUJO DE TRABAJO INTELIGENTE:
+1. Opción 40: Análisis (5 min)
+2. Opción 41: Predictor (10 min)
+3. Opción 42: Optimizador (5 min)
+4. Opción 8: Backup (30 min)
+5. Opción 10: Eliminar duplicados (45 min)
+6. Opción 39: Limpiar metadatos (30 min)
+7. Opción 8: Backup final (30 min)
+Tiempo total: ~2-3 horas

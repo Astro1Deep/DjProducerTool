@@ -1,0 +1,10 @@
+PIPELINE DE LIMPIEZA AUTOMATIZADO:
+
+FASE 1: Análisis (Opción 40)
+FASE 2: Predictor (Opción 41)
+FASE 3: Backup inicial (Opción 8)
+FASE 4: Eliminar duplicados exactos (Opción 10)
+FASE 5: Limpiar metadatos web (Opción 39)
+FASE 6: Normalizar nombres (Opción 34)
+FASE 7: Backup final (Opción 8)
+FASE 8: Snapshot rápido (Opción 27)

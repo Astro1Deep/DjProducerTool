@@ -1,0 +1,194 @@
+[
+  {
+    "field": "Short_Bio",
+    "value": "Bio corta (1-2 líneas)"
+  },
+  {
+    "field": "Long_Bio_URL",
+    "value": "https://drive.google.com/tu_bio_larga.pdf"
+  },
+  {
+    "field": "Press_Quotes",
+    "value": "Medio - cita destacada"
+  },
+  {
+    "field": "Tech_Rider",
+    "value": "/ruta/a/Tech_Rider.pdf"
+  },
+  {
+    "field": "Stage_Plot",
+    "value": "/ruta/a/Stage_Plot.pdf"
+  },
+  {
+    "field": "DMX_Showfile",
+    "value": "/ruta/a/Showfile.dmx"
+  },
+  {
+    "field": "Ableton_Set",
+    "value": "/ruta/a/LiveSet.als"
+  },
+  {
+    "field": "OBS_Overlays",
+    "value": "/ruta/a/overlays/"
+  },
+  {
+    "field": "Website",
+    "value": "https://tusitio.com"
+  },
+  {
+    "field": "Linktree",
+    "value": "https://linktr.ee/tu_usuario"
+  },
+  {
+    "field": "EPK_PDF",
+    "value": "https://drive.google.com/tu_epk.pdf"
+  },
+  {
+    "field": "Press_Kit_Assets",
+    "value": "https://drive.google.com/carpeta_presskit"
+  },
+  {
+    "field": "Media_Drive",
+    "value": "https://drive.google.com/carpeta_media"
+  },
+  {
+    "field": "Artwork_Drive",
+    "value": "https://drive.google.com/carpeta_artwork"
+  },
+  {
+    "field": "Booking_Email",
+    "value": "booking@tucorreo.com"
+  },
+  {
+    "field": "Booking_Phone",
+    "value": "+34 600 000 000"
+  },
+  {
+    "field": "Management",
+    "value": "Manager Nombre / correo"
+  },
+  {
+    "field": "Label",
+    "value": "Tu sello o distribuidor"
+  },
+  {
+    "field": "Spotify",
+    "value": "https://open.spotify.com/artist/TUID"
+  },
+  {
+    "field": "Apple_Music",
+    "value": "https://music.apple.com/artist/TUID"
+  },
+  {
+    "field": "YouTube",
+    "value": "https://youtube.com/@tu_usuario"
+  },
+  {
+    "field": "YouTube_Music",
+    "value": "https://music.youtube.com/channel/TUID"
+  },
+  {
+    "field": "SoundCloud",
+    "value": "https://soundcloud.com/tu_usuario"
+  },
+  {
+    "field": "Beatport",
+    "value": "https://www.beatport.com/artist/TU-NOMBRE/ID"
+  },
+  {
+    "field": "Traxsource",
+    "value": "https://www.traxsource.com/artist/ID/tu-nombre"
+  },
+  {
+    "field": "Bandcamp",
+    "value": "https://tuusuario.bandcamp.com"
+  },
+  {
+    "field": "Bandcamp_Merch",
+    "value": "https://tuusuario.bandcamp.com/merch"
+  },
+  {
+    "field": "Mixcloud",
+    "value": "https://www.mixcloud.com/tu_usuario"
+  },
+  {
+    "field": "Audius",
+    "value": "https://audius.co/tu_usuario"
+  },
+  {
+    "field": "Tidal",
+    "value": "https://tidal.com/browse/artist/ID"
+  },
+  {
+    "field": "Deezer",
+    "value": "https://www.deezer.com/artist/ID"
+  },
+  {
+    "field": "Amazon_Music",
+    "value": "https://music.amazon.com/artists/ID"
+  },
+  {
+    "field": "Shazam",
+    "value": "https://www.shazam.com/artist/ID"
+  },
+  {
+    "field": "JunoDownload",
+    "value": "https://www.junodownload.com/artists/Tu+Nombre"
+  },
+  {
+    "field": "Pandora",
+    "value": "https://www.pandora.com/artist/TuNombre/ID"
+  },
+  {
+    "field": "Instagram",
+    "value": "https://instagram.com/tu_usuario"
+  },
+  {
+    "field": "TikTok",
+    "value": "https://www.tiktok.com/@tu_usuario"
+  },
+  {
+    "field": "Facebook",
+    "value": "https://facebook.com/tu_usuario"
+  },
+  {
+    "field": "Twitter/X",
+    "value": "https://twitter.com/tu_usuario"
+  },
+  {
+    "field": "Threads",
+    "value": "https://www.threads.net/@tu_usuario"
+  },
+  {
+    "field": "Resident_Advisor",
+    "value": "https://ra.co/dj/tu_usuario"
+  },
+  {
+    "field": "Patreon",
+    "value": "https://www.patreon.com/tu_usuario"
+  },
+  {
+    "field": "Twitch",
+    "value": "https://twitch.tv/tu_usuario"
+  },
+  {
+    "field": "Discord",
+    "value": "https://discord.gg/ENLACE"
+  },
+  {
+    "field": "Telegram",
+    "value": "https://t.me/tu_usuario"
+  },
+  {
+    "field": "WhatsApp_Community",
+    "value": "https://chat.whatsapp.com/ENLACE"
+  },
+  {
+    "field": "Merch_Store",
+    "value": "https://tu_tienda.com/tu_usuario"
+  },
+  {
+    "field": "Boiler_Room",
+    "value": "https://boilerroom.tv/recording/tu_sesion"
+  }
+]

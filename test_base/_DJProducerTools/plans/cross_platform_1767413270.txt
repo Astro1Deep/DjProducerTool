@@ -1,0 +1,10 @@
+SINCRONIZACIÓN INTELIGENTE ENTRE PLATAFORMAS:
+- Serato: NO
+- Rekordbox XML: NO
+- Traktor NML: Detectado
+- Ableton ALS: Detectado
+
+Acciones recomendadas:
+1. Consolidar cues/notas en TSV maestro.
+2. Opción 39 para limpiar URLs antes de sync.
+3. Opción 8 para backup previo/post sync.

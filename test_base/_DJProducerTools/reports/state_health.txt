@@ -1,0 +1,12 @@
+STATE HEALTH REPORT
+BASE_PATH: /Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base
+STATE_DIR: /Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base/_DJProducerTools
+123M	/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base/_DJProducerTools
+Top 10 en quarantine:
+  0B	/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base/_DJProducerTools/quarantine/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  0B	/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base/_DJProducerTools/quarantine/c0acece83ff00feab6d5257dc87f5ab5194993181ff3422f621aa381cf5a22ec
+  0B	/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base/_DJProducerTools/quarantine/817671e191f0b3998517e8c9bca087765df019d30ddd5949f7230c39978e1ff4
+Logs size:
+  0B	/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base/_DJProducerTools/logs
+Reports size:
+2.1M	/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base/_DJProducerTools/reports
