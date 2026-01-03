@@ -402,13 +402,18 @@ ensure_dirs() {
 }
 
 init_paths() {
-  # Auto-adjust BASE_PATH if a nearby _DJProducerTools exists (cwd or parents)
-  for cand in "$PWD" "$(dirname "$PWD")" "$(dirname "$(dirname "$PWD")")"; do
-    if [ -d "$cand/_DJProducerTools" ]; then
-      BASE_PATH="$cand"
-      break
-    fi
-  done
+  # Prefer launch directory if it already contains _DJProducerTools
+  if [ -n "$LAUNCH_PATH" ] && [ -d "$LAUNCH_PATH/_DJProducerTools" ]; then
+    BASE_PATH="$LAUNCH_PATH"
+  else
+    # Auto-adjust BASE_PATH if a nearby _DJProducerTools exists (cwd or parents)
+    for cand in "$PWD" "$(dirname "$PWD")" "$(dirname "$(dirname "$PWD")")"; do
+      if [ -d "$cand/_DJProducerTools" ]; then
+        BASE_PATH="$cand"
+        break
+      fi
+    done
+  fi
   # Normalize BASE_PATH: strip trailing slash and fix if pointing to _DJProducerTools
   BASE_PATH="${BASE_PATH%/}"
   # Normalize BASE_PATH if user points directly to _DJProducerTools
