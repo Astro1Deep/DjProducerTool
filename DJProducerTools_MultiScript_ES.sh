@@ -3318,12 +3318,12 @@ action_69_artist_pages() {
       local csv_out="$REPORTS_DIR/artist_pages.csv"
       local html_out="$REPORTS_DIR/artist_pages.html"
       if command -v python3 >/dev/null 2>&1; then
-        python3 - <<'PY'
-import csv, html
+        if python3 - "$artist_file" "$csv_out" "$html_out" <<'PY'
+import csv, html, sys
 from pathlib import Path
-tsv_path = Path(""""$artist_file"""")
-csv_out = Path(""""$csv_out"""")
-html_out = Path(""""$html_out"""")
+tsv_path = Path(sys.argv[1])
+csv_out = Path(sys.argv[2])
+html_out = Path(sys.argv[3])
 rows = []
 if tsv_path.exists():
     with tsv_path.open(encoding="utf-8") as f:
@@ -3349,7 +3349,11 @@ html_out.write_text(
     encoding="utf-8",
 )
 PY
-        printf "%s[OK]%s Exportado a %s y %s\n" "$C_GRN" "$C_RESET" "$csv_out" "$html_out"
+        then
+          printf "%s[OK]%s Exportado a %s y %s\n" "$C_GRN" "$C_RESET" "$csv_out" "$html_out"
+        else
+          printf "%s[WARN]%s Fallo exportando (python3). Revisa el log en consola.\n" "$C_YLW" "$C_RESET"
+        fi
       else
         printf "%s[WARN]%s python3 no está disponible; exporta manualmente.\n" "$C_YLW" "$C_RESET"
       fi
