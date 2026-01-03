@@ -73,6 +73,10 @@ ART_HAS_DUPES_PLAN=0
 ART_QUAR_COUNT=0
 ART_DUPES_QUAR=0
 ART_REPORTS_SIZE=""
+ART_QUAR_SIZE=""
+ART_HASH_DATE=""
+ART_SNAPSHOT_DATE=""
+ART_DUPES_PLAN_DATE=""
 
 BASE_DEFAULT="$PWD"
 BASE_PATH="$BASE_DEFAULT"
@@ -406,6 +410,18 @@ refresh_artifact_state() {
   [ -f "$PLANS_DIR/dupes_plan.tsv" ] && ART_DUPES_PLAN_DATE=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$PLANS_DIR/dupes_plan.tsv")
 }
 
+file_meta() {
+  local f="$1"
+  [ -f "$f" ] || return 1
+  local mtime size age_h now ft
+  mtime=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$f")
+  size=$(du -h "$f" 2>/dev/null | awk 'NR==1{print $1}')
+  now=$(date +%s)
+  ft=$(stat -f %m "$f")
+  age_h=$(( (now - ft) / 3600 ))
+  printf "%s|%s|%s" "$mtime" "$size" "$age_h"
+}
+
 save_conf() {
   mkdir -p "$CONFIG_DIR"
   : "${AUDIO_ROOT:=}"
@@ -603,6 +619,7 @@ EOF
 print_menu() {
   refresh_artifact_state
   local tag9 tag10 tag11 tag27
+  local info_hash info_snap info_dupes info_quar info_reports
   [ "$ART_HAS_HASH" -eq 1 ] && tag9=" [prev]"
   [ "$ART_HAS_DUPES_PLAN" -eq 1 ] && tag10=" [prev ${ART_DUPES_QUAR}q]"
   [ "$ART_HAS_SNAPSHOT" -eq 1 ] && tag27=" [prev]"
@@ -611,8 +628,30 @@ print_menu() {
   elif [ "$ART_HAS_DUPES_PLAN" -eq 1 ]; then
     tag11=" [plan listo]"
   fi
+  if [ "$ART_HAS_HASH" -eq 1 ]; then
+    info_hash="hash_index OK${ART_HASH_DATE:+ ($ART_HASH_DATE)}"
+  else
+    info_hash="hash_index n/d"
+  fi
+  if [ "$ART_HAS_SNAPSHOT" -eq 1 ]; then
+    info_snap="snapshot OK${ART_SNAPSHOT_DATE:+ ($ART_SNAPSHOT_DATE)}"
+  else
+    info_snap="snapshot n/d"
+  fi
+  if [ "$ART_HAS_DUPES_PLAN" -eq 1 ]; then
+    info_dupes="dupes_plan OK${ART_DUPES_PLAN_DATE:+ ($ART_DUPES_PLAN_DATE)}"
+  else
+    info_dupes="dupes_plan n/d"
+  fi
+  if [ "$ART_QUAR_COUNT" -gt 0 ]; then
+    info_quar="quarantine ${ART_QUAR_COUNT}${ART_QUAR_SIZE:+, ${ART_QUAR_SIZE}}"
+  else
+    info_quar="quarantine vacia"
+  fi
+  info_reports="reports ${ART_REPORTS_SIZE:-n/d}"
 
   printf "%sMenú (vista agrupada)%s\n" "$C_GRN" "$C_RESET"
+  printf "%sPrevios:%s %s | %s | %s | %s | %s\n" "$C_YLW" "$C_RESET" "$info_hash" "$info_snap" "$info_dupes" "$info_quar" "$info_reports"
   printf "%s⚙️  Core (1-12):%s\n" "$C_CYN" "$C_RESET"
   printf "  %s1)%s Estado / rutas / locks\n" "$C_GRN" "$C_RESET"
   printf "  %s2)%s Cambiar Base Path\n" "$C_GRN" "$C_RESET"
@@ -879,6 +918,19 @@ action_8_backup_dj() {
 action_9_hash_index() {
   print_header
   out="$REPORTS_DIR/hash_index.tsv"
+  if [ -f "$out" ]; then
+    meta=$(file_meta "$out")
+    meta_date=$(echo "$meta" | cut -d'|' -f1)
+    meta_size=$(echo "$meta" | cut -d'|' -f2)
+    meta_age=$(echo "$meta" | cut -d'|' -f3)
+    printf "%s[INFO]%s Ya existe hash_index.tsv (%s, %s, %sh).\n" "$C_YLW" "$C_RESET" "$meta_date" "$meta_size" "$meta_age"
+    printf "¿Reusar (R) o regenerar (g)? [R/g]: "
+    read -r reuse
+    case "$reuse" in
+      g|G) ;;
+      *) printf "%s[OK]%s Reusando hash_index existente.\n" "$C_GRN" "$C_RESET"; pause_enter; return ;;
+    esac
+  fi
   printf "%s[INFO]%s Generando índice SHA-256 -> %s\n" "$C_CYN" "$C_RESET" "$out"
   total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
   if [ "$total" -eq 0 ]; then
@@ -914,6 +966,20 @@ action_10_dupes_plan() {
     printf "%s[ERR]%s No se pudo generar hash_index.tsv.\n" "$C_RED" "$C_RESET"
     pause_enter
     return
+  fi
+  meta=$(file_meta "$hash_file")
+  if [ -n "$meta" ]; then
+    meta_date=$(echo "$meta" | cut -d'|' -f1)
+    meta_size=$(echo "$meta" | cut -d'|' -f2)
+    meta_age=$(echo "$meta" | cut -d'|' -f3)
+    if [ "$meta_age" -gt 168 ]; then
+      printf "%s[WARN]%s hash_index tiene más de 7 días (%s, %s, %sh). ¿Regenerar antes de crear el plan? (y/N): " "$C_YLW" "$C_RESET" "$meta_date" "$meta_size" "$meta_age"
+      read -r regen
+      case "$regen" in
+        y|Y) action_9_hash_index ;;
+        *) ;;
+      esac
+    fi
   fi
   plan_tsv="$PLANS_DIR/dupes_plan.tsv"
   plan_json="$PLANS_DIR/dupes_plan.json"
@@ -974,6 +1040,20 @@ action_11_quarantine_from_plan() {
     pause_enter
     return
   fi
+  meta=$(file_meta "$plan_tsv")
+  if [ -n "$meta" ]; then
+    meta_date=$(echo "$meta" | cut -d'|' -f1)
+    meta_age=$(echo "$meta" | cut -d'|' -f3)
+    printf "%s[INFO]%s Plan actual: %s (edad: %sh)\n" "$C_CYN" "$C_RESET" "$meta_date" "$meta_age"
+    if [ "$meta_age" -gt 168 ]; then
+      printf "%s[WARN]%s Plan de duplicados tiene más de 7 días. ¿Continuar? (y/N): " "$C_YLW" "$C_RESET"
+      read -r cont_old
+      case "$cont_old" in
+        y|Y) ;;
+        *) printf "%s[INFO]%s Cancelado. Re-generar plan (opción 10).\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
+      esac
+    fi
+  fi
   printf "%s[INFO]%s Aplicando quarantine desde plan (SAFE_MODE=%s).\n" "$C_CYN" "$C_RESET" "$SAFE_MODE"
   sample_count=$(awk -F'\t' '$2=="QUARANTINE"{c++} END {print c+0}' "$plan_tsv")
   printf "Acciones QUARANTINE: %s\n" "$sample_count"
@@ -993,13 +1073,22 @@ action_11_quarantine_from_plan() {
   if [ -z "$avail_bytes" ]; then
     avail_bytes=0
   fi
+  mark_only=0
   printf "Espacio necesario estimado: %.2f MB | Disponible: %.2f MB\n" "$(echo "$needed_bytes/1048576" | bc -l)" "$(echo "$avail_bytes/1048576" | bc -l)"
   if [ "$avail_bytes" -lt "$needed_bytes" ] && [ "$needed_bytes" -gt 0 ]; then
-    printf "%s[WARN]%s Espacio insuficiente en quarantine. ¿Continuar de todas formas? (y/N): " "$C_YLW" "$C_RESET"
-    read -r space_ans
-    case "$space_ans" in
-      y|Y) ;;
-      *) printf "%s[INFO]%s Cancelado por espacio insuficiente.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
+    printf "%s[WARN]%s Espacio insuficiente en quarantine.\n" "$C_YLW" "$C_RESET"
+    printf "¿Usar modo 'solo marcar' (no mueve, solo muestra)? (y/N): "
+    read -r mark_ans
+    case "$mark_ans" in
+      y|Y) mark_only=1 ;;
+      *)
+        printf "¿Continuar igualmente moviendo aunque falte espacio? (y/N): "
+        read -r space_ans
+        case "$space_ans" in
+          y|Y) ;;
+          *) printf "%s[INFO]%s Cancelado por espacio insuficiente.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
+        esac
+        ;;
     esac
   fi
 
@@ -1016,7 +1105,7 @@ action_11_quarantine_from_plan() {
     rel="${f#$BASE_PATH/}"
     dest_dir="$QUAR_DIR/$h"
     dest="$dest_dir/$(basename "$f")"
-    if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ] || [ "$DRYRUN_FORCE" -eq 1 ]; then
+    if [ "$mark_only" -eq 1 ] || [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ] || [ "$DRYRUN_FORCE" -eq 1 ]; then
       printf "[DRY] mover \"%s\" -> \"%s\"\n" "$f" "$dest"
     else
       mkdir -p "$dest_dir"
@@ -1032,8 +1121,12 @@ action_11_quarantine_from_plan() {
 action_12_quarantine_manager() {
   while true; do
     clear
+    local q_count q_size
+    q_count=$(find "$QUAR_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+    q_size=$(du -sh "$QUAR_DIR" 2>/dev/null | awk 'NR==1{print $1}')
     printf "%s=== Quarantine Manager ===%s\n" "$C_CYN" "$C_RESET"
-    printf "QUAR_DIR: %s\n\n" "$QUAR_DIR"
+    printf "QUAR_DIR: %s\n" "$QUAR_DIR"
+    printf "Contenido: %s archivos%s\n\n" "${q_count:-0}" "${q_size:+, ${q_size}}"
     printf "%s1)%s Listar archivos en quarantine\n" "$C_YLW" "$C_RESET"
     printf "%s2)%s Restaurar todo (si SAFE_MODE=0 y DJ_SAFE_LOCK=0)\n" "$C_YLW" "$C_RESET"
     printf "%s3)%s Borrar definitivamente todo (si SAFE_MODE=0 y DJ_SAFE_LOCK=0)\n" "$C_YLW" "$C_RESET"
@@ -1071,8 +1164,19 @@ action_12_quarantine_manager() {
           printf "%s[ERR]%s SAFE_MODE o DJ_SAFE_LOCK activos. No se borrará nada.\n" "$C_RED" "$C_RESET"
           pause_enter
         else
-          printf "%s[WARN]%s Borrar TODO el contenido de quarantine.\n" "$C_YLW" "$C_RESET"
-          printf "Confirmar (YES para continuar): "
+          local q_count_del q_size_del
+          q_count_del=$(find "$QUAR_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+          q_size_del=$(du -sh "$QUAR_DIR" 2>/dev/null | awk 'NR==1{print $1}')
+          if [ "${q_count_del:-0}" -eq 0 ]; then
+            printf "%s[INFO]%s Quarantine está vacía.\n" "$C_CYN" "$C_RESET"
+            pause_enter
+            continue
+          fi
+          printf "%s[WARN]%s Borrar TODO el contenido de quarantine (solo archivos dentro de %s).\n" "$C_YLW" "$C_RESET" "$QUAR_DIR"
+          printf "Archivos: %s | Tamaño: %s\n" "$q_count_del" "${q_size_del:-n/d}"
+          printf "Muestra (ruta relativa dentro de quarantine):\n"
+          find "$QUAR_DIR" -type f 2>/dev/null | sed "s|$QUAR_DIR/||" | head -10
+          printf "Confirmar (YES para borrar definitivamente): "
           read -r ans2
           if [ "$ans2" = "YES" ]; then
             rm -rf "$QUAR_DIR"/*
@@ -1290,6 +1394,19 @@ action_26_export_import_state() {
 action_27_snapshot() {
   print_header
   out="$REPORTS_DIR/snapshot_hash_fast.tsv"
+  if [ -f "$out" ]; then
+    meta=$(file_meta "$out")
+    meta_date=$(echo "$meta" | cut -d'|' -f1)
+    meta_size=$(echo "$meta" | cut -d'|' -f2)
+    meta_age=$(echo "$meta" | cut -d'|' -f3)
+    printf "%s[INFO]%s Ya existe snapshot (%s, %s, %sh).\n" "$C_YLW" "$C_RESET" "$meta_date" "$meta_size" "$meta_age"
+    printf "¿Reusar (R) o regenerar (g)? [R/g]: "
+    read -r reuse
+    case "$reuse" in
+      g|G) ;;
+      *) printf "%s[OK]%s Reusando snapshot existente.\n" "$C_GRN" "$C_RESET"; pause_enter; return ;;
+    esac
+  fi
   printf "%s[INFO]%s Generando snapshot rápido -> %s\n" "$C_CYN" "$C_RESET" "$out"
   total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
   if [ "$total" -eq 0 ]; then
@@ -1402,6 +1519,16 @@ action_mirror_integrity_check() {
     pause_enter
     return
   fi
+  for f in "$file_a" "$file_b"; do
+    meta=$(file_meta "$f")
+    if [ -n "$meta" ]; then
+      meta_date=$(echo "$meta" | cut -d'|' -f1)
+      meta_age=$(echo "$meta" | cut -d'|' -f3)
+      if [ "$meta_age" -gt 168 ]; then
+        printf "%s[WARN]%s %s tiene más de 7 días (%s, %sh). Recomendado regenerar con opción 9.\n" "$C_YLW" "$C_RESET" "$f" "$meta_date" "$meta_age"
+      fi
+    fi
+  done
   missing_in_b="$REPORTS_DIR/mirror_missing_in_B_$(date +%s).tsv"
   missing_in_a="$REPORTS_DIR/mirror_missing_in_A_$(date +%s).tsv"
   mismatch="$REPORTS_DIR/mirror_hash_mismatch_$(date +%s).tsv"
@@ -2417,10 +2544,23 @@ submenu_profiles_manager() {
         ;;
       2)
         mkdir -p "$PROFILES_DIR"
+        mapfile -t plist < <(ls -1 "$PROFILES_DIR" 2>/dev/null | sed 's/\\.conf$//')
+        if [ "${#plist[@]}" -eq 0 ]; then
+          printf "%s[WARN]%s No hay perfiles guardados aún.\n" "$C_YLW" "$C_RESET"
+          pause_enter
+          continue
+        fi
         printf "%s[INFO]%s Perfiles disponibles en %s:\n" "$C_CYN" "$C_RESET" "$PROFILES_DIR"
-        ls -1 "$PROFILES_DIR" 2>/dev/null | sed 's/\\.conf$//' || true
-        printf "Nombre de perfil a cargar (ENTER para cancelar): "
+        idx=1
+        for p in "${plist[@]}"; do
+          printf "  [%d] %s\n" "$idx" "$p"
+          idx=$((idx + 1))
+        done
+        printf "Nombre de perfil a cargar (o número, ENTER para cancelar): "
         read -r pname
+        if [[ "$pname" =~ ^[0-9]+$ ]] && [ "$pname" -ge 1 ] && [ "$pname" -le "${#plist[@]}" ]; then
+          pname="${plist[$((pname-1))]}"
+        fi
         [ -z "$pname" ] && { printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"; pause_enter; continue; }
         pfile="$PROFILES_DIR/${pname}.conf"
         if [ ! -f "$pfile" ]; then
@@ -2433,6 +2573,11 @@ submenu_profiles_manager() {
         init_paths
         save_conf
         printf "%s[OK]%s Perfil cargado: %s\n" "$C_GRN" "$C_RESET" "$pfile"
+        for warn_path in "$BASE_PATH" "${AUDIO_ROOT:-}" "${GENERAL_ROOT:-}" "${SERATO_ROOT:-}" "${ABLETON_ROOT:-}"; do
+          if [ -n "$warn_path" ] && [ ! -d "$warn_path" ]; then
+            printf "%s[WARN]%s Ruta no existe: %s\n" "$C_YLW" "$C_RESET" "$warn_path"
+          fi
+        done
         pause_enter
         ;;
       3)
@@ -3331,6 +3476,13 @@ chain_21_multidisk_dedup() {
   pause_enter
 }
 
+chain_22_presskit_pack() {
+  chain_run_header "Pack presskit / artist pages (69 export)"
+  action_69_artist_pages
+  printf "%s[OK]%s Cadena completada: plantilla de artista actualizada/exportada.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 action_69_artist_pages() {
   print_header
   local artist_file="$CONFIG_DIR/artist_pages.tsv"
@@ -3531,6 +3683,7 @@ submenu_A_chains() {
     printf "%s19)%s Organización audio avanzada (31 -> 30 -> 35 -> 45 -> 46)\n" "$C_YLW" "$C_RESET"
     printf "%s20)%s Seguridad Serato reforzada (7 -> 8 -> 59 -> 12 -> 47)\n" "$C_YLW" "$C_RESET"
     printf "%s21)%s Dedup multi-disco + espejo (9 -> 10 -> 44 -> 11 -> 61)\n" "$C_YLW" "$C_RESET"
+    printf "%s22)%s Pack presskit (69 -> export)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3556,6 +3709,7 @@ submenu_A_chains() {
       19) chain_19_audio_advanced ;;
       20) chain_20_serato_safe ;;
       21) chain_21_multidisk_dedup ;;
+      22) chain_22_presskit_pack ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
