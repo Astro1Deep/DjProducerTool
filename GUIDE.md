@@ -42,6 +42,7 @@ chmod +x install_djpt.sh
 ```
 - Doble clic: la ventana queda abierta al terminar para mostrar mensajes finales.
 - El script crea `_DJProducerTools/` en el `BASE_PATH` (config/logs/planes/quarantine).
+- Auto-detección: si hay `_DJProducerTools` cerca del directorio actual, se usa esa raíz como `BASE_PATH`.
 
 ## 6) Estructura en disco
 - `_DJProducerTools/config/`: `djpt.conf` (BASE_PATH, roots, flags SafeMode/Lock/DryRun), perfiles de exclusiones, historial de rutas.
@@ -68,6 +69,7 @@ chmod +x install_djpt.sh
 - **Extras (53-67)**: reset estado, perfiles de rutas, Ableton tools, import cues, gestor de exclusiones, comparar hash_index, health-check, LUFS, auto-cues.  
   *Ventaja:* portabilidad de configuración y diagnósticos rápidos.
 - **Automatizaciones (A/68)**: 21 cadenas predefinidas para backup/snapshot, dedup, limpieza, show prep, integridad, eficiencia, ML, sync, visuales, seguridad Serato, dedup multi-disco.  
+- **Auto-pilot IA local (A23–A28)**: flujos completos sin intervención (todo en uno, clean+backup, deep/ML, seguro con reuso y lista de únicos).  
   *Ventaja:* ejecutar flujos completos con un número/letra.
 - **Submenús L/D/V/H**: librerías y cues, duplicados avanzados, visuales/OSC/DMX, ayuda detallada.
 

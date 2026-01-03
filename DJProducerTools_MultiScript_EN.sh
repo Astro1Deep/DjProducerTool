@@ -1092,6 +1092,36 @@ action_10_dupes_plan() {
   pause_enter
 }
 
+action_unique_from_hash() {
+  print_header
+  hash_file="$REPORTS_DIR/hash_index.tsv"
+  if [ ! -f "$hash_file" ]; then
+    printf "%s[WARN]%s hash_index.tsv missing, generating first.\n" "$C_YLW" "$C_RESET"
+    action_9_hash_index
+  fi
+  hash_file="$REPORTS_DIR/hash_index.tsv"
+  if [ ! -f "$hash_file" ]; then
+    printf "%s[ERR]%s Could not generate hash_index.tsv.\n" "$C_RED" "$C_RESET"
+    pause_enter
+    return
+  fi
+  out="$REPORTS_DIR/unique_files.tsv"
+  if ! maybe_reuse_file "$out" "unique_files.tsv"; then return; fi
+  printf "%s[INFO]%s Building unique files list -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  awk -F'\t' '
+  {
+    if (NF < 3) next
+    h=$1
+    rec[h]=$0
+    count[h]++
+  }
+  END {
+    for (h in count) if (count[h]==1) print rec[h]
+  }' "$hash_file" >"$out"
+  printf "%s[OK]%s Unique files list generated: %s\n" "$C_GRN" "$C_RESET" "$out"
+  pause_enter
+}
+
 action_11_quarantine_from_plan() {
   print_header
   plan_tsv="$PLANS_DIR/dupes_plan.tsv"
@@ -3780,6 +3810,34 @@ chain_27_autopilot_ml() {
   pause_enter
 }
 
+chain_28_autopilot_safe_state() {
+  chain_run_header "Auto-pilot safe: reuse analyses"
+  local prev_dry="$DRYRUN_FORCE"
+  DRYRUN_FORCE=1
+  refresh_artifact_state
+  action_9_hash_index
+  action_10_dupes_plan
+  action_unique_from_hash
+  action_27_snapshot
+  action_11_quarantine_from_plan
+  action_state_health
+  DRYRUN_FORCE="$prev_dry"
+  printf "%s[OK]%s Auto-pilot safe completed (no moves).\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_27_autopilot_ml() {
+  chain_run_header "Auto-pilot: Deep/ML"
+  action_9_hash_index
+  action_40_deep_smart_analysis
+  action_41_ml_predictor
+  action_42_efficiency_optimizer
+  action_44_integrated_dedup
+  action_27_snapshot
+  printf "%s[OK]%s Auto-pilot Deep/ML completed.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 action_69_artist_pages() {
   print_header
   local artist_file="$CONFIG_DIR/artist_pages.tsv"
@@ -3985,6 +4043,7 @@ submenu_A_chains() {
     printf "%s25)%s Auto-pilot: clean + safe backup (rescan -> dupes -> quarantine -> backup -> snapshot)\n" "$C_YLW" "$C_RESET"
     printf "%s26)%s Auto-pilot: relink doctor + super doctor + state export\n" "$C_YLW" "$C_RESET"
     printf "%s27)%s Auto-pilot: Deep/ML (hash -> smart analysis -> predictor -> optimizer -> integrated dedup -> snapshot)\n" "$C_YLW" "$C_RESET"
+    printf "%s28)%s Auto-pilot safe: reuse analyses + uniques (hash -> dupes -> uniques -> snapshot -> doctor)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
     printf "%sChoice:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -4011,6 +4070,12 @@ submenu_A_chains() {
       20) chain_20_serato_safe ;;
       21) chain_21_multidisk_dedup ;;
       22) chain_22_presskit_pack ;;
+      23) chain_23_autopilot_quick ;;
+      24) chain_24_autopilot_all_in_one ;;
+      25) chain_25_autopilot_clean_backup ;;
+      26) chain_26_autopilot_relink_doctor ;;
+      27) chain_27_autopilot_ml ;;
+      28) chain_28_autopilot_safe_state ;;
       23) chain_23_autopilot_quick ;;
       24) chain_24_autopilot_all_in_one ;;
       25) chain_25_autopilot_clean_backup ;;
@@ -5564,13 +5629,13 @@ action_H_help_info() {
   printf "  A1-A10: predefined flows (backup+snapshot, dedup+quarantine, metadata/name cleanup, health scan, show prep, integrity, efficiency, basic ML, predictive backup, cross-platform sync).\n"
   printf "  A11-A14: quick diagnostics, Serato health, hash+mirror check, audio prep (tags+LUFS+cues).\n"
   printf "  A15-A20: integrity audit, cleanup+backup, sync prep, visuals health, advanced audio org, Serato safety.\n"
-  printf "  A23-A27: auto-pilot (prep+clean+dedup), all-in-one, clean+safe backup, relink doctor + state export, Deep/ML.\n"
+  printf "  A23-A28: auto-pilot (prep+clean+dedup), all-in-one, clean+safe backup, relink doctor + state export, Deep/ML, safe.\n"
   printf "  Tip: SafeMode/DJ_SAFE_LOCK still apply (quarantine/ops stay protected).\n\n"
 
   printf "%sAutoguides & wiki:%s\n" "$C_YLW" "$C_RESET"
   printf "  - GUIDE.md (extended wiki) in repo: paths, recommended flows, exclusions, snapshot tips.\n"
   printf "  - Menu captures: docs/menu_es_full.svg / menu_en_full.svg (viewable on GitHub).\n"
-  printf "  - Auto-pilot (A23-A27) runs full flows hands-free.\n\n"
+  printf "  - Auto-pilot (A23-A28) runs full flows hands-free.\n\n"
 
   printf "%sTF models available (pros/cons + approx first download size):%s\n" "$C_YLW" "$C_RESET"
   printf "  YAMNet (~40MB): fast, general (events/ambience), good for basic similarity.\n"

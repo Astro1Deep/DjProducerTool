@@ -42,12 +42,14 @@ El estado vive en `BASE_PATH/_DJProducerTools/` (config, reports, planes, quaran
 
 ## Cadenas automatizadas (68 / tecla A)
 - 21 flujos predefinidos (backup+snapshot, dedup+quarantine, limpieza, health scan, prep show, integridad/corruptos, eficiencia, ML básica, backup predictivo, sync multi, etc.).
+## Auto-pilot IA local
 - Auto-pilot (IA local / sin intervención):  
   - 23) Prep show + clean/backup + dedup multi-disco  
   - 24) Todo en uno (hash → dupes → quarantine → snapshot → doctor)  
   - 25) Limpieza + backup seguro (rescan → dupes → quarantine → backup → snapshot)  
   - 26) Relink doctor + super doctor + export estado  
   - 27) Deep/ML (hash → Smart Analysis → Predictor → Optimizer → Integrated dedup → snapshot)
+  - 28) Auto-pilot seguro (reusar análisis previos + únicos + snapshot + doctor)
 
 ## Ayuda y wiki
 - `GUIDE.md`: guía extensa (flujos, exclusiones, snapshots, tips).
