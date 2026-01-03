@@ -3142,7 +3142,7 @@ PY
   pause_enter
 }
 
-
+action_audio_cues_onsets() {
   print_header
   printf "%s[INFO]%s Auto-cues por onsets (librosa; plan TSV).\n" "$C_CYN" "$C_RESET"
   out="$REPORTS_DIR/auto_cues_onsets.tsv"
@@ -4437,7 +4437,7 @@ chain_27_autopilot_ml() {
   if ensure_tool_installed "shasum" "brew install coreutils"; then
     action_9_hash_index
   fi
-  action_40_deep_smart_analysis
+  action_40_smart_analysis
   action_41_ml_predictor
   action_42_efficiency_optimizer
   action_44_integrated_dedup

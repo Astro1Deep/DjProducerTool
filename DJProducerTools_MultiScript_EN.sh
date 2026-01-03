@@ -3175,16 +3175,15 @@ PY
 action_audio_lufs_plan() {
   print_header
   printf "%s[INFO]%s LUFS/normalization plan (analysis only, no audio modification).\n" "$C_CYN" "$C_RESET"
-  local out="$REPORTS_DIR/audio_lufs_plan.tsv"
+  out="$REPORTS_DIR/audio_lufs_plan.tsv"
   printf "Scanning (mp3/wav/flac/m4a)...\n"
-  python3 -c "import pyloudnorm, librosa, soundfile" 2>/dev/null
+  python3 - <<'PY'
 import sys
 try:
     import pyloudnorm as pyln
-    import librosa
     import soundfile as sf
 except Exception:
-    sys.exit(1) # Exit with error if imports fail
+    sys.exit(1)
 PY
   rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -3194,7 +3193,7 @@ PY
   fi
 
   local list_tmp=$(mktemp "${STATE_DIR}/lufs_list.XXXXXX") || list_tmp="/tmp/lufs_list.$$"
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.aiff" -o -iname "*.aif" \) 2>/dev/null | head -500 >"$list_tmp"
+  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.aiff" -o -iname "*.aif" \) 2>/dev/null | head -200 >"$list_tmp"
   total=$(wc -l <"$list_tmp" | tr -d ' ')
   if [ "$total" -eq 0 ]; then
     rm -f "$list_tmp"
@@ -3204,7 +3203,7 @@ PY
   fi
 
   >"$out"
-  printf "path\tlufs\tsugerencia_gain_db\n" >>"$out"
+  printf "path\tlufs\tsuggested_gain_db\n" >>"$out"
   count=0
   while IFS= read -r f; do
     count=$((count + 1))
@@ -3215,7 +3214,7 @@ PY
     fi
     status_line "LUFS" "$percent" "$(basename "$f")"
     result=$(python3 - "$f" <<'PY'
-import sys, librosa
+import sys
 try:
     import pyloudnorm as pyln
     import soundfile as sf
@@ -4462,7 +4461,7 @@ chain_27_autopilot_ml() {
   if ensure_tool_installed "shasum" "brew install coreutils"; then
     action_9_hash_index
   fi
-  action_40_deep_smart_analysis
+  action_40_smart_analysis
   action_41_ml_predictor
   action_42_efficiency_optimizer
   action_44_integrated_dedup
