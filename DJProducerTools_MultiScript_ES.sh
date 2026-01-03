@@ -4102,21 +4102,19 @@ submenu_L_libraries() {
         else
           out="$PLANS_DIR/audio_dupes_from_catalog.tsv"
           printf "%s[INFO]%s Generando plan de duplicados por basename+tamaño -> %s\n" "$C_CYN" "$C_RESET" "$out"
-          awk '
-          BEGIN { FS=OFS="\t" }
+          tmp="$STATE_DIR/audio_cat_with_size.tmp"
+          >"$tmp"
+          while IFS=$'\t' read -r lib path; do
+            [ -z "$path" ] && continue
+            base=$(basename "$path")
+            size=$(stat -f %z -- "$path" 2>/dev/null || echo 0)
+            printf "%s|%s\t%s\t%s\n" "$base" "$size" "$lib" "$path" >>"$tmp"
+          done <"$cat_master"
+          awk -F'\t' '
           {
-            if (NF < 2) next
-            lib=$1
-            path=$2
-            n=split(path, a, "/")
-            base=a[n]
-            cmd="stat -f %z \"" path "\" 2>/dev/null"
-            cmd | getline sz
-            close(cmd)
-            if (sz=="") sz="0"
-            key=base"|"sz
+            key=$1
             count[key]++
-            rec[key, count[key]]=lib"\t"path
+            rec[key, count[key]]=$2"\t"$3
           }
           END {
             for (k in count) {
@@ -4126,7 +4124,8 @@ submenu_L_libraries() {
                 }
               }
             }
-          }' "$cat_master" >"$out"
+          }' "$tmp" >"$out"
+          rm -f "$tmp"
           printf "%s[OK]%s Plan de duplicados audio generado.\n" "$C_GRN" "$C_RESET"
           pause_enter
         fi
