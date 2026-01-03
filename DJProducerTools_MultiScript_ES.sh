@@ -3772,6 +3772,18 @@ chain_26_autopilot_relink_doctor() {
   pause_enter
 }
 
+chain_27_autopilot_ml() {
+  chain_run_header "Auto-pilot: Deep/ML"
+  action_9_hash_index
+  action_40_deep_smart_analysis
+  action_41_ml_predictor
+  action_42_efficiency_optimizer
+  action_44_integrated_dedup
+  action_27_snapshot
+  printf "%s[OK]%s Auto-pilot Deep/ML completado.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 action_69_artist_pages() {
   print_header
   local artist_file="$CONFIG_DIR/artist_pages.tsv"
@@ -3977,6 +3989,7 @@ submenu_A_chains() {
     printf "%s24)%s Auto-pilot: todo en uno (hash -> dupes -> quarantine -> snapshot -> doctor)\n" "$C_YLW" "$C_RESET"
     printf "%s25)%s Auto-pilot: limpieza + backup seguro (rescan -> dupes -> quarantine -> backup -> snapshot)\n" "$C_YLW" "$C_RESET"
     printf "%s26)%s Auto-pilot: relink doctor + super doctor + export estado\n" "$C_YLW" "$C_RESET"
+    printf "%s27)%s Auto-pilot: Deep/ML (hash -> smart analysis -> predictor -> optimizador -> integrated dedup -> snapshot)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -4007,6 +4020,7 @@ submenu_A_chains() {
       24) chain_24_autopilot_all_in_one ;;
       25) chain_25_autopilot_clean_backup ;;
       26) chain_26_autopilot_relink_doctor ;;
+      27) chain_27_autopilot_ml ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
@@ -5545,7 +5559,7 @@ action_H_help_info() {
   printf "  A1-A10: flujos predefinidos (backup+snapshot, dedup+quarantine, limpieza metadatos/nombres, health scan, prep show, integridad, eficiencia, ML básica, backup predictivo, sync multi).\n"
   printf "  A11-A14: diagnóstico rápido, salud Serato, hash+mirror check, audio prep (tags+LUFS+cues).\n"
   printf "  A15-A20: auditoría integridad, limpieza+backup, prep sync, salud visuales, org audio avanzada, seguridad Serato.\n"
-  printf "  A23-A26: auto-pilot (prep+clean+dedup), todo en uno, limpieza+backup seguro, relink doctor + export estado.\n"
+  printf "  A23-A27: auto-pilot (prep+clean+dedup), todo en uno, limpieza+backup seguro, relink doctor + export estado, Deep/ML.\n"
   printf "  Tip: SafeMode/DJ_SAFE_LOCK siguen activos; quarantine y operaciones peligrosas respetan bloqueos.\n\n"
 
   printf "%sAutoguías y wiki:%s\n" "$C_YLW" "$C_RESET"

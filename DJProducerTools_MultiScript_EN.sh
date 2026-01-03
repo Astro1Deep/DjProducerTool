@@ -3768,6 +3768,18 @@ chain_26_autopilot_relink_doctor() {
   pause_enter
 }
 
+chain_27_autopilot_ml() {
+  chain_run_header "Auto-pilot: Deep/ML"
+  action_9_hash_index
+  action_40_deep_smart_analysis
+  action_41_ml_predictor
+  action_42_efficiency_optimizer
+  action_44_integrated_dedup
+  action_27_snapshot
+  printf "%s[OK]%s Auto-pilot Deep/ML completed.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 action_69_artist_pages() {
   print_header
   local artist_file="$CONFIG_DIR/artist_pages.tsv"
@@ -3972,6 +3984,7 @@ submenu_A_chains() {
     printf "%s24)%s Auto-pilot: all-in-one (hash -> dupes -> quarantine -> snapshot -> doctor)\n" "$C_YLW" "$C_RESET"
     printf "%s25)%s Auto-pilot: clean + safe backup (rescan -> dupes -> quarantine -> backup -> snapshot)\n" "$C_YLW" "$C_RESET"
     printf "%s26)%s Auto-pilot: relink doctor + super doctor + state export\n" "$C_YLW" "$C_RESET"
+    printf "%s27)%s Auto-pilot: Deep/ML (hash -> smart analysis -> predictor -> optimizer -> integrated dedup -> snapshot)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
     printf "%sChoice:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3998,6 +4011,11 @@ submenu_A_chains() {
       20) chain_20_serato_safe ;;
       21) chain_21_multidisk_dedup ;;
       22) chain_22_presskit_pack ;;
+      23) chain_23_autopilot_quick ;;
+      24) chain_24_autopilot_all_in_one ;;
+      25) chain_25_autopilot_clean_backup ;;
+      26) chain_26_autopilot_relink_doctor ;;
+      27) chain_27_autopilot_ml ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
@@ -5546,13 +5564,13 @@ action_H_help_info() {
   printf "  A1-A10: predefined flows (backup+snapshot, dedup+quarantine, metadata/name cleanup, health scan, show prep, integrity, efficiency, basic ML, predictive backup, cross-platform sync).\n"
   printf "  A11-A14: quick diagnostics, Serato health, hash+mirror check, audio prep (tags+LUFS+cues).\n"
   printf "  A15-A20: integrity audit, cleanup+backup, sync prep, visuals health, advanced audio org, Serato safety.\n"
-  printf "  A23-A26: auto-pilot (prep+clean+dedup), all-in-one, clean+safe backup, relink doctor + state export.\n"
+  printf "  A23-A27: auto-pilot (prep+clean+dedup), all-in-one, clean+safe backup, relink doctor + state export, Deep/ML.\n"
   printf "  Tip: SafeMode/DJ_SAFE_LOCK still apply (quarantine/ops stay protected).\n\n"
 
   printf "%sAutoguides & wiki:%s\n" "$C_YLW" "$C_RESET"
   printf "  - GUIDE.md (extended wiki) in repo: paths, recommended flows, exclusions, snapshot tips.\n"
   printf "  - Menu captures: docs/menu_es_full.svg / menu_en_full.svg (viewable on GitHub).\n"
-  printf "  - Auto-pilot (A23-A26) runs full flows hands-free.\n\n"
+  printf "  - Auto-pilot (A23-A27) runs full flows hands-free.\n\n"
 
   printf "%sTF models available (pros/cons + approx first download size):%s\n" "$C_YLW" "$C_RESET"
   printf "  YAMNet (~40MB): fast, general (events/ambience), good for basic similarity.\n"
