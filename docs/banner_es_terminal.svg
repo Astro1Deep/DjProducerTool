@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="760" viewBox="0 0 1500 760">
+  <defs>
+    <linearGradient id="grad-purp" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#9b59b6"/>
+      <stop offset="100%" stop-color="#8e44ad"/>
+    </linearGradient>
+    <linearGradient id="grad-blu" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3498db"/>
+      <stop offset="100%" stop-color="#2980b9"/>
+    </linearGradient>
+    <linearGradient id="grad-cyn" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1abc9c"/>
+      <stop offset="100%" stop-color="#16a085"/>
+    </linearGradient>
+    <linearGradient id="grad-grn" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2ecc71"/>
+      <stop offset="100%" stop-color="#27ae60"/>
+    </linearGradient>
+    <linearGradient id="grad-ylw" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f1c40f"/>
+      <stop offset="100%" stop-color="#d4ac0d"/>
+    </linearGradient>
+    <linearGradient id="grad-red" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e74c3c"/>
+      <stop offset="100%" stop-color="#c0392b"/>
+    </linearGradient>
+    <style type="text/css"><![CDATA[
+      .bg { fill: #0b0c10; }
+      .txt { font-family: "Courier New", "DejaVu Sans Mono", monospace; font-size: 21px; font-weight: 700; }
+      .meta { font-family: "Courier New", "DejaVu Sans Mono", monospace; font-size: 20px; font-weight: 600; fill: #f7f7f7; }
+      .footer { font-family: "Courier New", "DejaVu Sans Mono", monospace; font-size: 20px; font-weight: 600; fill: #f7f7f7; }
+    ]]></style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1500" height="760" rx="18" ry="18"/>
+
+  <g transform="translate(70,90)">
+    <text class="txt" fill="url(#grad-purp)" xml:space="preserve">
+      <tspan x="0" dy="0">@@@  @@@  @@@  @@@@@@  @@@  @@@  @@@@@@ @@@@@@@   @@@@@@   @@@@@@@ @@@@@@@@  @@@@@@ @@@  @@@ @@@ @@@@@@@</tspan>
+      <tspan x="0" dy="30">@@!  @@!  @@! @@!  @@@ @@!  !@@ !@@     @@!  @@@ @@!  @@@ !@@      @@!      !@@     @@!  @@@ @@! @@!  @@@</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-cyn)">@!!  !!@  @!@ @!@!@!@!  !@@!@!   !@@!!  @!@@!@!  @!@!@!@! !@!      @!!!:!    !@@!!  @!@!@!@! !!@ @!@@!@!</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-grn)"> !:  !!:  !!  !!:  !!!  !: :!!      !:! !!:      !!:  !!! :!!      !!:          !:! !!:  !!! !!: !!:</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-ylw)">  ::.:  :::    :   : : :::  ::: ::.: :   :        :   : :  :: :: : : :: ::: ::.: :   :   : : :    :</tspan>
+      <tspan x="0" dy="45" fill="url(#grad-purp)">@@@@@@@      @@@ @@@@@@@  @@@@@@@   @@@@@@  @@@@@@@  @@@  @@@  @@@@@@@ @@@@@@@@ @@@@@@@</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-blu)">@@!  @@@     @@! @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ !@@      @@!      @@!  @@@</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-cyn)">@!@  !@!     !!@ @!@@!@!  @!@!!@!  @!@  !@! @!@  !@! @!@  !@! !@!      @!!!:!   @!@!!@!</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-grn)">!!:  !!! .  .!!  !!:      !!: :!!  !!:  !!! !!:  !!! !!:  !!! :!!      !!:      !!: :!!</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-ylw)">:: :  :  ::.::    :        :   : :  : :. :  :: :  :   :.:: :   :: :: : : :: :::  :   : :</tspan>
+      <tspan x="0" dy="45" fill="url(#grad-purp)">@@@@@@@  @@@@@@   @@@@@@  @@@</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-blu)">  @@!   @@!  @@@ @@!  @@@ @@!</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-cyn)">  @!!   @!@  !@! @!@  !@! @!!</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-grn)">  !!:   !!:  !!! !!:  !!! !!:</tspan>
+      <tspan x="0" dy="30" fill="url(#grad-ylw)">   :     : :. :   : :. :  : ::.: :</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(70,580)">
+    <text class="meta" fill="#a29bfe">⚡ By Astro One Deep 🎵</text>
+    <text class="meta" x="0" y="32" fill="#1abc9c">WAX SPACESHIP  DJProducerTools</text>
+    <text class="meta" x="0" y="64">
+      <tspan fill="#f1c40f">Base:</tspan>
+      <tspan dx="8" fill="#ecf0f1">/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base</tspan>
+    </text>
+    <text class="meta" x="0" y="96">
+      <tspan fill="#3498db">Assist:</tspan><tspan dx="8" fill="#2ecc71">ON</tspan>
+      <tspan dx="18" fill="#3498db">AutoTools:</tspan><tspan dx="8" fill="#2ecc71">ON</tspan>
+      <tspan dx="18" fill="#3498db">SafeMode:</tspan><tspan dx="8" fill="#e74c3c">OFF</tspan>
+      <tspan dx="18" fill="#3498db">DJ_SAFE_LOCK:</tspan><tspan dx="8" fill="#e74c3c">INACTIVE</tspan>
+      <tspan dx="18" fill="#3498db">DryRunForce:</tspan><tspan dx="8" fill="#e74c3c">OFF</tspan>
+    </text>
+  </g>
+</svg>

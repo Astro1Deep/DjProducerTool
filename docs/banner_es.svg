@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="520" viewBox="0 0 1400 520">
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="0%">
+      <stop offset="0%" stop-color="#7b3fa3"/>
+      <stop offset="20%" stop-color="#3b5ad1"/>
+      <stop offset="40%" stop-color="#24b3d5"/>
+      <stop offset="60%" stop-color="#35b067"/>
+      <stop offset="80%" stop-color="#d4b23a"/>
+      <stop offset="100%" stop-color="#d44535"/>
+    </linearGradient>
+    <style type="text/css"><![CDATA[
+      .bg { fill: url(#bg); }
+      .title { font-family: "Courier New", "DejaVu Sans Mono", monospace; font-size: 26px; fill: #f7f7f7; font-weight: 700; }
+      .footer { font-family: "Courier New", "DejaVu Sans Mono", monospace; font-size: 22px; fill: #f7f7f7; font-weight: 700; }
+      .subtitle { font-family: "Courier New", "DejaVu Sans Mono", monospace; font-size: 24px; fill: #f7f7f7; font-weight: 600; }
+    ]]></style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1400" height="520" rx="28" ry="28"/>
+
+  <g transform="translate(60,90)">
+    <text class="title" xml:space="preserve">
+      <tspan x="0" dy="0">@@@  @@@  @@@  @@@@@@  @@@  @@@  @@@@@@ @@@@@@@   @@@@@@   @@@@@@@ @@@@@@@@  @@@@@@ @@@  @@@ @@@ @@@@@@@</tspan>
+      <tspan x="0" dy="32">@@!  @@!  @@! @@!  @@@ @@!  !@@ !@@     @@!  @@@ @@!  @@@ !@@      @@!      !@@     @@!  @@@ @@! @@!  @@@</tspan>
+      <tspan x="0" dy="32">@!!  !!@  @!@ @!@!@!@!  !@@!@!   !@@!!  @!@@!@!  @!@!@!@! !@!      @!!!:!    !@@!!  @!@!@!@! !!@ @!@@!@!</tspan>
+      <tspan x="0" dy="32"> !:  !!:  !!  !!:  !!!  !: :!!      !:! !!:      !!:  !!! :!!      !!:          !:! !!:  !!! !!: !!:</tspan>
+      <tspan x="0" dy="32">  ::.:  :::    :   : : :::  ::: ::.: :   :        :   : :  :: :: : : :: ::: ::.: :   :   : : :    :</tspan>
+      <tspan x="0" dy="48">@@@@@@@      @@@ @@@@@@@  @@@@@@@   @@@@@@  @@@@@@@  @@@  @@@  @@@@@@@ @@@@@@@@ @@@@@@@</tspan>
+      <tspan x="0" dy="32">@@!  @@@     @@! @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ !@@      @@!      @@!  @@@</tspan>
+      <tspan x="0" dy="32">@!@  !@!     !!@ @!@@!@!  @!@!!@!  @!@  !@! @!@  !@! @!@  !@! !@!      @!!!:!   @!@!!@!</tspan>
+      <tspan x="0" dy="32">!!:  !!! .  .!!  !!:      !!: :!!  !!:  !!! !!:  !!! !!:  !!! :!!      !!:      !!: :!!</tspan>
+      <tspan x="0" dy="32">:: :  :  ::.::    :        :   : :  : :. :  :: :  :   :.:: :   :: :: : : :: :::  :   : :</tspan>
+      <tspan x="0" dy="48">@@@@@@@  @@@@@@   @@@@@@  @@@</tspan>
+      <tspan x="0" dy="32">  @@!   @@!  @@@ @@!  @@@ @@!</tspan>
+      <tspan x="0" dy="32">  @!!   @!@  !@! @!@  !@! @!!</tspan>
+      <tspan x="0" dy="32">  !!:   !!:  !!! !!:  !!! !!:</tspan>
+      <tspan x="0" dy="32">   :     : :. :   : :. :  : ::.: :</tspan>
+    </text>
+  </g>
+
+  <g transform="translate(60,450)">
+    <text class="subtitle">WAX SPACESHIP — DJProducerTools (ES)</text>
+    <text class="footer" x="0" y="32">⚡ Astro One Deep · github.com/Astro1Deep/DjProducerTool</text>
+  </g>
+</svg>

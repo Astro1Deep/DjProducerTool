@@ -1,13 +1,19 @@
-# Guía rápida DJProducerTools
+# DJProducerTools – Wiki Completa
 
-Scripts Bash para limpiar y organizar bibliotecas de DJ/producer en macOS. Incluyen interfaz en español e inglés con banners diferenciados por gradiente.
+Documentación extensa para usar los scripts Bash que limpian y organizan bibliotecas de DJ/producers en macOS. Incluye interfaces en español e inglés, menús agrupados y cadenas automatizadas.
 
-## Archivos principales
+## 1) Qué es y para quién
+- Limpieza y organización de bibliotecas Serato/Rekordbox/Traktor/Ableton (audio, video, visuales, DMX).
+- Backups seguros y snapshots de integridad.
+- Detección y gestión de duplicados (exactos y planes avanzados).
+- Herramientas Deep/ML opcionales (recomendaciones, organización, similitud).
+
+## 2) Archivos principales
 - `DJProducerTools_MultiScript_ES.sh` – interfaz en español.
 - `DJProducerTools_MultiScript_EN.sh` – interfaz en inglés.
-- Instalador simple: `install_djpt.sh` o un solo comando con `curl` (abajo).
+- `install_djpt.sh` – instalador simple (descarga última versión).
 
-## Instalación rápida
+## 3) Instalación rápida
 ```bash
 cat <<'EOF' > install_djpt.sh
 #!/usr/bin/env bash
@@ -23,109 +29,98 @@ chmod +x install_djpt.sh
 ./install_djpt.sh
 ```
 
-## Uso básico
+## 4) Requisitos
+- macOS + bash (el script se re-ejecuta con bash si abres con doble clic).
+- `python3` recomendado para ffprobe/librosa y ML opcional.
+- Espacio libre para `_DJProducerTools/` (config, logs, planes, quarantine).
+- ML opcional: descarga básica ~300 MB (numpy/pandas); evolutiva ~450 MB (scikit-learn/joblib); TensorFlow opcional +600 MB.
+
+## 5) Uso básico
 ```bash
 ./DJProducerTools_MultiScript_ES.sh   # versión en español
 ./DJProducerTools_MultiScript_EN.sh   # versión en inglés
 ```
-- Si lo abres con doble clic, el script mantiene la ventana abierta al terminar y muestra el mensaje final.
-- El script crea `_DJProducerTools/` dentro del directorio donde se ejecuta para configs, logs y planes.
+- Doble clic: la ventana queda abierta al terminar para mostrar mensajes finales.
+- El script crea `_DJProducerTools/` en el `BASE_PATH` (config/logs/planes/quarantine).
 
-## Requisitos rápidos
-- macOS + bash (reabre con bash si lanzas con doble clic).
-- `python3` recomendado para funciones ML/ffprobe/librosa.
-- Espacio en disco libre para `_DJProducerTools/` (config, logs, planes, quarantine).
-- Opcional ML: descarga básica ~300 MB (numpy/pandas); evolutiva ~450 MB (scikit-learn/joblib); TensorFlow opcional (+600 MB) para auto-tagging/embeddings.
+## 6) Estructura en disco
+- `_DJProducerTools/config/`: `djpt.conf` (BASE_PATH, roots, flags SafeMode/Lock/DryRun), perfiles de exclusiones, historial de rutas.
+- `_DJProducerTools/reports/`: `hash_index.tsv`, `media_corrupt.tsv`, `workspace_scan.tsv`, `serato_video_report.tsv`, `playlists_per_folder.m3u8`, `ml_predictions_*.tsv`, etc.
+- `_DJProducerTools/plans/`: `dupes_plan.tsv/json`, `cleanup_pipeline_*.txt`, `workflow_*.txt`, `integration_engine_*.txt`, `efficiency_*.tsv`, `ml_organization_*.tsv`, `predictive_backup_*.txt`, `cross_platform_*.txt`, `mirror_integrity_*.tsv`, etc.
+- `_DJProducerTools/quarantine/`: archivos movidos por la opción 11 o cadenas que la usen.
+- `_DJProducerTools/logs/`: ejecuciones, instalaciones ML; visor en opción 28.
+- `_DJProducerTools/venv/`: entorno virtual para ML opcional.
 
-## Estructura y rutas
-- `_DJProducerTools/` (creado en `BASE_PATH`):
-  - `config/` (`djpt.conf`, perfiles de exclusiones, historial de rutas).
-  - `reports/` (hash_index, media_corrupt, playlists, cues, etc.).
-  - `plans/` (dupes_plan, cleanup_pipeline, workflow, etc.).
-  - `logs/`, `quarantine/`, `venv/` (ML opcional), `banner.txt` (opcional).
-- `BASE_PATH`: raíz de trabajo; configurable en opción 2. Se autodetecta al inicio y guarda histórico.
-- Safe guards: `SAFE_MODE` y `DJ_SAFE_LOCK` bloquean acciones peligrosas/quarantine; `DRYRUN_FORCE` simula ciertos planes.
+## 7) Seguridad y modos
+- `SAFE_MODE` y `DJ_SAFE_LOCK` bloquean acciones peligrosas (quarantine/movidas). Desactiva ambos si quieres aplicar planes.
+- `DRYRUN_FORCE` fuerza simulación en algunas acciones.
+- El script siempre pide confirmación antes de mover/quarantine.
 
-## Dónde se guarda cada cosa
-- Config y perfiles:
-  - `config/djpt.conf`: BASE_PATH, roots (GENERAL/AUDIO/SERATO/REKORDBOX/ABLETON), flags SafeMode/Lock/DryRun.
-  - `config/exclude_profiles.tsv`: patrones guardados del gestor de exclusiones (opción 57).
-  - `config/base_history.txt`, `general_history.txt`, `audio_history.txt`: histórico para autocompletar rutas.
-- Planes:
-  - `plans/dupes_plan.tsv` + `dupes_plan.json`: generado por opción 10; usado por 11 (quarantine) y cadenas.
-  - `plans/cleanup_pipeline_*.txt`: pipeline automático (52).
-  - `plans/integration_engine_*.txt`, `workflow_*.txt`, `efficiency_*.tsv`, `ml_organization_*.tsv`, `metadata_harmony_*.tsv`, `predictive_backup_*.txt`, `cross_platform_*.txt`, etc.
-  - `plans/ableton_sets_report.tsv` (submenú Ableton), `ableton_locators.csv` (submenú L5), `mirror_integrity_*.tsv` (61).
-- Reportes:
-  - `reports/hash_index.tsv` (9), `snapshot_hash_fast.tsv` (27), `media_corrupt.tsv` (13), `workspace_scan.tsv` (6), `playlists_per_folder.m3u8` (14), `dj_cues.tsv` (L), `ml_predictions_*.tsv` (41/62), `adaptive_recommendations_*.txt` (51), `state_health.txt` (59).
-  - Vídeo/visuales: `serato_video_report.tsv` (32), `serato_video_prep.tsv` (33), `visuals_inventory.tsv` (V2), `visuals_ffprobe.tsv` (V6).
-- Quarantine:
-  - `_DJProducerTools/quarantine/` recibe archivos movidos por opción 11 (y cadenas que la usen). Quarantine Manager (12) lista/restaura/borra.
-- Logs:
-  - `_DJProducerTools/logs/` guarda ejecuciones e instalaciones ML; visor de logs en opción 28.
-- Instalador/CLI:
-  - `install_djpt.sh` descarga siempre la última versión de los scripts desde GitHub.
+## 8) Menús y ventajas (vista agrupada)
+- **Core (1-12)**: estado, cambio de base, resumen, top dirs/files, backups, hash_index, plan exacto de duplicados, quarantine.  
+  *Ventaja:* base segura para cualquier workflow (hashes + backups antes de tocar nada).
+- **Media/organización (13-24)**: ffprobe corruptos, playlists por carpeta, relink helper, mirrors por género, rescan inteligente, diagnóstico de herramientas, permisos/flags, instalar CLI.  
+  *Ventaja:* deja listas las rutas y playlists para DJs y VJ.
+- **Procesos/limpieza (25-39)**: snapshot rápido, visor de logs, normalizar nombres, samples por tipo, limpieza web en playlists/tags, Serato Video (reporte/plan).  
+  *Ventaja:* limpiar tags/nombres y preparar librerías sin tocar audio.
+- **Deep/ML (40-52, 62-65)**: análisis, predictor, optimizador, dedup integrado, organización ML, armonizador de metadata, backup predictivo, sync multiplataforma, análisis avanzado, TensorFlow opcional.  
+  *Ventaja:* decisiones guiadas y planes automáticos; ML opcional y local.
+- **Extras (53-67)**: reset estado, perfiles de rutas, Ableton tools, import cues, gestor de exclusiones, comparar hash_index, health-check, LUFS, auto-cues.  
+  *Ventaja:* portabilidad de configuración y diagnósticos rápidos.
+- **Automatizaciones (A/68)**: 21 cadenas predefinidas para backup/snapshot, dedup, limpieza, show prep, integridad, eficiencia, ML, sync, visuales, seguridad Serato, dedup multi-disco.  
+  *Ventaja:* ejecutar flujos completos con un número/letra.
+- **Submenús L/D/V/H**: librerías y cues, duplicados avanzados, visuales/OSC/DMX, ayuda detallada.
 
-## Qué hace (vista de menús)
-- **Core (1-12)**: estado, cambio de base, resumen, top dirs/files, backup Serato/DJ, hash_index, duplicados exactos, quarantine.
-- **Media/organización (13-24)**: ffprobe corruptos, playlists, relink helper, mirrors por género, rescan inteligente, diag herramientas, fix permisos/flags, instalar comando.
-- **Procesos/limpieza (25-39)**: snapshot integridad, visor de logs, toggle DryRun, planes de tags, Serato Video (reporte/plan), normalizar nombres, samples por tipo, limpieza web/whitelist.
-- **Deep/ML (40-52, 62-65)**: análisis/predictor/optimizador, flujos inteligentes, dedup integrado, organización ML, armonizador metadata, backup predictivo, sync multiplataforma, análisis avanzado, motor integración, recomendaciones, pipeline automático. Opciones 62-65 gestionan ML evolutivo/TensorFlow/Lab.
-- **Extras (53-67)**: reset estado, perfiles de rutas, Ableton Tools, import cues, gestor de exclusiones, comparar hash_index, health-check de estado, export/import config, mirror check, LUFS, auto-cues.
-- **Automatizaciones A/68**: submenú con cadenas predefinidas (ver abajo). Acceso con `A` o `a`, o con opción `68`.
-- **Submenús L/D/V**: librerías DJ & cues, duplicados avanzados, visuales/OSC/DMX (incluye inventario fixtures y plan transcode avanzado).
-- **Help H**: resumen detallado de opciones y notas técnicas.
-
-## Cadenas automatizadas (A/68)
-Flujos que combinan acciones existentes (respetan SafeMode/DJ_SAFE_LOCK):
-1) Backup seguro + snapshot (8 -> 27)
-2) Dedup exacto + quarantine (10 -> 11)
-3) Limpieza metadatos + nombres (39 -> 34)
-4) Salud media: rescan + playlists + relink (18 -> 14 -> 15)
-5) Prep de show: backup/snapshot/dup/playlist (8 -> 27 -> 10 -> 11 -> 14 -> 8)
-6) Integridad + corruptos (13 -> 18)
-7) Plan de eficiencia (42 -> 44 -> 43)
-8) ML organización básica (45 -> 46)
-9) Backup predictivo (47 -> 8 -> 27)
-10) Sync multiplataforma (48 -> 39 -> 8 -> 8)
-11) Diagnóstico rápido (1 -> 3 -> 4 -> 5)
-12) Salud Serato (7 -> 59)
-13) Hash + mirror check (9 -> 61)
-14) Audio prep (31 -> 66 -> 67)
-15) Auditoría de integridad (6 -> 9 -> 27 -> 61)
-16) Limpieza + backup seguro (39 -> 34 -> 10 -> 11 -> 8 -> 27)
-17) Prep sync librerías (18 -> 14 -> 48 -> 8 -> 27)
-18) Salud video/visuales (V2 -> V6 -> V8 -> V9 -> 8)
-19) Organización audio avanzada (31 -> 30 -> 35 -> 45 -> 46)
-20) Seguridad Serato reforzada (7 -> 8 -> 59 -> 12 -> 47)
+## 9) Cadenas automatizadas (resumen)
+1) Backup seguro + snapshot (8 -> 27)  
+2) Dedup exacto + quarantine (10 -> 11)  
+3) Limpieza metadatos + nombres (39 -> 34)  
+4) Salud media: rescan + playlists + relink (18 -> 14 -> 15)  
+5) Prep show: backup/snapshot/dup/playlist (8 -> 27 -> 10 -> 11 -> 14 -> 8)  
+6) Integridad + corruptos (13 -> 18)  
+7) Plan eficiencia (42 -> 44 -> 43)  
+8) ML organización básica (45 -> 46)  
+9) Backup predictivo (47 -> 8 -> 27)  
+10) Sync multiplataforma (48 -> 39 -> 8 -> 8)  
+11) Diagnóstico rápido (1 -> 3 -> 4 -> 5)  
+12) Salud Serato (7 -> 59)  
+13) Hash + mirror check (9 -> 61)  
+14) Audio prep (31 -> 66 -> 67)  
+15) Auditoría integridad (6 -> 9 -> 27 -> 61)  
+16) Limpieza + backup seguro (39 -> 34 -> 10 -> 11 -> 8 -> 27)  
+17) Prep sync librerías (18 -> 14 -> 48 -> 8 -> 27)  
+18) Salud visuales (V2 -> V6 -> V8 -> V9 -> 8)  
+19) Organización audio avanzada (31 -> 30 -> 35 -> 45 -> 46)  
+20) Seguridad Serato reforzada (7 -> 8 -> 59 -> 12 -> 47)  
 21) Dedup multi-disco + mirror (9 -> 10 -> 44 -> 11 -> 61)
 
-## Salidas importantes
-- Reportes: `_DJProducerTools/reports/` (ej: `hash_index.tsv`, `media_corrupt.tsv`, `dupes_plan.tsv`, `playlists_per_folder.m3u8`, `workspace_scan.tsv`, `ml_predictions_*.tsv`, etc.).
-- Planes: `_DJProducerTools/plans/` (ej: `cleanup_pipeline_*.txt`, `workflow_*.txt`, `integration_engine_*.txt`, `efficiency_*.tsv`, `ml_organization_*.tsv`).
-- Quarantine: `_DJProducerTools/quarantine/` (aplicado por opción 11 o flujos que la usen).
-- Logs: `_DJProducerTools/logs/` (errores, ejecuciones, installs ML).
+## 10) Salidas y ubicación
+- Planes: `_DJProducerTools/plans/` (dupes, limpieza, workflows, integraciones, sync, eficiencia).
+- Reportes: `_DJProducerTools/reports/` (hashes, corruptos, catálogos, playlists, cues, ML).
+- Quarantine: `_DJProducerTools/quarantine/` (aplicado por 11 o cadenas que la usen).
+- Logs: `_DJProducerTools/logs/` (visor en opción 28).
 
-## Banners y color
-- Ambos scripts usan el mismo banner ASCII; el gradiente es distinto por idioma:
-  - EN: degradado frío→cálido (`GRN, CYN, BLU, PURP, RED, YLW`).
-  - ES: degradado cálido→frío (`PURP, RED, YLW, GRN, CYN, BLU`).
+## 11) Notas de ML/TensorFlow
+- ML básico/evolutivo es opcional y local. Se pide confirmación antes de instalar paquetes (~300–450 MB).
+- TensorFlow (64/65) es opcional (+600 MB) para auto-tagging/embeddings/similitud avanzada.
+- Puedes desactivar ML con la opción 63 (Toggle ML ON/OFF) para evitar usar el venv.
 
-## Licencia y atribución
-- Licencia: DJProducerTools License (Attribution + Revenue Share). Crédito obligatorio.
-- Uso comercial o de derivados requiere notificar y compartir el 20% de ingresos brutos con el autor (ver `LICENSE`).
+## 12) Buenas prácticas
+- Antes de mover/quarantine: generar `hash_index` (9) y `dupes_plan` (10); desactiva SafeMode/Lock si quieres aplicar (11).
+- Haz snapshot (27) y backup DJ (8) antes de grandes cambios.
+- Usa el gestor de exclusiones (57) para evitar cachés/proyectos pesados en scans.
+- Para dedup multi-disco, usa 61 (mirror check) con hash_index de origen/destino.
 
-## Recursos visuales
-- Ejemplos de banner:
-  - Español: `docs/banner_es.png`
-  - Inglés: `docs/banner_en.png`
+## 13) Recursos visuales
+- Capturas menú completo: `docs/menu_es_full.svg` / `.png` y `docs/menu_en_full.svg` / `.png`.
+- Banners de ejemplo: `docs/banner_es.png`, `docs/banner_en.png`, `docs/banner_es_terminal.svg`.
+- Añade en README (ya enlazado) o en issues/wikis de GitHub.
 
-## Actualización
-```
-git pull
-./install_djpt.sh   # vuelve a descargar la última versión
-```
+## 14) Licencia
+- DJProducerTools License (Attribution + Revenue Share). Crédito obligatorio.
+- Uso comercial o de derivados: notificar y compartir 20% de ingresos brutos (ver `LICENSE`).
 
-## Soporte
-- Autor: Astro One Deep (onedeep1@gmail.com)
-- Issues/sugerencias: abre un issue en GitHub o envía correo.
+## 15) Soporte
+- Autor: Astro One Deep — onedeep1@gmail.com
+- Issues/sugerencias: abrir issue en GitHub o enviar correo.
+

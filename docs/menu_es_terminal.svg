@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1400" viewBox="0 0 1800 1400">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .bg { fill: #0b0c10; }
+      .mono { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 18px; font-weight: 700; fill: #e8f6f3; }
+      .mono-soft { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 18px; font-weight: 700; fill: #b8c7d2; }
+      .purple { fill: #9b59b6; }
+      .blue { fill: #3498db; }
+      .cyan { fill: #1abc9c; }
+      .green { fill: #2ecc71; }
+      .yellow { fill: #f1c40f; }
+      .red { fill: #e74c3c; }
+    ]]></style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1800" height="1400" rx="18" ry="18"/>
+
+  <!-- Banner -->
+  <g transform="translate(70,80)">
+    <text class="mono purple" xml:space="preserve">
+      <tspan x="0" dy="0">@@@  @@@  @@@  @@@@@@  @@@  @@@  @@@@@@ @@@@@@@   @@@@@@   @@@@@@@ @@@@@@@@  @@@@@@ @@@  @@@ @@@ @@@@@@@</tspan>
+      <tspan x="0" dy="24" class="blue">@@!  @@!  @@! @@!  @@@ @@!  !@@ !@@     @@!  @@@ @@!  @@@ !@@      @@!      !@@     @@!  @@@ @@! @@!  @@@</tspan>
+      <tspan x="0" dy="24" class="cyan">@!!  !!@  @!@ @!@!@!@!  !@@!@!   !@@!!  @!@@!@!  @!@!@!@! !@!      @!!!:!    !@@!!  @!@!@!@! !!@ @!@@!@!</tspan>
+      <tspan x="0" dy="24" class="green"> !:  !!:  !!  !!:  !!!  !: :!!      !:! !!:      !!:  !!! :!!      !!:          !:! !!:  !!! !!: !!:</tspan>
+      <tspan x="0" dy="24" class="yellow">  ::.:  :::    :   : : :::  ::: ::.: :   :        :   : :  :: :: : : :: ::: ::.: :   :   : : :    :</tspan>
+      <tspan x="0" dy="36" class="purple">@@@@@@@      @@@ @@@@@@@  @@@@@@@   @@@@@@  @@@@@@@  @@@  @@@  @@@@@@@ @@@@@@@@ @@@@@@@</tspan>
+      <tspan x="0" dy="24" class="blue">@@!  @@@     @@! @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ !@@      @@!      @@!  @@@</tspan>
+      <tspan x="0" dy="24" class="cyan">@!@  !@!     !!@ @!@@!@!  @!@!!@!  @!@  !@! @!@  !@! @!@  !@! !@!      @!!!:!   @!@!!@!</tspan>
+      <tspan x="0" dy="24" class="green">!!:  !!! .  .!!  !!:      !!: :!!  !!:  !!! !!:  !!! !!:  !!! :!!      !!:      !!: :!!</tspan>
+      <tspan x="0" dy="24" class="yellow">:: :  :  ::.::    :        :   : :  : :. :  :: :  :   :.:: :   :: :: : : :: :::  :   : :</tspan>
+      <tspan x="0" dy="36" class="purple">@@@@@@@  @@@@@@   @@@@@@  @@@</tspan>
+      <tspan x="0" dy="24" class="blue">  @@!   @@!  @@@ @@!  @@@ @@!</tspan>
+      <tspan x="0" dy="24" class="cyan">  @!!   @!@  !@! @!@  !@! @!!</tspan>
+      <tspan x="0" dy="24" class="green">  !!:   !!:  !!! !!:  !!! !!:</tspan>
+      <tspan x="0" dy="24" class="yellow">   :     : :. :   : :. :  : ::.: :</tspan>
+    </text>
+  </g>
+
+  <!-- Estado -->
+  <g transform="translate(70,520)">
+    <text class="mono cyan">WAX SPACESHIP  DJProducerTools</text>
+    <text class="mono"><tspan class="yellow">Base:</tspan><tspan dx="10">/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base</tspan></text>
+    <text class="mono" y="30">
+      <tspan class="blue">Assist:</tspan><tspan class="green" dx="8">ON</tspan>
+      <tspan class="blue" dx="18">AutoTools:</tspan><tspan class="green" dx="8">ON</tspan>
+      <tspan class="blue" dx="18">SafeMode:</tspan><tspan class="red" dx="8">OFF</tspan>
+      <tspan class="blue" dx="18">DJ_SAFE_LOCK:</tspan><tspan class="red" dx="8">INACTIVE</tspan>
+      <tspan class="blue" dx="18">DryRunForce:</tspan><tspan class="red" dx="8">OFF</tspan>
+    </text>
+  </g>
+
+  <!-- Menú completo -->
+  <g transform="translate(70,600)">
+    <text class="mono green">Menú (vista agrupada)</text>
+    <text class="mono cyan" y="28">⚙️  Core (1-12):</text>
+    <text class="mono" y="52">  1) Estado / rutas / locks</text>
+    <text class="mono" y="76">  2) Cambiar Base Path</text>
+    <text class="mono" y="100">  3) Resumen del volumen / últimos reportes</text>
+    <text class="mono" y="124">  4) Top carpetas por tamaño</text>
+    <text class="mono" y="148">  5) Top archivos grandes</text>
+    <text class="mono" y="172">  6) Scan workspace (catálogo previo)</text>
+    <text class="mono" y="196">  7) Backup Serato (_Serato_ / _Serato_Backup)</text>
+    <text class="mono" y="220">  8) Backup DJ (metadatos Serato/Traktor/Rekordbox/Ableton)</text>
+    <text class="mono" y="244">  9) Índice SHA-256 (generar/reusar)</text>
+    <text class="mono" y="268"> 10) Reporte duplicados EXACTO (plan JSON/TSV)</text>
+    <text class="mono" y="292"> 11) Quarantine duplicados (desde LAST_PLAN)</text>
+    <text class="mono" y="316"> 12) Quarantine Manager (listar/purgar/restaurar)</text>
+
+    <text class="mono cyan" y="352">🎛️  Media / organización (13-24):</text>
+    <text class="mono" y="376"> 13) Detectar media corrupta (ffprobe) -> TSV</text>
+    <text class="mono" y="400"> 14) Crear playlists .m3u8 por carpeta</text>
+    <text class="mono" y="424"> 15) Doctor: Relink Helper (TSV no destructivo)</text>
+    <text class="mono" y="448"> 16) Mirror por género (hardlink/copy/move) (plan seguro)</text>
+    <text class="mono" y="472"> 17) Buscar librerías DJ</text>
+    <text class="mono" y="496"> 18) Rescan inteligente (match + ULTRA)</text>
+    <text class="mono" y="520"> 19) Tools: diagnóstico/instalación recomendada</text>
+    <text class="mono" y="544"> 20) Fix ownership/flags (plan + ejecución opcional)</text>
+    <text class="mono" y="568"> 21) Instalar comando universal: djproducertool</text>
+    <text class="mono" y="592"> 22) Desinstalar comando: djproducertool</text>
+    <text class="mono" y="616"> 23) Toggle SafeMode (ON/OFF)</text>
+    <text class="mono" y="640"> 24) Toggle DJ_SAFE_LOCK (ACTIVE/INACTIVE)</text>
+
+    <text class="mono cyan" y="676">🧹 Procesos / limpieza (25-39):</text>
+    <text class="mono" y="700"> 25) Ayuda rápida (guía de procesos)</text>
+    <text class="mono" y="724"> 26) Estado: Export/Import (bundle)</text>
+    <text class="mono" y="748"> 27) Snapshot integridad (hash rápido) con progreso</text>
+    <text class="mono" y="772"> 28) Visor de logs (selector)</text>
+    <text class="mono" y="796"> 29) Toggle DryRunForce (ON/OFF)</text>
+    <text class="mono" y="820"> 30) Organizar audio por TAGS (genre) -> plan TSV</text>
+    <text class="mono" y="844"> 31) Reporte tags audio -> TSV</text>
+    <text class="mono" y="868"> 32) Serato Video: REPORT (sin transcode)</text>
+    <text class="mono" y="892"> 33) Serato Video: PREP (solo plan de transcode)</text>
+    <text class="mono" y="916"> 34) Normalizar nombres (plan TSV)</text>
+    <text class="mono" y="940"> 35) Organizar samples por TIPO (plan TSV)</text>
+    <text class="mono" y="964"> 36) Limpiar WEB (submenú)</text>
+    <text class="mono" y="988"> 37) WEB: Whitelist Manager (dominios permitidos)</text>
+    <text class="mono" y="1012"> 38) Limpiar WEB en Playlists (.m3u/.m3u8)</text>
+    <text class="mono" y="1036"> 39) Limpiar WEB en TAGS (mutagen) (plan)</text>
+
+    <text class="mono cyan" y="1076">🧠 Deep/ML (40-52):</text>
+    <text class="mono-soft" y="1100">Se muestra parcial; ver guía completa en el script.</text>
+
+    <text class="mono green" y="1132">🔮 A) Automatizaciones (cadenas)</text>
+    <text class="mono green" y="1156">📚 L) Librerías DJ & Cues   ♻️  D) Duplicados generales   🎥 V) Visuales / DAW / OSC   ℹ️  H) Help & INFO</text>
+  </g>
+</svg>

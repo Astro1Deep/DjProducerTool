@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="2000" viewBox="0 0 1900 2000">
+  <defs>
+    <style type="text/css"><![CDATA[
+      .bg { fill: #0b0c10; }
+      .mono { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 16px; font-weight: 700; fill: #e8f6f3; }
+      .mono-soft { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 16px; font-weight: 700; fill: #b8c7d2; }
+      .purple { fill: #9b59b6; }
+      .blue { fill: #3498db; }
+      .cyan { fill: #1abc9c; }
+      .green { fill: #2ecc71; }
+      .yellow { fill: #f1c40f; }
+      .red { fill: #e74c3c; }
+    ]]></style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1900" height="2000" rx="18" ry="18"/>
+
+  <!-- Banner -->
+  <g transform="translate(40,70)">
+    <text class="mono purple" xml:space="preserve">
+      <tspan x="0" dy="0">@@@  @@@  @@@  @@@@@@  @@@  @@@  @@@@@@ @@@@@@@   @@@@@@   @@@@@@@ @@@@@@@@  @@@@@@ @@@  @@@ @@@ @@@@@@@</tspan>
+      <tspan x="0" dy="22" class="blue">@@!  @@!  @@! @@!  @@@ @@!  !@@ !@@     @@!  @@@ @@!  @@@ !@@      @@!      !@@     @@!  @@@ @@! @@!  @@@</tspan>
+      <tspan x="0" dy="22" class="cyan">@!!  !!@  @!@ @!@!@!@!  !@@!@!   !@@!!  @!@@!@!  @!@!@!@! !@!      @!!!:!    !@@!!  @!@!@!@! !!@ @!@@!@!</tspan>
+      <tspan x="0" dy="22" class="green"> !:  !!:  !!  !!:  !!!  !: :!!      !:! !!:      !!:  !!! :!!      !!:          !:! !!:  !!! !!: !!:</tspan>
+      <tspan x="0" dy="22" class="yellow">  ::.:  :::    :   : : :::  ::: ::.: :   :        :   : :  :: :: : : :: ::: ::.: :   :   : : :    :</tspan>
+      <tspan x="0" dy="32" class="purple">@@@@@@@      @@@ @@@@@@@  @@@@@@@   @@@@@@  @@@@@@@  @@@  @@@  @@@@@@@ @@@@@@@@ @@@@@@@</tspan>
+      <tspan x="0" dy="22" class="blue">@@!  @@@     @@! @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ @@!  @@@ !@@      @@!      @@!  @@@</tspan>
+      <tspan x="0" dy="22" class="cyan">@!@  !@!     !!@ @!@@!@!  @!@!!@!  @!@  !@! @!@  !@! @!@  !@! !@!      @!!!:!   @!@!!@!</tspan>
+      <tspan x="0" dy="22" class="green">!!:  !!! .  .!!  !!:      !!: :!!  !!:  !!! !!:  !!! !!:  !!! :!!      !!:      !!: :!!</tspan>
+      <tspan x="0" dy="22" class="yellow">:: :  :  ::.::    :        :   : :  : :. :  :: :  :   :.:: :   :: :: : : :: :::  :   : :</tspan>
+      <tspan x="0" dy="32" class="purple">@@@@@@@  @@@@@@   @@@@@@  @@@</tspan>
+      <tspan x="0" dy="22" class="blue">  @@!   @@!  @@@ @@!  @@@ @@!</tspan>
+      <tspan x="0" dy="22" class="cyan">  @!!   @!@  !@! @!@  !@! @!!</tspan>
+      <tspan x="0" dy="22" class="green">  !!:   !!:  !!! !!:  !!! !!:</tspan>
+      <tspan x="0" dy="22" class="yellow">   :     : :. :   : :. :  : ::.: :</tspan>
+    </text>
+  </g>
+
+  <!-- Estado -->
+  <g transform="translate(40,470)">
+    <text class="mono cyan">WAX SPACESHIP  DJProducerTools</text>
+    <text class="mono"><tspan class="yellow">Base:</tspan><tspan dx="10">/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base</tspan></text>
+    <text class="mono" y="28">
+      <tspan class="blue">Assist:</tspan><tspan class="green" dx="8">ON</tspan>
+      <tspan class="blue" dx="18">AutoTools:</tspan><tspan class="green" dx="8">ON</tspan>
+      <tspan class="blue" dx="18">SafeMode:</tspan><tspan class="red" dx="8">OFF</tspan>
+      <tspan class="blue" dx="18">DJ_SAFE_LOCK:</tspan><tspan class="red" dx="8">INACTIVE</tspan>
+      <tspan class="blue" dx="18">DryRunForce:</tspan><tspan class="red" dx="8">OFF</tspan>
+    </text>
+  </g>
+
+  <!-- Menú completo -->
+  <g transform="translate(40,540)">
+    <text class="mono green">Menú (vista agrupada)</text>
+    <text class="mono cyan" y="24">⚙️  Core (1-12):</text>
+    <text class="mono" y="44">  1) Estado / rutas / locks</text>
+    <text class="mono" y="64">  2) Cambiar Base Path</text>
+    <text class="mono" y="84">  3) Resumen del volumen / últimos reportes</text>
+    <text class="mono" y="104">  4) Top carpetas por tamaño</text>
+    <text class="mono" y="124">  5) Top archivos grandes</text>
+    <text class="mono" y="144">  6) Scan workspace (catálogo previo)</text>
+    <text class="mono" y="164">  7) Backup Serato (_Serato_ / _Serato_Backup)</text>
+    <text class="mono" y="184">  8) Backup DJ (metadatos Serato/Traktor/Rekordbox/Ableton)</text>
+    <text class="mono" y="204">  9) Índice SHA-256 (generar/reusar)</text>
+    <text class="mono" y="224"> 10) Reporte duplicados EXACTO (plan JSON/TSV)</text>
+    <text class="mono" y="244"> 11) Quarantine duplicados (desde LAST_PLAN)</text>
+    <text class="mono" y="264"> 12) Quarantine Manager (listar/purgar/restaurar)</text>
+
+    <text class="mono cyan" y="296">🎛️  Media / organización (13-24):</text>
+    <text class="mono" y="316"> 13) Detectar media corrupta (ffprobe) -> TSV</text>
+    <text class="mono" y="336"> 14) Crear playlists .m3u8 por carpeta</text>
+    <text class="mono" y="356"> 15) Doctor: Relink Helper (TSV no destructivo)</text>
+    <text class="mono" y="376"> 16) Mirror por género (hardlink/copy/move) (plan seguro)</text>
+    <text class="mono" y="396"> 17) Buscar librerías DJ</text>
+    <text class="mono" y="416"> 18) Rescan inteligente (match + ULTRA)</text>
+    <text class="mono" y="436"> 19) Tools: diagnóstico/instalación recomendada</text>
+    <text class="mono" y="456"> 20) Fix ownership/flags (plan + ejecución opcional)</text>
+    <text class="mono" y="476"> 21) Instalar comando universal: djproducertool</text>
+    <text class="mono" y="496"> 22) Desinstalar comando: djproducertool</text>
+    <text class="mono" y="516"> 23) Toggle SafeMode (ON/OFF)</text>
+    <text class="mono" y="536"> 24) Toggle DJ_SAFE_LOCK (ACTIVE/INACTIVE)</text>
+
+    <text class="mono cyan" y="568">🧹 Procesos / limpieza (25-39):</text>
+    <text class="mono" y="588"> 25) Ayuda rápida (guía de procesos)</text>
+    <text class="mono" y="608"> 26) Estado: Export/Import (bundle)</text>
+    <text class="mono" y="628"> 27) Snapshot integridad (hash rápido) con progreso</text>
+    <text class="mono" y="648"> 28) Visor de logs (selector)</text>
+    <text class="mono" y="668"> 29) Toggle DryRunForce (ON/OFF)</text>
+    <text class="mono" y="688"> 30) Organizar audio por TAGS (genre) -> plan TSV</text>
+    <text class="mono" y="708"> 31) Reporte tags audio -> TSV</text>
+    <text class="mono" y="728"> 32) Serato Video: REPORT (sin transcode)</text>
+    <text class="mono" y="748"> 33) Serato Video: PREP (solo plan de transcode)</text>
+    <text class="mono" y="768"> 34) Normalizar nombres (plan TSV)</text>
+    <text class="mono" y="788"> 35) Organizar samples por TIPO (plan TSV)</text>
+    <text class="mono" y="808"> 36) Limpiar WEB (submenú)</text>
+    <text class="mono" y="828"> 37) WEB: Whitelist Manager (dominios permitidos)</text>
+    <text class="mono" y="848"> 38) Limpiar WEB en Playlists (.m3u/.m3u8)</text>
+    <text class="mono" y="868"> 39) Limpiar WEB en TAGS (mutagen) (plan)</text>
+
+    <text class="mono cyan" y="900">🧠 Deep/ML (40-52, 62-65):</text>
+    <text class="mono" y="920"> 40) Deep Thinking: Smart Analysis (JSON)</text>
+    <text class="mono" y="940"> 41) Machine Learning: Predictor de problemas</text>
+    <text class="mono" y="960"> 42) Deep Thinking: Optimizador de eficiencia</text>
+    <text class="mono" y="980"> 43) Deep Thinking: Flujo de trabajo inteligente</text>
+    <text class="mono" y="1000"> 44) Deep Thinking: Deduplicación integrada</text>
+    <text class="mono" y="1020"> 45) ML: Organización automática (plan)</text>
+    <text class="mono" y="1040"> 46) Deep Thinking: Armonizador de metadatos (plan)</text>
+    <text class="mono" y="1060"> 47) ML: Backup predictivo</text>
+    <text class="mono" y="1080"> 48) Deep Thinking: Sincronización multi-plataforma</text>
+    <text class="mono" y="1100"> 49) Deep Thinking: Análisis avanzado</text>
+    <text class="mono" y="1120"> 50) Deep Thinking: Motor de integración</text>
+    <text class="mono" y="1140"> 51) ML: Recomendaciones adaptativas</text>
+    <text class="mono" y="1160"> 52) Deep Thinking: Pipeline de limpieza automatizado</text>
+    <text class="mono" y="1180"> 62) ML Evolutivo (entrenar/predicción local)</text>
+    <text class="mono" y="1200"> 63) Toggle ML ON/OFF (evita activar venv ML)</text>
+    <text class="mono" y="1220"> 64) TensorFlow opcional (instalar/ideas avanzadas)</text>
+    <text class="mono" y="1240"> 65) TensorFlow Lab (auto-tagging/similitud/etc.)</text>
+
+    <text class="mono cyan" y="1272">🧰 Extras / utilidades (53-67):</text>
+    <text class="mono" y="1292"> 53) Reset estado / limpiar extras</text>
+    <text class="mono" y="1312"> 54) Gestor de perfiles (guardar/cargar rutas)</text>
+    <text class="mono" y="1332"> 55) Ableton Tools (analítica básica)</text>
+    <text class="mono" y="1352"> 56) Importers: Rekordbox/Traktor cues</text>
+    <text class="mono" y="1372"> 57) Gestor de exclusiones (perfiles)</text>
+    <text class="mono" y="1392"> 58) Comparar hash_index entre discos (sin rehash)</text>
+    <text class="mono" y="1412"> 59) Health-check de estado (_DJProducerTools)</text>
+    <text class="mono" y="1432"> 60) Export/Import solo config/perfiles</text>
+    <text class="mono" y="1452"> 61) Mirror check entre hash_index (faltantes/corrupción)</text>
+    <text class="mono" y="1472"> 66) Plan LUFS (análisis, sin normalizar)</text>
+    <text class="mono" y="1492"> 67) Auto-cues por onsets (librosa)</text>
+    <text class="mono" y="1512"> 68) Cadenas automatizadas (21 flujos)</text>
+
+    <text class="mono green" y="1544">🔮 A) Automatizaciones (cadenas)</text>
+    <text class="mono green" y="1564">📚 L) Librerías DJ &amp; Cues   ♻️  D) Duplicados generales   🎥 V) Visuales / DAW / OSC   ℹ️  H) Help &amp; INFO   0) Salir</text>
+  </g>
+</svg>

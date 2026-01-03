@@ -4,6 +4,9 @@ Toolkit para limpiar y organizar bibliotecas de DJ/producer en macOS. Incluye do
 
 - `DJProducerTools_MultiScript_ES.sh` – interfaz en español.
 - `DJProducerTools_MultiScript_EN.sh` – interfaz en inglés.
+- Capturas (banner + menú completo):  
+  - Español: ![Menú ES](docs/menu_es_full.svg)  
+  - Inglés: ![Menu EN](docs/menu_en_full.svg)
 
 ## Requisitos
 - macOS con bash (se re-ejecuta solo con bash si abres con doble clic).
