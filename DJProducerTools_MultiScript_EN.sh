@@ -693,12 +693,13 @@ EOF
     dryrun_str="${C_RED}OFF${C_RESET}"
   fi
 
-  printf "%sAssist:%s %sON%s | %sAutoTools:%s %sON%s | %sSafeMode:%s %s | %sDJ_SAFE_LOCK:%s %s | %sDryRunForce:%s %s\n" \
+  printf "%sAssist:%s %sON%s | %sAutoTools:%s %sON%s | %sSafeMode:%s %s | %sDJ_SAFE_LOCK:%s %s | %sDryRunForce:%s %s | %sAI:%s %s\n" \
     "$C_BLU" "$C_RESET" "$C_GRN" "$C_RESET" \
     "$C_BLU" "$C_RESET" "$C_GRN" "$C_RESET" \
     "$C_BLU" "$C_RESET" "$safemode_str" \
     "$C_BLU" "$C_RESET" "$lock_str" \
-    "$C_BLU" "$C_RESET" "$dryrun_str"
+    "$C_BLU" "$C_RESET" "$dryrun_str" \
+    "$C_BLU" "$C_RESET" "${ML_PROFILE:-LIGHT}"
 
   printf "────────────────────────────────────────────────────────────\n"
 }
@@ -805,7 +806,7 @@ print_menu() {
   printf "  %s63)%s Toggle ML ON/OFF (avoid ML venv)\n" "$C_GRN" "$C_RESET"
   printf "  %s64)%s Optional TensorFlow (install/advanced ideas)\n" "$C_GRN" "$C_RESET"
   printf "  %s65)%s TensorFlow Lab (auto-tagging/similarity/etc.)\n" "$C_GRN" "$C_RESET"
-  printf "  %s70)%s Local AI profile (LIGHT/TF)\n" "$C_GRN" "$C_RESET"
+  printf "  %s70)%s Local AI: TensorFlowADV+Light-IA\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
   printf "%s🧰 Extras / utilities (53-67):%s\n" "$C_CYN" "$C_RESET"
