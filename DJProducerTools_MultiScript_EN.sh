@@ -684,7 +684,7 @@ status_line() {
   local spin_color="${SPIN_COLORS[$SPIN_COLOR_IDX]}"
   SPIN_COLOR_IDX=$(((SPIN_COLOR_IDX + 1) % ${#SPIN_COLORS[@]}))
   local frame_colored="${spin_color}${frame}${C_RESET}"
-  printf "\r%s👻%s %s | %3s%% | %s | %s" "$ghost_color" "$C_RESET" "$task" "$percent" "$frame_colored" "$current"
+  printf "\r%s👻%s | %3s%% | %s | %s | %s" "$ghost_color" "$C_RESET" "$percent" "$frame_colored" "$task" "$current"
 }
 
 finish_status_line() {
