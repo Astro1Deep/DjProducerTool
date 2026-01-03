@@ -1,2 +1,35 @@
+# Archivos de sistema de macOS
 .DS_Store
-_DJProducerTools/
+.AppleDouble
+.LSOverride
+
+# Artefactos de compilación y paquetes
+# Estos son generados por los scripts y no deben estar en el repositorio.
+build/
+dist/
+*.pkg
+*.app
+build_pkg_staging/
+
+# Entorno virtual y caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+
+# Configuraciones específicas de VSCode (personales del usuario)
+.vscode/*
+!.vscode/extensions.json
+
+# Directorios de herramientas específicas del usuario
+.qodo/
+.zencoder/
+.zenflow/
+
+# Otros archivos a ignorar
+*.vsix
+*.code-workspace
+*.log
+*.tmp

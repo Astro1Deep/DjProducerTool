@@ -1,29 +1,67 @@
-# DJProducerTools
+# 🎛️ DJProducerTools
 
-Toolkit para limpiar, auditar y organizar librerías DJ/producer en macOS. Incluye dos scripts:
+**Toolkit avanzado para auditoría, limpieza, organización y gestión de librerías musicales para DJs y Productores en macOS.**
 
-- `DJProducerTools_MultiScript_ES.sh` (español) / `DJProducerTools_MultiScript_EN.sh` (inglés).
-- Capturas del menú completo: ![Menú ES](docs/menu_es_full.svg) · ![Menu EN](docs/menu_en_full.svg).
+!Bash
+!Python
+!Platform
+!License
 
-## Qué hace
-- Backups seguros de Serato/Traktor/Rekordbox/Ableton y snapshots rápidos de integridad.
-- Deduplicados exactos por hash con quarantine segura (plan + espacio calculado, siempre deja un KEEP).
-- Limpieza de metadatos/nombres, playlists por carpeta, relink doctor, health-check de estado.
-- Deep/ML opcional (análisis inteligente, eficiencia, similitud audio, TF opcional) y auto-pilot IA local (A23-A27).
-- Auto-pilot (A23-A27): flujos sin intervención (prep+clean+dedup, all-in-one, clean+backup, relink doctor, deep/ML).
+---
 
-## Instalación rápida
+## 📖 Descripción
+
+**DJProducerTools** es una suite de automatización diseñada para mantener tu biblioteca musical impecable, segura y organizada. Compatible con los ecosistemas de **Serato, Traktor, Rekordbox y Ableton Live**, este toolkit ofrece desde deduplicación exacta por hash (SHA-256) hasta análisis inteligente de metadatos y contenido de audio mediante Machine Learning local.
+
+Incluye dos versiones del script principal:
+- 🇪🇸 `DJProducerTools_MultiScript_ES.sh` (Español)
+- 🇺🇸 `DJProducerTools_MultiScript_EN.sh` (English)
+
+### 📸 Vistazo Rápido
+!Menú ES
+
+---
+
+## ✨ Características Principales
+
+### 🛡️ Seguridad y Backups
+- **Backups Inteligentes**: Copias de seguridad específicas para metadatos de Serato, Traktor, Rekordbox y Ableton.
+- **Snapshots de Integridad**: Generación rápida de hashes para verificar que tus archivos no se han corrompido.
+- **Quarantine Segura**: Los archivos duplicados o problemáticos se mueven a una cuarentena reversible, nunca se borran directamente sin revisión.
+
+### ♻️ Deduplicación y Limpieza
+- **Deduplicación Exacta**: Detección bit a bit (SHA-256) para eliminar copias idénticas.
+- **Deduplicación "Fuzzy"**: Detección por nombre y tamaño para limpiar descargas repetidas.
+- **Limpieza de Metadatos**: Eliminación de URLs basura en tags, normalización de nombres de archivo y detección de caracteres extraños.
+- **Conversión de Audio**: Herramienta integrada (Opción 71) para convertir WAV a MP3 (320kbps CBR) con backup automático de originales.
+
+### 🧠 IA y Machine Learning (Local)
+- **Smart Analysis**: Escaneo profundo de la librería para sugerir acciones de limpieza.
+- **Auto-Pilot**: Cadenas de automatización (A23-A28) que ejecutan diagnósticos, limpieza y backups en secuencia.
+- **Clasificación de Audio**: Organización automática de samples (Kicks, Snares, etc.) y detección de género.
+- **Entorno Aislado**: Todo el ML corre en un entorno virtual (`venv`) local, sin enviar datos a la nube.
+
+---
+
+## 🚀 Instalación
+
+Puedes instalar o actualizar los scripts ejecutando el siguiente bloque en tu terminal:
+
 ```bash
+# Crear script de instalación
 cat <<'EOF' > install_djpt.sh
 #!/usr/bin/env bash
 set -e
+echo "⬇️ Descargando DJProducerTools..."
 for f in DJProducerTools_MultiScript_ES.sh DJProducerTools_MultiScript_EN.sh; do
   url="https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/$f"
   curl -fsSL "$url" -o "$f"
   chmod +x "$f"
 done
-echo "Listo. Ejecuta ./DJProducerTools_MultiScript_ES.sh o ./DJProducerTools_MultiScript_EN.sh"
+echo "✅ ¡Listo! Ejecuta ./DJProducerTools_MultiScript_ES.sh para empezar."
 EOF
+
+# Ejecutar instalador
 chmod +x install_djpt.sh && ./install_djpt.sh
 ```
 

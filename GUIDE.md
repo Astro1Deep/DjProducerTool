@@ -119,6 +119,24 @@ chmod +x install_djpt.sh
 - Banners de ejemplo: `docs/banner_es.png`, `docs/banner_en.png`, `docs/banner_es_terminal.svg`.
 - Añade en README (ya enlazado) o en issues/wikis de GitHub.
 
+## 14) Estrategias Profesionales de Gestión
+
+### La Regla de Backup 3-2-1 para DJs
+Para evitar desastres antes de un gig, sigue esta regla usando las herramientas del script:
+1.  **3 Copias**: Tu librería en el portátil, una copia en disco externo (Time Machine o clon) y una copia "fría" en otro lugar.
+2.  **2 Medios**: Usa SSD para el directo y HDD para el archivo frío.
+3.  **1 Off-site**: Una copia fuera de tu estudio (nube o casa de un amigo).
+*Uso en script*: Ejecuta la cadena **A9 (Backup Predictivo)** semanalmente.
+
+### Gestión de Calidad de Audio
+- **Conversión (Opción 71)**: Si compras WAV/AIFF pero necesitas ahorrar espacio en el USB para CDJs, usa la opción 71. Convierte a MP3 320kbps (CBR) usando el codec LAME con la máxima calidad (`-q:a 0`). El script mueve automáticamente los WAVs pesados a una carpeta `_WAV_Backup` para que puedas archivarlos en tu disco de estudio y llevar solo los MP3s ligeros.
+- **Normalización (Opción 66)**: Analiza el LUFS de tus tracks. No normalices destructivamente tus archivos originales. Usa la ganancia del mixer o tags de ReplayGain.
+
+### Limpieza de Metadatos para CDJs
+Los CDJs antiguos pueden fallar con caracteres extraños o art works muy grandes.
+- Usa la **Opción 34** para normalizar nombres de archivo (elimina caracteres ilegales).
+- Usa la **Opción 39** para limpiar comentarios basura (URLs de descarga) que ensucian la pantalla del CDJ.
+
 ## 14) Perfiles de artista y distribución (opción 69)
 - Opción 69 crea/usa `artist_pages.tsv` (en `config/`) con plantillas de bio, press kit, rider/stage plot, showfile DMX/OBS/Ableton y links a plataformas/redes (Spotify, Apple, YouTube, SoundCloud, Beatport, Traxsource, Bandcamp, Mixcloud, Audius, Tidal, Deezer, Amazon, Shazam, Juno, Pandora, Instagram, TikTok, Facebook, Twitter/X, Threads, RA, Patreon, Twitch, Discord, Telegram, WhatsApp, Merch, Boiler Room…). Puedes editar en línea y exportar a CSV/HTML/JSON (`reports/`).
 - Registro como artista (resumen rápido):
@@ -136,3 +154,37 @@ chmod +x install_djpt.sh
 ## 15) Soporte
 - Autor: Astro One Deep — onedeep1@gmail.com
 - Issues/sugerencias: abrir issue en GitHub o enviar correo.
+
+## 16) Testing
+
+El proyecto incluye una suite de tests unitarios básicos para verificar la funcionalidad de las funciones de utilidad principales.
+
+### Ejecutar los Tests
+
+1.  **Abre una terminal** y navega hasta el directorio raíz de tu proyecto. Usa comillas si la ruta tiene espacios:
+    ```bash
+    **cd "/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project "**
+    ```
+
+2.  **Da permisos de ejecución** al script de test (solo necesitas hacerlo una vez):
+    ```bash
+    **chmod +x tests/test_runner.sh**
+    ```
+
+3.  **Ejecuta los tests**:
+    ```bash
+    **bash tests/test_runner.sh**
+    ```
+
+El runner descubrirá y ejecutará automáticamente todas las funciones de test, mostrando un resumen de los tests pasados y fallidos.
+
+### Cómo Funciona
+
+-   `tests/test_runner.sh` carga el script principal (`DJProducerTools_MultiScript_EN.sh`).
+-   Usa una serie de funciones "mock" para sobreescribir comportamientos no aptos para testing (como la entrada de usuario, limpiar la pantalla o modificar ficheros de configuración).
+-   Cada función de test (`test_*`) valida una pieza de lógica específica usando helpers simples como `assert_equals`.
+-   Esto permite testear de forma aislada funciones como `strip_quotes` y `should_exclude_path`.
+
+### Añadir Nuevos Tests
+
+Para añadir un nuevo test, abre `tests/test_runner.sh` y crea una nueva función cuyo nombre empiece por `test_`. El runner la detectará automáticamente.
