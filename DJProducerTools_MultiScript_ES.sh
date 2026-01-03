@@ -431,6 +431,9 @@ ensure_dirs() {
 init_paths() {
   # Prioriza el directorio de lanzamiento si ya contiene _DJProducerTools
   if [ -n "$LAUNCH_PATH" ] && [ -d "$LAUNCH_PATH/_DJProducerTools" ]; then
+    if [ "$BASE_PATH" != "$LAUNCH_PATH" ]; then
+      printf "%s[INFO]%s BASE_PATH ajustado al directorio de lanzamiento: %s\n" "$C_CYN" "$C_RESET" "$LAUNCH_PATH"
+    fi
     BASE_PATH="$LAUNCH_PATH"
   else
     # Ajusta BASE_PATH si hay un _DJProducerTools cercano (cwd o padres)
@@ -1936,6 +1939,11 @@ action_mirror_integrity_check() {
   [ -z "$file_a" ] && file_a="$REPORTS_DIR/hash_index.tsv"
   printf "Hash index B (ruta espejo, drag & drop): "
   read -e -r file_b
+  if [ -z "$file_b" ]; then
+    printf "%s[INFO]%s Cancelado (no se indicó archivo B).\n" "$C_CYN" "$C_RESET"
+    pause_enter
+    return
+  fi
   if [ ! -f "$file_a" ] || [ ! -f "$file_b" ]; then
     printf "%s[ERR]%s Archivo(s) inválidos.\n" "$C_RED" "$C_RESET"
     pause_enter
