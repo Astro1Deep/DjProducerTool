@@ -2569,7 +2569,7 @@ with report_path.open("w", encoding="utf-8") as rf, plan_path.open("w", encoding
         rf.write(f"{f1}\t{f2}\t{sim:.3f}\t{t1}\t{t2}\n")
         pf.write(f"{f1}\t{f2}\tREVIEW\n")
 
-print(f\"[OK] Reporte: {report_path}\")
+print(f"[OK] Reporte: {report_path}")
 print(f\"[OK] Plan: {plan_path}\")
 PY
         rc=$?
@@ -5116,7 +5116,7 @@ with report_path.open("w", encoding="utf-8") as rf, plan_path.open("w", encoding
         rf.write(f\"{f1}\\t{f2}\\t{sim:.3f}\\t{t1}\\t{t2}\\n\")
         pf.write(f\"{f1}\\t{f2}\\tREVIEW\\n\")
 
-print(f\"[OK] Reporte: {report_path}\")
+print(f"[OK] Reporte: {report_path}")
 print(f\"[OK] Plan: {plan_path}\")
 PY
         rc=$?
