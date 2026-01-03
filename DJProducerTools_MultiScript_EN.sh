@@ -61,7 +61,9 @@ DJ_SAFE_LOCK=1
 DRYRUN_FORCE=0
 
 SPIN_FRAMES=("\\" "|" "/" "-")
+SPIN_COLORS=("$C_PURP" "$C_GRN" "$C_WHT") # purple, green, white flash
 SPIN_IDX=0
+SPIN_COLOR_IDX=0
 GHOST_COLORS=("${ESC}[38;5;129m" "${ESC}[38;5;46m") # violeta y verde
 GHOST_IDX=0
 
@@ -475,7 +477,9 @@ status_line() {
   SPIN_IDX=$(((SPIN_IDX + 1) % ${#SPIN_FRAMES[@]}))
   local ghost_color="${GHOST_COLORS[$GHOST_IDX]}"
   GHOST_IDX=$(((GHOST_IDX + 1) % ${#GHOST_COLORS[@]}))
-  local frame_colored="${ghost_color}${frame}${C_RESET}"
+  local spin_color="${SPIN_COLORS[$SPIN_COLOR_IDX]}"
+  SPIN_COLOR_IDX=$(((SPIN_COLOR_IDX + 1) % ${#SPIN_COLORS[@]}))
+  local frame_colored="${spin_color}${frame}${C_RESET}"
   printf "\r%s👻%s %s | %3s%% | %s | %s" "$ghost_color" "$C_RESET" "$task" "$percent" "$frame_colored" "$current"
 }
 

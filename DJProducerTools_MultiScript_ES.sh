@@ -14,6 +14,7 @@ C_YLW="${ESC}[1;33m"
 C_BLU="${ESC}[1;34m"
 C_CYN="${ESC}[1;36m"
 C_PURP="${ESC}[38;5;129m"
+C_WHT="${ESC}[1;37m"
 BANNER_SOFT="${ESC}[0;37;44m"
 C_GRN_SOFT="${ESC}[0;32m"
 C_YLW_SOFT="${ESC}[0;33m"
@@ -60,7 +61,9 @@ DJ_SAFE_LOCK=1
 DRYRUN_FORCE=0
 
 SPIN_FRAMES=("\\" "|" "/" "-")
+SPIN_COLORS=("$C_PURP" "$C_GRN" "$C_WHT") # violeta, verde, blanco destello
 SPIN_IDX=0
+SPIN_COLOR_IDX=0
 GHOST_COLORS=("${ESC}[38;5;129m" "${ESC}[38;5;46m") # violeta y verde
 GHOST_IDX=0
 
@@ -477,7 +480,9 @@ status_line() {
   SPIN_IDX=$(((SPIN_IDX + 1) % ${#SPIN_FRAMES[@]}))
   local ghost_color="${GHOST_COLORS[$GHOST_IDX]}"
   GHOST_IDX=$(((GHOST_IDX + 1) % ${#GHOST_COLORS[@]}))
-  local frame_colored="${ghost_color}${frame}${C_RESET}"
+  local spin_color="${SPIN_COLORS[$SPIN_COLOR_IDX]}"
+  SPIN_COLOR_IDX=$(((SPIN_COLOR_IDX + 1) % ${#SPIN_COLORS[@]}))
+  local frame_colored="${spin_color}${frame}${C_RESET}"
   printf "\r%s👻%s %s | %3s%% | %s | %s" "$ghost_color" "$C_RESET" "$task" "$percent" "$frame_colored" "$current"
 }
 
