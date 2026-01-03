@@ -3,6 +3,7 @@
 Documentación extensa para usar el toolkit de limpieza y organización de librerías para DJs y Productores en macOS.
 
 ## 1) Qué es y para quién
+
 - Limpieza y organización de bibliotecas Serato/Rekordbox/Traktor/Ableton (audio, video, visuales, DMX).
 - Backups seguros y snapshots de integridad.
 - Detección y gestión de duplicados (exactos y planes avanzados).
@@ -10,11 +11,14 @@ Documentación extensa para usar el toolkit de limpieza y organización de libre
 - Creación de instaladores `.pkg` y automatización de tareas de desarrollo.
 
 ## 2) Archivos principales
+
 - `DJProducerTools_MultiScript_ES.sh` – interfaz en español.
 - `DJProducerTools_MultiScript_EN.sh` – interfaz en inglés.
 - `install_djpt.sh` – instalador simple (descarga última versión).
 
 ## 3) Instalación rápida
+
+
 ```bash
 cat <<'EOF' > install_djpt.sh
 #!/usr/bin/env bash

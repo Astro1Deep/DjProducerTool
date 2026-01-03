@@ -418,6 +418,8 @@ fi
 ML_PROFILE="LIGHT"
 ML_PKG_TF_MB=600
 PROFILES_DIR=""
+# --- GITHUB CONFIGURATION ---
+GITHUB_REPO="Astro1Deep/DjProducerTool" # Change this to "YourUser/YourRepo"
 
 pause_enter() {
   printf "%sPress ENTER to continue...%s" "$C_YLW" "$C_RESET"
@@ -989,7 +991,7 @@ print_menu() {
   printf "  %s24)%s Toggle DJ_SAFE_LOCK (ACTIVE/INACTIVE)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧹 Processes / cleanup (25-41):%s\n" "$C_CYN" "$C_RESET"
+  printf "%s🧹 Processes / cleanup (25-39):%s\n" "$C_CYN" "$C_RESET"
   printf "  %s25)%s Quick Help (process guide)\n" "$C_GRN" "$C_RESET"
   printf "  %s26)%s State: Export/Import (bundle)\n" "$C_GRN" "$C_RESET"
   printf "  %s27)%s Integrity snapshot (fast hash) with progress%s\n" "$C_GRN" "$C_RESET" "${tag27:-}"
@@ -1005,45 +1007,47 @@ print_menu() {
   printf "  %s37)%s WEB: Whitelist Manager (allowed domains)\n" "$C_GRN" "$C_RESET"
   printf "  %s38)%s Clean WEB in Playlists (.m3u/.m3u8)\n" "$C_GRN" "$C_RESET"
   printf "  %s39)%s Clean WEB in TAGS (mutagen) (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s40)%s Convert WAV to MP3 (320kbps, Max Quality)\n" "$C_GRN" "$C_RESET"
-  printf "  %s41)%s Update script from GitHub\n" "$C_GRN" "$C_RESET"
+  printf "  %s71)%s Convert WAV to MP3 (320kbps, Max Quality)\n" "$C_GRN" "$C_RESET"
+  printf "  %s72)%s Update script from GitHub\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧠 Deep/ML (42-59):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s42)%s Deep Thinking: Smart Analysis (JSON)\n" "$C_GRN" "$C_RESET"
-  printf "  %s43)%s Machine Learning: Problem predictor\n" "$C_GRN" "$C_RESET"
-  printf "  %s44)%s Deep Thinking: Efficiency optimizer\n" "$C_GRN" "$C_RESET"
-  printf "  %s45)%s Deep Thinking: Smart workflow\n" "$C_GRN" "$C_RESET"
-  printf "  %s46)%s Deep Thinking: Integrated deduplication\n" "$C_GRN" "$C_RESET"
-  printf "  %s47)%s ML: Automatic organization (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s48)%s Deep Thinking: Metadata harmonizer (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s49)%s ML: Predictive backup\n" "$C_GRN" "$C_RESET"
-  printf "  %s50)%s Deep Thinking: Cross-platform sync\n" "$C_GRN" "$C_RESET"
-  printf "  %s51)%s Deep Thinking: Advanced analysis\n" "$C_GRN" "$C_RESET"
-  printf "  %s52)%s Deep Thinking: Integration engine\n" "$C_GRN" "$C_RESET"
-  printf "  %s53)%s ML: Adaptive recommendations\n" "$C_GRN" "$C_RESET"
-  printf "  %s54)%s Deep Thinking: Automated cleanup pipeline\n" "$C_GRN" "$C_RESET"
-  printf "  %s55)%s Evolutive ML (train/predict locally)\n" "$C_GRN" "$C_RESET"
-  printf "  %s56)%s Toggle ML ON/OFF (avoid ML venv)\n" "$C_GRN" "$C_RESET"
-  printf "  %s57)%s Optional TensorFlow (install/advanced ideas)\n" "$C_GRN" "$C_RESET"
-  printf "  %s58)%s TensorFlow Lab (auto-tagging/similarity/etc.)\n" "$C_GRN" "$C_RESET"
-  printf "  %s59)%s Local AI: TensorFlowADV+Light-IA\n" "$C_GRN" "$C_RESET"
+  printf "%s🧠 Deep/ML (40-52):%s\n" "$C_CYN" "$C_RESET"
+  printf "  %s40)%s Deep Thinking: Smart Analysis (JSON)\n" "$C_GRN" "$C_RESET"
+  printf "  %s41)%s Machine Learning: Problem predictor\n" "$C_GRN" "$C_RESET"
+  printf "  %s42)%s Deep Thinking: Efficiency optimizer\n" "$C_GRN" "$C_RESET"
+  printf "  %s43)%s Deep Thinking: Smart workflow\n" "$C_GRN" "$C_RESET"
+  printf "  %s44)%s Deep Thinking: Integrated deduplication\n" "$C_GRN" "$C_RESET"
+  printf "  %s45)%s ML: Automatic organization (plan)\n" "$C_GRN" "$C_RESET"
+  printf "  %s46)%s Deep Thinking: Metadata harmonizer (plan)\n" "$C_GRN" "$C_RESET"
+  printf "  %s47)%s ML: Predictive backup\n" "$C_GRN" "$C_RESET"
+  printf "  %s48)%s Deep Thinking: Cross-platform sync\n" "$C_GRN" "$C_RESET"
+  printf "  %s49)%s Deep Thinking: Advanced analysis\n" "$C_GRN" "$C_RESET"
+  printf "  %s50)%s Deep Thinking: Integration engine\n" "$C_GRN" "$C_RESET"
+  printf "  %s51)%s ML: Adaptive recommendations\n" "$C_GRN" "$C_RESET"
+  printf "  %s52)%s Deep Thinking: Automated cleanup pipeline\n" "$C_GRN" "$C_RESET"
+  printf "  %s62)%s Evolutive ML (train/predict locally)\n" "$C_GRN" "$C_RESET"
+  printf "  %s63)%s Toggle ML ON/OFF (avoid ML venv)\n" "$C_GRN" "$C_RESET"
+  printf "  %s64)%s Optional TensorFlow (install/advanced ideas)\n" "$C_GRN" "$C_RESET"
+  printf "  %s65)%s TensorFlow Lab (auto-tagging/similarity/etc.)\n" "$C_GRN" "$C_RESET"
+  printf "  %s70)%s Local AI: TensorFlowADV+Light-IA\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧰 Extras / utilities (60-72):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s60)%s Reset state / clean extras\n" "$C_GRN" "$C_RESET"
-  printf "  %s61)%s Profiles manager (save/load paths)\n" "$C_GRN" "$C_RESET"
-  printf "  %s62)%s Ableton Tools (basic analytics)\n" "$C_GRN" "$C_RESET"
-  printf "  %s63)%s Importers: Rekordbox/Traktor cues\n" "$C_GRN" "$C_RESET"
-  printf "  %s64)%s Exclusions manager (profiles)\n" "$C_GRN" "$C_RESET"
-  printf "  %s65)%s Compare hash_index between disks (no rehash)\n" "$C_GRN" "$C_RESET"
-  printf "  %s66)%s State health-check (_DJProducerTools)\n" "$C_GRN" "$C_RESET"
-  printf "  %s67)%s Export/Import config/profiles only\n" "$C_GRN" "$C_RESET"
-  printf "  %s68)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
-  printf "  %s69)%s LUFS plan (analysis, no normalize)\n" "$C_GRN" "$C_RESET"
-  printf "  %s70)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
-  printf "  %s71)%s Automated chains (21 workflows)\n" "$C_GRN" "$C_RESET"
-  printf "  %s72)%s Artist profiles/links (fillable template)\n" "$C_GRN" "$C_RESET"
+  printf "%s🧰 Extras / utilities (53-67):%s\n" "$C_CYN" "$C_RESET"
+  printf "  %s53)%s Reset state / clean extras\n" "$C_GRN" "$C_RESET"
+  printf "  %s54)%s Profiles manager (save/load paths)\n" "$C_GRN" "$C_RESET"
+  printf "  %s55)%s Ableton Tools (basic analytics)\n" "$C_GRN" "$C_RESET"
+  printf "  %s56)%s Importers: Rekordbox/Traktor cues\n" "$C_GRN" "$C_RESET"
+  printf "  %s57)%s Exclusions manager (profiles)\n" "$C_GRN" "$C_RESET"
+  printf "  %s58)%s Compare hash_index between disks (no rehash)\n" "$C_GRN" "$C_RESET"
+  printf "  %s59)%s State health-check (_DJProducerTools)\n" "$C_GRN" "$C_RESET"
+  printf "  %s60)%s Export/Import config/profiles only\n" "$C_GRN" "$C_RESET"
+  printf "  %s61)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
+  printf "  %s66)%s LUFS plan (analysis, no normalize)\n" "$C_GRN" "$C_RESET"
+  printf "  %s67)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
+  printf "  %s68)%s Automated chains (21 workflows)\n" "$C_GRN" "$C_RESET"
+  printf "  %s69)%s Artist profiles/links (fillable template)\n" "$C_GRN" "$C_RESET"
+  printf "  %s71)%s Convert WAV to MP3 (320kbps, Max Quality)\n" "$C_GRN" "$C_RESET"
+  printf "  %s72)%s Update script from GitHub\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%s🔮 A) Automations (chains)%s\n" "$C_GRN" "$C_RESET"
@@ -1626,16 +1630,18 @@ action_15_relink_helper() {
   >"$out"
   >"$doctor_out"
   tmp_list="$STATE_DIR/relink_list.tmp"
-  run_with_spinner "RELINK" "Listing files..." find "$BASE_PATH" -type f 2>/dev/null >"$tmp_list"
-  total=$(wc -l < "$tmp_list" | tr -d ' ')
+  find "$BASE_PATH" -type f 2>/dev/null >"$tmp_list"
+  total=$(wc -l <"$tmp_list" | tr -d ' ')
   if [ "$total" -eq 0 ]; then
     printf "%s[WARN]%s No files found.\n" "$C_YLW" "$C_RESET"
     pause_enter
     rm -f "$tmp_list"
     return
   fi
+  total=0
   zero_count=0
   count=0
+  zero_count=0
   while IFS= read -r f; do
     count=$((count + 1))
     rel="${f#$BASE_PATH/}"
@@ -3190,7 +3196,7 @@ PY
     return
   fi
 
-  local list_tmp=$(mktemp "${STATE_DIR}/lufs_list.XXXXXX") || list_tmp="/tmp/lufs_list.$$"
+  list_tmp=$(mktemp "${STATE_DIR}/lufs_list.XXXXXX") || list_tmp="/tmp/lufs_list.$$"
   find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.aiff" -o -iname "*.aif" \) 2>/dev/null | head -200 >"$list_tmp"
   total=$(wc -l <"$list_tmp" | tr -d ' ')
   if [ "$total" -eq 0 ]; then
@@ -3201,7 +3207,7 @@ PY
   fi
 
   >"$out"
-  printf "path\tlufs\tsuggested_gain_db\n" >>"$out"
+  printf "path\tlufs\tsugerencia_gain_db\n" >>"$out"
   count=0
   while IFS= read -r f; do
     count=$((count + 1))
@@ -4459,7 +4465,7 @@ chain_27_autopilot_ml() {
   if ensure_tool_installed "shasum" "brew install coreutils"; then
     action_9_hash_index
   fi
-  action_40_smart_analysis
+  action_40_deep_smart_analysis
   action_41_ml_predictor
   action_42_efficiency_optimizer
   action_44_integrated_dedup
@@ -4544,6 +4550,22 @@ for i, f in enumerate(inbox_files):
     except Exception as e: print(f"ERR {f.name}: {e}", flush=True)
 PY
   printf "%s[OK]%s Ingest completed.\n" "$C_GRN" "$C_RESET"; pause_enter
+}
+
+chain_33_quality_consistency_check() {
+  chain_run_header "Quality & Consistency (L9 -> L8)"
+  action_L9_low_bitrate_report
+  action_L8_metadata_consistency_report
+  printf "%s[OK]%s Chain completed: Bitrate and consistency reports generated.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_34_ingest_doctor() {
+  chain_run_header "Smart Ingest + Super Doctor (A30 -> 66)"
+  chain_30_smart_ingest
+  action_state_health
+  printf "%s[OK]%s Chain completed: Ingest and doctor finished.\n" "$C_GRN" "$C_RESET"
+  pause_enter
 }
 
 chain_28_autopilot_safe_state() {
@@ -4737,117 +4759,6 @@ PY
   pause_enter
 }
 
-action_L8_metadata_consistency_report() {
-  print_header
-  local out="$REPORTS_DIR/metadata_inconsistency_report.tsv"
-  local plan="$PLANS_DIR/rename_from_tags_plan.tsv"
-  printf "%s[INFO]%s Generating inconsistency report (ID3 vs Filename) -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  
-  if ! ensure_tool_installed "ffprobe" "brew install ffmpeg"; then
-     printf "%s[WARN]%s ffprobe not found. Cannot read metadata.\n" "$C_YLW" "$C_RESET"
-     pause_enter; return
-  fi
-  
-  BASE_PATH_VAL="$BASE_PATH" OUT_PATH_VAL="$out" PLAN_PATH_VAL="$plan" python3 - <<'PY'
-import os, sys, pathlib, subprocess, csv, json, re
-
-base_path = pathlib.Path(os.environ["BASE_PATH_VAL"])
-out_path = pathlib.Path(os.environ["OUT_PATH_VAL"])
-plan_path = pathlib.Path(os.environ["PLAN_PATH_VAL"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-
-IGNORE_TERMS = {
-    "original", "mix", "extended", "remix", "edit", "radio", "club", "feat", "ft", "featuring", "vs", "pres", "presents", "bootleg", "vip", "instrumental", "dub"
-}
-
-def get_meta(fpath):
-    try:
-        cmd = ["ffprobe", "-v", "error", "-show_entries", "format_tags=title,artist", "-of", "json", str(fpath)]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        d = json.loads(res.stdout)
-        tags = d.get("format", {}).get("tags", {})
-        artist = next((v for k, v in tags.items() if k.lower() == 'artist'), "").strip()
-        title = next((v for k, v in tags.items() if k.lower() == 'title'), "").strip()
-        return artist, title
-    except Exception:
-        return "", ""
-
-def clean_tokens(text):
-    tokens = set(re.findall(r'\w+', text.lower()))
-    return tokens - IGNORE_TERMS
-
-def sanitize_filename(name):
-    return re.sub(r'[<>:"/\\|?*]', '_', name)
-
-def check_consistency(filename, artist, title):
-    if not artist and not title:
-        return "NO_ID3_TAGS", False
-
-    fn_tokens = clean_tokens(pathlib.Path(filename).stem)
-    artist_tokens = clean_tokens(artist)
-    title_tokens = clean_tokens(title)
-
-    artist_in_fn = artist_tokens.issubset(fn_tokens) if artist_tokens else True
-    title_in_fn = title_tokens.issubset(fn_tokens) if title_tokens else True
-
-    issues = []
-    if not artist_in_fn: issues.append("ARTIST_MISSING")
-    if not title_in_fn: issues.append("TITLE_MISSING")
-
-    return ("+".join(issues), True) if issues else ("OK", False)
-
-rows = []
-plan_rows = []
-all_files = [p for p in base_path.rglob("*") if p.is_file() and p.suffix.lower() in audio_exts]
-print(f"Scanning {len(all_files)} files...", flush=True)
-
-for p in all_files:
-    artist, title = get_meta(p)
-    inconsistency_type, is_inconsistent = check_consistency(p.name, artist, title)
-    if is_inconsistent:
-        rows.append({"Path": str(p), "Filename": p.name, "ID3_Artist": artist, "ID3_Title": title, "Inconsistency_Type": inconsistency_type})
-        if artist and title:
-            new_name = f"{sanitize_filename(artist)} - {sanitize_filename(title)}{p.suffix}"
-            if new_name != p.name:
-                plan_rows.append((str(p), str(p.parent / new_name)))
-
-with out_path.open("w", newline="", encoding="utf-8") as f:
-    writer = csv.DictWriter(f, fieldnames=["Path", "Filename", "ID3_Artist", "ID3_Title", "Inconsistency_Type"], delimiter="\t")
-    writer.writeheader(); writer.writerows(rows)
-
-with plan_path.open("w", newline="", encoding="utf-8") as f:
-    writer = csv.writer(f, delimiter="\t")
-    writer.writerows(plan_rows)
-
-print(f"Report generated: {len(rows)} inconsistencies.")
-print(f"Rename plan generated: {len(plan_rows)} candidates.")
-PY
-
-  if [ -s "$plan" ]; then
-      printf "%s[INFO]%s An auto-rename plan has been generated at: %s\n" "$C_CYN" "$C_RESET" "$plan"
-      printf "Do you want to execute the auto-rename (Artist - Title) now? (y/N): "
-      read -r run_ren
-      if [[ "$run_ren" =~ ^[yY]$ ]]; then
-          if [ "$SAFE_MODE" -eq 1 ]; then
-             printf "%s[WARN]%s SAFE_MODE is active. Simulation only.\n" "$C_YLW" "$C_RESET"
-          fi
-          while IFS=$'\t' read -r src dest; do
-              if [ "$SAFE_MODE" -eq 1 ]; then
-                  printf "[DRY] mv \"%s\" \"%s\"\n" "$src" "$dest"
-              else
-                  mv -n "$src" "$dest" 2>/dev/null && printf "[OK] Renamed: %s\n" "$(basename "$dest")"
-              fi
-          done < "$plan"
-          printf "%s[OK]%s Rename complete.\n" "$C_GRN" "$C_RESET"
-      else
-          printf "%s[INFO]%s Plan saved. You can review and run it manually.\n" "$C_CYN" "$C_RESET"
-      fi
-  else
-      printf "%s[OK]%s No files to auto-rename (tags missing or already correct).\n" "$C_GRN" "$C_RESET"
-  fi
-  pause_enter
-}
-
 action_L9_low_bitrate_report() {
   print_header
   local out="$REPORTS_DIR/low_bitrate_report.tsv"
@@ -4978,6 +4889,106 @@ PY
   pause_enter
 }
 
+action_71_wav_to_mp3() {
+  print_header
+  printf "%s[INFO]%s Convert WAV to MP3 (320kbps CBR - Max Quality).\n" "$C_CYN" "$C_RESET"
+  if ! ensure_tool_installed "ffmpeg" "brew install ffmpeg"; then
+    pause_enter
+    return
+  fi
+  
+  printf "Search for WAVs in BASE_PATH (ENTER) or provide a folder (drag & drop): "
+  read -e -r search_root
+  search_root=$(strip_quotes "$search_root")
+  [ -z "$search_root" ] && search_root="$BASE_PATH"
+  
+  if [ ! -d "$search_root" ]; then
+    printf "%s[ERR]%s Invalid path.\n" "$C_RED" "$C_RESET"
+    pause_enter; return
+  fi
+
+  mapfile -t wav_list < <(find "$search_root" -type f -iname "*.wav" 2>/dev/null)
+  total=${#wav_list[@]}
+  
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No WAV files found.\n" "$C_YLW" "$C_RESET"
+    pause_enter; return
+  fi
+  
+  printf "%s WAV files found.\n" "$total"
+  printf "1) Generate MP3 alongside original (keep WAV)\n"
+  printf "2) Generate MP3 and move original WAV to '_WAV_Backup'\n"
+  printf "Option: "
+  read -r conv_op
+  
+  backup_dir="$search_root/_WAV_Backup"
+  if [ "$conv_op" -eq 2 ]; then
+    mkdir -p "$backup_dir"
+    printf "%s[INFO]%s Originals will be moved to: %s\n" "$C_CYN" "$C_RESET" "$backup_dir"
+  fi
+  
+  count=0
+  for f in "${wav_list[@]}"; do
+    count=$((count+1))
+    percent=$((count*100/total))
+    status_line "CONVERT" "$percent" "$(basename "$f")"
+    
+    dir=$(dirname "$f")
+    base=$(basename "$f" .wav)
+    mp3_out="$dir/$base.mp3"
+    
+    ffmpeg -y -v error -i "$f" -codec:a libmp3lame -b:a 320k -q:a 0 -map_metadata 0 -id3v2_version 3 "$mp3_out" </dev/null
+    
+    if [ "$conv_op" -eq 2 ] && [ -f "$mp3_out" ]; then
+       mv -n "$f" "$backup_dir/" 2>/dev/null
+    fi
+  done
+  finish_status_line
+  printf "%s[OK]%s Conversion complete.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+action_72_update_self() {
+  print_header
+  printf "%s[INFO]%s Checking for updates on GitHub...\n" "$C_CYN" "$C_RESET"
+  local script_name
+  script_name=$(basename "$0")
+  local url="https://raw.githubusercontent.com/$GITHUB_REPO/main/$script_name"
+  local tmp_script="/tmp/$script_name.new"
+  
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$tmp_script"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q "$url" -O "$tmp_script"
+  else
+    printf "%s[ERR]%s curl or wget not found.\n" "$C_RED" "$C_RESET"
+    pause_enter; return
+  fi
+
+  if [ ! -s "$tmp_script" ]; then
+    printf "%s[ERR]%s Download failed.\n" "$C_RED" "$C_RESET"
+    pause_enter; return
+  fi
+
+  if cmp -s "$0" "$tmp_script"; then
+    printf "%s[INFO]%s You already have the latest version.\n" "$C_GRN" "$C_RESET"
+    rm -f "$tmp_script"
+  else
+    printf "%s[WARN]%s Update found! Overwrite current script? (y/N): " "$C_RED" "$C_RESET"
+    read -r ans
+    if [[ "$ans" =~ ^[yY]$ ]]; then
+      mv "$tmp_script" "$0"
+      chmod +x "$0"
+      printf "%s[OK]%s Updated. Please restart the script.\n" "$C_GRN" "$C_RESET"
+      exit 0
+    else
+      rm -f "$tmp_script"
+      printf "%s[INFO]%s Canceled.\n" "$C_CYN" "$C_RESET"
+    fi
+  fi
+  pause_enter
+}
+
 submenu_A_chains() {
   while true; do
     clear
@@ -5014,6 +5025,7 @@ submenu_A_chains() {
     printf "%s29)%s Auto-pilot: Smart Analysis -> Smart Playlists -> Backup (40 -> T10 -> 8)\n" "$C_YLW" "$C_RESET"
     printf "%s30)%s Smart Ingest: Organize INBOX -> Smart_Library (Key/BPM) + Dedup\n" "$C_YLW" "$C_RESET"
     printf "%s33)%s Quality & Consistency: Low Bitrate + Inconsistencies (L9 -> L8)\n" "$C_YLW" "$C_RESET"
+    printf "%s34)%s Smart Ingest + Super Doctor (A30 -> 66)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
     printf "%sChoice:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -5049,6 +5061,7 @@ submenu_A_chains() {
       29) chain_29_analysis_playlist_backup ;;
       30) chain_30_smart_ingest ;;
       33) chain_33_quality_consistency_check ;;
+      34) chain_34_ingest_doctor ;;
       B|b) 
         break ;;
       *) invalid_option ;;
@@ -5853,76 +5866,53 @@ submenu_D_dupes_general() {
             files=$(find "$d" -maxdepth 1 -type f 2>/dev/null | head -"$mf" | xargs -I{} basename "{}" | sort | tr '\n' '|' )
             if [ -n "$files" ]; then
               sig=$(printf "%s" "$files" | shasum -a 256 | awk '{print $1}')
-              mtime=$({ stat -f %m "$d" 2>/dev/null || echo 0; } | tr -d '[:space:]')
-              dsize=$({ du -sk "$d" 2>/dev/null || echo 0; } | awk '{print $1}')
-              printf "%s\t%s\t%s\t%s\t%s\n" "$sig" "$d" "$mtime" "$dsize" "$files" >>"$sig_tmp"
+              printf "%s\t%s\t%s\n" "$sig" "$d" "$files" >>"$sig_tmp"
             fi
         done <"$dir_list"
         rm -f "$dir_list"
         finish_status_line
-
-        # Process the temporary file in a single pass to generate report and cleanup plan
-        run_with_spinner "MATRIOSHKA_PLAN" "Generating efficient cleanup plan..." \
-        awk -F'\t' -v report_file="$plan_m" -v plan_file="$clean_plan" -v quar_base="$QUAR_DIR/Matrioshka_Folders" '
-        {
-            sig=$1; path=$2; mtime=$3; dsize=$4; files=$5;
-            count[sig]++;
-            idx = count[sig];
-            paths[sig,idx] = path;
-            mtimes[sig,idx] = mtime;
-            dsizes[sig,idx] = dsize;
-            if (!(sig in file_lists)) {
-                file_lists[sig] = files;
-            }
+        awk -F'\t' '{
+          s=$1; d=$2; f=$3; cnt[s]++; rec[s,cnt[s]]=d; files[s]=f;
         } END {
-            for (s in count) {
-                if (count[s] > 1) {
-                    best_path=""; best_mtime=-1; best_size=-1;
-                    for (i=1; i<=count[s]; i++) {
-                        if (mtimes[s,i] > best_mtime || (mtimes[s,i] == best_mtime && dsizes[s,i] > best_size)) {
-                            best_path=paths[s,i]; best_mtime=mtimes[s,i]; best_size=dsizes[s,i];
-                        }
-                    }
-                    if (best_path != "") {
-                        for (i=1; i<=count[s]; i++) {
-                            print s "\t" file_lists[s] "\t" count[s] "\t" paths[s,i] >> report_file;
-                            p = paths[s,i];
-                            if (p != best_path && p != "") {
-                                p_basename = p; gsub(/.*\//, "", p_basename);
-                                dest = quar_base "/" s "/" p_basename;
-                                print p "\t" dest >> plan_file;
-                            }
-                        }
-                    }
-                }
+          for (k in cnt) if (cnt[k]>1) {
+            for (i=1;i<=cnt[k];i++) print k"\t"files[k]"\t"cnt[k]"\t"rec[k,i];
+          }
+        }' "$sig_tmp" >"$plan_m"
+        # Generate suggested cleanup plan (KEEP/REMOVE) by date/size
+        while IFS=$'\t' read -r sig files dupcount path; do
+          if [ -z "$sig" ] || [ -z "$path" ]; then
+            continue
+          fi
+          mtime=$({ stat -f %m "$path" 2>/dev/null || echo 0; } | tr -d '[:space:]')
+          dsize=$({ du -sk "$path" 2>/dev/null || echo 0; } | awk '{print $1}')
+          printf "%s\t%s\t%s\t%s\t%s\n" "$sig" "$path" "$mtime" "$dsize" "$dupcount" >>"$clean_plan.tmp"
+        done <"$plan_m"
+        awk -F'\t' '{
+          sig=$1; path=$2; m=$3+0; sz=$4+0;
+          count[sig]++; idx=count[sig];
+          paths[sig,idx]=path;
+          mt[sig,idx]=m;
+          szs[sig,idx]=sz;
+        } END {
+          for (s in count) {
+            best=""; bestm=-1; bestsz=-1;
+            for (i=1;i<=count[s];i++) {
+              m=mt[s,i]; z=szs[s,i]; p=paths[s,i];
+              if (m>bestm || (m==bestm && z>bestsz)) { best=p; bestm=m; bestsz=z; }
             }
-        }' "$sig_tmp"
-
-        rm -f "$sig_tmp"
+            if (best!="") {
+              print "KEEP\t"best >> "'"$clean_plan"'";
+              for (i=1;i<=count[s];i++) {
+                p=paths[s,i];
+                if (p!=best && p!="") print "REMOVE\t"p >> "'"$clean_plan"'";
+              }
+            }
+          }
+        }' "$clean_plan.tmp"
+        rm -f "$clean_plan.tmp"
         hits=$(wc -l <"$plan_m" | tr -d ' ')
         printf "%s[OK]%s Matrioshka report: %s (matches: %s)\n" "$C_GRN" "$C_RESET" "$plan_m" "$hits"
-        if [ -s "$clean_plan" ]; then
-            printf "%s[OK]%s Matrioshka quarantine plan: %s\n" "$C_GRN" "$C_RESET" "$clean_plan"
-            printf "Will move %s folders to %s/Matrioshka_Folders/\n" "$(wc -l < "$clean_plan" | tr -d ' ')" "$QUAR_DIR"
-            printf "Execute quarantine plan now? (y/N): "
-            read -r run_move
-            if [[ "$run_move" =~ ^[yY]$ ]]; then
-                if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
-                    printf "%s[WARN]%s SAFE_MODE or DJ_SAFE_LOCK is active. Simulation only.\n" "$C_YLW" "$C_RESET"
-                fi
-                while IFS=$'\t' read -r src dest; do
-                    if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
-                        printf "[DRY] mkdir -p \"%s\" && mv \"%s\" \"%s\"\n" "$(dirname "$dest")" "$src" "$dest"
-                    else
-                        mkdir -p "$(dirname "$dest")"
-                        mv "$src" "$dest" 2>/dev/null && printf "[OK] Moved: %s\n" "$(basename "$src")"
-                    fi
-                done < "$clean_plan"
-                printf "%s[OK]%s Move complete.\n" "$C_GRN" "$C_RESET"
-            fi
-        else
-            printf "%s[INFO]%s No cleanup plan generated (no duplicate structures found).\n" "$C_CYN" "$C_RESET"
-        fi
+        printf "%s[OK]%s Matrioshka cleanup plan: %s\n" "$C_GRN" "$C_RESET" "$clean_plan"
         pause_enter
         ;;
       9)
@@ -6755,6 +6745,106 @@ action_H_help_info() {
   pause_enter
 }
 
+action_71_wav_to_mp3() {
+  print_header
+  printf "%s[INFO]%s Convert WAV to MP3 (320kbps CBR - Max Quality).\n" "$C_CYN" "$C_RESET"
+  if ! ensure_tool_installed "ffmpeg" "brew install ffmpeg"; then
+    pause_enter
+    return
+  fi
+  
+  printf "Search for WAVs in BASE_PATH (ENTER) or provide a folder (drag & drop): "
+  read -e -r search_root
+  search_root=$(strip_quotes "$search_root")
+  [ -z "$search_root" ] && search_root="$BASE_PATH"
+  
+  if [ ! -d "$search_root" ]; then
+    printf "%s[ERR]%s Invalid path.\n" "$C_RED" "$C_RESET"
+    pause_enter; return
+  fi
+
+  mapfile -t wav_list < <(find "$search_root" -type f -iname "*.wav" 2>/dev/null)
+  total=${#wav_list[@]}
+  
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No WAV files found.\n" "$C_YLW" "$C_RESET"
+    pause_enter; return
+  fi
+  
+  printf "%s WAV files found.\n" "$total"
+  printf "1) Generate MP3 alongside original (keep WAV)\n"
+  printf "2) Generate MP3 and move original WAV to '_WAV_Backup'\n"
+  printf "Option: "
+  read -r conv_op
+  
+  backup_dir="$search_root/_WAV_Backup"
+  if [ "$conv_op" -eq 2 ]; then
+    mkdir -p "$backup_dir"
+    printf "%s[INFO]%s Originals will be moved to: %s\n" "$C_CYN" "$C_RESET" "$backup_dir"
+  fi
+  
+  count=0
+  for f in "${wav_list[@]}"; do
+    count=$((count+1))
+    percent=$((count*100/total))
+    status_line "CONVERT" "$percent" "$(basename "$f")"
+    
+    dir=$(dirname "$f")
+    base=$(basename "$f" .wav)
+    mp3_out="$dir/$base.mp3"
+    
+    ffmpeg -y -v error -i "$f" -codec:a libmp3lame -b:a 320k -q:a 0 -map_metadata 0 -id3v2_version 3 "$mp3_out" </dev/null
+    
+    if [ "$conv_op" -eq 2 ] && [ -f "$mp3_out" ]; then
+       mv -n "$f" "$backup_dir/" 2>/dev/null
+    fi
+  done
+  finish_status_line
+  printf "%s[OK]%s Conversion complete.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+action_72_update_self() {
+  print_header
+  printf "%s[INFO]%s Checking for updates on GitHub...\n" "$C_CYN" "$C_RESET"
+  local script_name
+  script_name=$(basename "$0")
+  local url="https://raw.githubusercontent.com/$GITHUB_REPO/main/$script_name"
+  local tmp_script="/tmp/$script_name.new"
+  
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$tmp_script"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q "$url" -O "$tmp_script"
+  else
+    printf "%s[ERR]%s curl or wget not found.\n" "$C_RED" "$C_RESET"
+    pause_enter; return
+  fi
+
+  if [ ! -s "$tmp_script" ]; then
+    printf "%s[ERR]%s Download failed.\n" "$C_RED" "$C_RESET"
+    pause_enter; return
+  fi
+
+  if cmp -s "$0" "$tmp_script"; then
+    printf "%s[INFO]%s You already have the latest version.\n" "$C_GRN" "$C_RESET"
+    rm -f "$tmp_script"
+  else
+    printf "%s[WARN]%s Update found! Overwrite current script? (y/N): " "$C_RED" "$C_RESET"
+    read -r ans
+    if [[ "$ans" =~ ^[yY]$ ]]; then
+      mv "$tmp_script" "$0"
+      chmod +x "$0"
+      printf "%s[OK]%s Updated. Please restart the script.\n" "$C_GRN" "$C_RESET"
+      exit 0
+    else
+      rm -f "$tmp_script"
+      printf "%s[INFO]%s Canceled.\n" "$C_CYN" "$C_RESET"
+    fi
+  fi
+  pause_enter
+}
+
 main_loop() {
   while true; do
     print_header
@@ -6809,39 +6899,39 @@ main_loop() {
       37) action_37_web_whitelist_manager ;;
       38) action_38_clean_web_playlists ;;
       39) action_39_clean_web_tags ;;
-      40) action_71_wav_to_mp3 ;;
-      41) action_72_update_self ;;
-      42) action_40_smart_analysis ;;
-      43) action_41_ml_predictor ;;
-      44) action_42_efficiency_optimizer ;;
-      45) action_43_smart_workflow ;;
-      46) action_44_integrated_dedup ;;
-      47) action_45_ml_organization ;;
-      48) action_46_metadata_harmonizer ;;
-      49) action_47_predictive_backup ;;
-      50) action_48_cross_platform_sync ;;
-      51) action_49_advanced_analysis ;;
-      52) action_50_integration_engine ;;
-      53) action_51_adaptive_recommendations ;;
-      54) action_52_automated_cleanup_pipeline ;;
-      55) action_ml_evo_manager ;;
-      56) action_toggle_ml ;;
-      57) action_tensorflow_manager ;;
-      58) submenu_T_tensorflow_lab ;;
-      59) action_ml_profile ;;
-      60) action_53_reset_state ;;
-      61) submenu_profiles_manager ;;
-      62) submenu_ableton_tools ;;
-      63) submenu_importers_cues ;;
-      64) submenu_excludes_manager ;;
-      65) action_compare_hash_indexes ;;
-      66) action_state_health ;;
-      67) action_60_export_import_config ;;
-      68) action_mirror_integrity_check ;;
-      69) action_audio_lufs_plan ;;
-      70) action_audio_cues_onsets ;;
-      71) submenu_A_chains ;;
-      72) action_69_artist_pages ;;
+      40) action_40_smart_analysis ;;
+      41) action_41_ml_predictor ;;
+      42) action_42_efficiency_optimizer ;;
+      43) action_43_smart_workflow ;;
+      44) action_44_integrated_dedup ;;
+      45) action_45_ml_organization ;;
+      46) action_46_metadata_harmonizer ;;
+      47) action_47_predictive_backup ;;
+      48) action_48_cross_platform_sync ;;
+      49) action_49_advanced_analysis ;;
+      50) action_50_integration_engine ;;
+      51) action_51_adaptive_recommendations ;;
+      52) action_52_automated_cleanup_pipeline ;;
+      53) action_53_reset_state ;;
+      54) submenu_profiles_manager ;;
+      55) submenu_ableton_tools ;;
+      56) submenu_importers_cues ;;
+      57) submenu_excludes_manager ;;
+      58) action_compare_hash_indexes ;;
+      59) action_state_health ;;
+      60) action_export_import_config ;;
+      61) action_mirror_integrity_check ;;
+      62) action_ml_evo_manager ;;
+      63) action_toggle_ml ;;
+      64) action_tensorflow_manager ;;
+      65) submenu_T_tensorflow_lab ;;
+      66) action_audio_lufs_plan ;;
+      67) action_audio_cues_onsets ;;
+      68) submenu_A_chains ;;
+      69) action_69_artist_pages ;;
+      70) action_ml_profile ;;
+      71) action_71_wav_to_mp3 ;;
+      72) action_72_update_self ;;
       A|a) submenu_A_chains ;;
       L|l) submenu_L_libraries ;;
       D|d) submenu_D_dupes_general ;;

@@ -446,6 +446,9 @@ ML_PKG_TF_MB=600
 ML_PROFILE="LIGHT"
 PROFILES_DIR=""
 
+# --- CONFIGURACIÓN DE GITHUB ---
+GITHUB_REPO="Astro1Deep/DjProducerTool" # Cambia esto a "TuUsuario/TuRepositorio"
+
 pause_enter() {
   printf "%sPulsa ENTER para continuar...%s" "$C_YLW" "$C_RESET"
   read -r _
@@ -4532,6 +4535,14 @@ chain_33_quality_consistency_check() {
   pause_enter
 }
 
+chain_34_ingest_doctor() {
+  chain_run_header "Smart Ingest + Super Doctor (A30 -> 66)"
+  chain_30_smart_ingest
+  action_state_health
+  printf "%s[OK]%s Cadena completada: Ingestión y doctor finalizados.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 chain_28_autopilot_safe_state() {
   chain_run_header "Auto-pilot seguro: reusar análisis previos"
   local prev_dry="$DRYRUN_FORCE"
@@ -4793,7 +4804,7 @@ action_41_update_self() {
   printf "%s[INFO]%s Buscando actualizaciones en GitHub...\n" "$C_CYN" "$C_RESET"
   local script_name
   script_name=$(basename "$0")
-  local url="https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/$script_name"
+  local url="https://raw.githubusercontent.com/$GITHUB_REPO/main/$script_name"
   local tmp_script="/tmp/$script_name.new"
   
   if command -v curl >/dev/null 2>&1; then
@@ -5106,6 +5117,7 @@ submenu_A_chains() {
     printf "%s29)%s Auto-pilot: Análisis Inteligente -> Playlists Inteligentes -> Backup (40 -> T10 -> 8)\n" "$C_YLW" "$C_RESET"
     printf "%s30)%s Smart Ingest: Organizar INBOX -> Smart_Library (Key/BPM) + Dedup\n" "$C_YLW" "$C_RESET"
     printf "%s33)%s Calidad y Consistencia: Bajo Bitrate + Inconsistencias (L9 -> L8)\n" "$C_YLW" "$C_RESET"
+    printf "%s34)%s Smart Ingest + Super Doctor (A30 -> 66)\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -5141,6 +5153,7 @@ submenu_A_chains() {
       29) chain_29_analysis_playlist_backup ;;
       30) chain_30_smart_ingest ;;
       33) chain_33_quality_consistency_check ;;
+      34) chain_34_ingest_doctor ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
@@ -6909,8 +6922,8 @@ main_loop() {
       37) action_37_web_whitelist_manager ;;
       38) action_38_clean_web_playlists ;;
       39) action_39_clean_web_tags ;;
-      40) action_71_wav_to_mp3 ;;
-      41) action_72_update_self ;;
+      40) action_40_wav_to_mp3 ;;
+      41) action_41_update_self ;;
       42) action_40_smart_analysis ;;
       43) action_41_ml_predictor ;;
       44) action_42_efficiency_optimizer ;;
