@@ -499,6 +499,23 @@ maybe_reuse_file() {
   return 0
 }
 
+select_ml_python() {
+  for p in python3.11 python3.10 python3.9 python3; do
+    if command -v "$p" >/dev/null 2>&1; then
+      printf "%s" "$p"
+      return 0
+    fi
+  done
+  return 1
+}
+
+python_minor_version() {
+  "$1" - <<'PY' 2>/dev/null
+import sys
+print(sys.version_info.minor)
+PY
+}
+
 save_conf() {
   mkdir -p "$CONFIG_DIR"
   : "${AUDIO_ROOT:=}"
@@ -551,6 +568,19 @@ maybe_activate_ml_env() {
     return
   fi
   if [ -f "$VENV_DIR/bin/activate" ]; then
+    if [ "${ML_PROFILE:-LIGHT}" = "TF_ADV" ] && [ -x "$VENV_DIR/bin/python" ]; then
+      venv_minor=$(python_minor_version "$VENV_DIR/bin/python")
+      if [ -n "$venv_minor" ] && [ "$venv_minor" -ge 12 ]; then
+        printf "%s[WARN]%s ML venv uses Python 3.%s (not compatible with TF on macOS). Recreate with python3.11? (y/N): " "$C_YLW" "$C_RESET" "$venv_minor"
+        read -r recreate
+        if [[ "$recreate" =~ ^[yY]$ ]]; then
+          rm -rf "$VENV_DIR"
+        else
+          printf "%s[ERR]%s TF_ADV requires Python 3.11. Install python@3.11 and retry.\n" "$C_RED" "$C_RESET"
+          return
+        fi
+      fi
+    fi
     # shellcheck disable=SC1090
     . "$VENV_DIR/bin/activate"
     VENV_ACTIVE=1
@@ -585,12 +615,29 @@ maybe_activate_ml_env() {
   read -r ans
   case "$ans" in
     y|Y)
-      if ! command -v python3 >/dev/null 2>&1; then
-        printf "%s[ERR]%s python3 not found. Install it and try again.\n" "$C_RED" "$C_RESET"
+      py=$(select_ml_python)
+      if [ -z "$py" ]; then
+        printf "%s[ERR]%s No python3 found. Install it and retry.\n" "$C_RED" "$C_RESET"
         ML_ENV_DISABLED=1
         return
       fi
-      python3 -m venv "$VENV_DIR" 2>/dev/null || {
+      if [ "${ML_PROFILE:-LIGHT}" = "TF_ADV" ]; then
+        minor=$(python_minor_version "$py")
+        if [ -n "$minor" ] && [ "$minor" -ge 12 ]; then
+          printf "%s[WARN]%s TF_ADV requires Python 3.11. Install python@3.11 with brew? (y/N): " "$C_YLW" "$C_RESET"
+          read -r inst_py
+          if [[ "$inst_py" =~ ^[yY]$ ]] && command -v brew >/dev/null 2>&1; then
+            brew install python@3.11 || true
+            py=$(select_ml_python)
+          fi
+          minor=$(python_minor_version "$py")
+          if [ -n "$minor" ] && [ "$minor" -ge 12 ]; then
+            printf "%s[ERR]%s Python 3.11 not available. Install it and retry.\n" "$C_RED" "$C_RESET"
+            return
+          fi
+        fi
+      fi
+      "$py" -m venv "$VENV_DIR" 2>/dev/null || {
         printf "%s[ERR]%s Could not create venv at %s\n" "$C_RED" "$C_RESET" "$VENV_DIR"
         ML_ENV_DISABLED=1
         return
