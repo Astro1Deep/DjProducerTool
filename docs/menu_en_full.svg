@@ -3,7 +3,7 @@
   <defs>
     <style type="text/css"><![CDATA[
       .bg { fill: #0b0c10; }
-      .mono { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 16px; font-weight: 700; fill: #e8f6f3; }
+      .mono { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 18px; font-weight: 700; fill: #e8f6f3; }
       .purple { fill: #9b59b6; }
       .blue { fill: #3498db; }
       .cyan { fill: #1abc9c; }
