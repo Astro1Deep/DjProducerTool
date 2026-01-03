@@ -3305,6 +3305,53 @@ action_69_artist_pages() {
       printf "%s[INFO]%s No changes. You can edit the file manually.\n" "$C_CYN" "$C_RESET"
       ;;
   esac
+
+  printf "\nExport to CSV/HTML in reports/? (y/N): "
+  read -r exp
+  case "$exp" in
+    y|Y)
+      local csv_out="$REPORTS_DIR/artist_pages.csv"
+      local html_out="$REPORTS_DIR/artist_pages.html"
+      if command -v python3 >/dev/null 2>&1; then
+        python3 - <<'PY'
+import csv, html
+from pathlib import Path
+tsv_path = Path(""""$artist_file"""")
+csv_out = Path(""""$csv_out"""")
+html_out = Path(""""$html_out"""")
+rows = []
+if tsv_path.exists():
+    with tsv_path.open(encoding="utf-8") as f:
+        for r in csv.reader(f, delimiter="\t"):
+            if not r:
+                continue
+            key = r[0].strip()
+            val = r[1].strip() if len(r) > 1 else ""
+            rows.append((key, val))
+csv_out.parent.mkdir(parents=True, exist_ok=True)
+with csv_out.open("w", newline="", encoding="utf-8") as f:
+    w = csv.writer(f)
+    w.writerow(["field", "value"])
+    w.writerows(rows)
+table_rows = "\n".join(
+    f"<tr><td><b>{html.escape(k)}</b></td><td>{html.escape(v)}</td></tr>"
+    for k, v in rows
+)
+html_out.write_text(
+    "<html><body><table border='1' cellpadding='6' cellspacing='0'>"
+    "<thead><tr><th>Field</th><th>Value</th></tr></thead>"
+    f"<tbody>{table_rows}</tbody></table></body></html>",
+    encoding="utf-8",
+)
+PY
+        printf "%s[OK]%s Exported to %s and %s\n" "$C_GRN" "$C_RESET" "$csv_out" "$html_out"
+      else
+        printf "%s[WARN]%s python3 not available; export manually.\n" "$C_YLW" "$C_RESET"
+      fi
+      ;;
+    *)
+      ;;
+  esac
   pause_enter
 }
 
