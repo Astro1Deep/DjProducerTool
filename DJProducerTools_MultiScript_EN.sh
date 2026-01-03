@@ -516,10 +516,6 @@ EOF
       local color="${colors[$((idx % ${#colors[@]}))]}"
       local line="${banner_lines[$idx]}"
       local pad=0
-      local len=${#line}
-      if [ "$cols" -gt "$len" ]; then
-        pad=$(((cols - len) / 2))
-      fi
       printf "%*s%s%s%s\n" "$pad" "" "$color" "$line" "$C_RESET"
     done
   fi
