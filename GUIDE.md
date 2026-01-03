@@ -116,6 +116,16 @@ chmod +x install_djpt.sh
 - Banners de ejemplo: `docs/banner_es.png`, `docs/banner_en.png`, `docs/banner_es_terminal.svg`.
 - Añade en README (ya enlazado) o en issues/wikis de GitHub.
 
+## 14) Perfiles de artista y distribución (opción 69)
+- Opción 69 crea/usa `artist_pages.tsv` (en `config/`) con plantillas de bio, press kit, rider/stage plot, showfile DMX/OBS/Ableton y links a plataformas/redes (Spotify, Apple, YouTube, SoundCloud, Beatport, Traxsource, Bandcamp, Mixcloud, Audius, Tidal, Deezer, Amazon, Shazam, Juno, Pandora, Instagram, TikTok, Facebook, Twitter/X, Threads, RA, Patreon, Twitch, Discord, Telegram, WhatsApp, Merch, Boiler Room…). Puedes editar en línea y exportar a CSV/HTML/JSON (`reports/`).
+- Registro como artista (resumen rápido):
+  - **Distribución digital**: sube música mediante agregadores (DistroKid, TuneCore, CD Baby, Record Union, Amuse). Beatport/Traxsource suelen requerir distribuidor/label. Bandcamp/SoundCloud/Mixcloud se suben directo.
+  - **Reclamar perfiles**: Spotify for Artists, Apple Music for Artists, YouTube (Channel + Content ID), SoundCloud/Beatport/Traxsource (vía distribuidor), Instagram/Facebook Music (a través de distribuidor para Content ID).
+  - **Identificadores**: usa UPC para lanzamientos e ISRC por pista (los agregadores suelen generarlos; si no, consigue tu prefijo ISRC local).
+  - **Metadatos clave**: artista, ISRC, UPC, compositores, porcentaje splits, género, BPM, key, arte de portada (mín. 3000x3000), audio WAV 16/24-bit, sample rate 44.1/48 kHz.
+  - **Derechos y cobros**: registra composiciones en tu PRO (SGAE/ASCAP/BMI/SOCAN, etc.), y si quieres publishing admin global usa servicios como Songtrust. Para performance digital en EE. UU., registra en SoundExchange. Configura métodos de pago del agregador (PayPal/transferencia) y de tiendas directas (Bandcamp/Patreon/Twitch/merch).
+  - **EPK/Press**: prepara EPK PDF, press kit assets (fotos HQ, logo, banners, rider/stage plot), links a clips/sets (YouTube/Boiler Room), y añádelos en la plantilla.
+
 ## 14) Licencia
 - DJProducerTools License (Attribution + Revenue Share). Crédito obligatorio.
 - Uso comercial o de derivados: notificar y compartir 20% de ingresos brutos (ver `LICENSE`).
@@ -123,4 +133,3 @@ chmod +x install_djpt.sh
 ## 15) Soporte
 - Autor: Astro One Deep — onedeep1@gmail.com
 - Issues/sugerencias: abrir issue en GitHub o enviar correo.
-

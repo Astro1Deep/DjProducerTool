@@ -3326,12 +3326,13 @@ action_69_artist_pages() {
   )
 
   mkdir -p "$CONFIG_DIR"
+  touch "$artist_file"
   if [ ! -f "$artist_file" ]; then
     : >"$artist_file"
   fi
-  # Garantiza que existan todas las claves; si falta alguna, se añade vacía
+  # Garantiza que existan todas las claves; si falta alguna, se añade con valor sugerido
   for p in "${platforms[@]}"; do
-    if ! awk -F'\t' -v k="$p" '$1==k{found=1} END{exit !found}' "$artist_file"; then
+    if ! awk -F'\t' -v k="$p" '$1==k{found=1} END{exit !found}' "$artist_file" >/dev/null 2>&1; then
       printf "%s\t%s\n" "$p" "$(default_val "$p")" >>"$artist_file"
     fi
   done
@@ -3369,19 +3370,21 @@ action_69_artist_pages() {
       ;;
   esac
 
-  printf "\n¿Exportar a CSV/HTML en reports/? (y/N): "
+  printf "\n¿Exportar a CSV/HTML/JSON en reports/? (y/N): "
   read -r exp
   case "$exp" in
     y|Y)
       local csv_out="$REPORTS_DIR/artist_pages.csv"
       local html_out="$REPORTS_DIR/artist_pages.html"
+      local json_out="$REPORTS_DIR/artist_pages.json"
       if command -v python3 >/dev/null 2>&1; then
-        if python3 - "$artist_file" "$csv_out" "$html_out" <<'PY'
-import csv, html, sys
+        if python3 - "$artist_file" "$csv_out" "$html_out" "$json_out" <<'PY'
+import csv, html, json, sys
 from pathlib import Path
 tsv_path = Path(sys.argv[1])
 csv_out = Path(sys.argv[2])
 html_out = Path(sys.argv[3])
+json_out = Path(sys.argv[4])
 rows = []
 if tsv_path.exists():
     with tsv_path.open(encoding="utf-8") as f:
@@ -3396,8 +3399,16 @@ with csv_out.open("w", newline="", encoding="utf-8") as f:
     w = csv.writer(f)
     w.writerow(["field", "value"])
     w.writerows(rows)
+json_out.write_text(json.dumps([{"field": k, "value": v} for k, v in rows], ensure_ascii=False, indent=2), encoding="utf-8")
+def html_cell(key, val):
+    v = html.escape(val)
+    if val.startswith(("http://", "https://")):
+        return f'<a href="{v}" target="_blank" rel="noopener">{v}</a>'
+    if "@" in val and " " not in val:
+        return f'<a href="mailto:{v}">{v}</a>'
+    return v
 table_rows = "\n".join(
-    f"<tr><td><b>{html.escape(k)}</b></td><td>{html.escape(v)}</td></tr>"
+    f"<tr><td><b>{html.escape(k)}</b></td><td>{html_cell(k, v)}</td></tr>"
     for k, v in rows
 )
 html_out.write_text(
@@ -3408,7 +3419,7 @@ html_out.write_text(
 )
 PY
         then
-          printf "%s[OK]%s Exportado a %s y %s\n" "$C_GRN" "$C_RESET" "$csv_out" "$html_out"
+          printf "%s[OK]%s Exportado a %s, %s y %s\n" "$C_GRN" "$C_RESET" "$csv_out" "$html_out" "$json_out"
         else
           printf "%s[WARN]%s Fallo exportando (python3). Revisa el log en consola.\n" "$C_YLW" "$C_RESET"
         fi
