@@ -584,7 +584,8 @@ print_header() {
   clear
   if [ -f "$BANNER_FILE" ]; then
     printf "%s" "$C_PURP"
-    sed "s/^/$C_PURP/;s/$/$C_RESET/" "$BANNER_FILE"
+    # Clean literal "\n" endings that might be stored in banner file
+    sed 's/\\n$//' "$BANNER_FILE" | sed "s/^/$C_PURP/;s/$/$C_RESET/"
     printf "%s\n" "$C_RESET"
   else
     cols=$(tput cols 2>/dev/null || echo 80)
