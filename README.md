@@ -1,6 +1,6 @@
 # 🎛️ DJProducerTools
 
-**Toolkit avanzado para auditoría, limpieza, organización y gestión de librerías musicales para DJs y Productores en macOS.**
+**Advanced toolkit for auditing, cleaning, organizing, and managing music libraries for DJs and Producers on macOS.**
 
 !Bash
 !Python
@@ -19,12 +19,12 @@ Incluye dos versiones del script principal:
 
 ### 📸 Vistazo Rápido
 !Menú ES
-
----
+!Menú EN
 
 ## ✨ Características Principales
 
 ### 🛡️ Seguridad y Backups
+- **Auto-Detection**: Automatically finds your project root (`BASE_PATH`) and other library locations.
 - **Backups Inteligentes**: Copias de seguridad específicas para metadatos de Serato, Traktor, Rekordbox y Ableton.
 - **Snapshots de Integridad**: Generación rápida de hashes para verificar que tus archivos no se han corrompido.
 - **Quarantine Segura**: Los archivos duplicados o problemáticos se mueven a una cuarentena reversible, nunca se borran directamente sin revisión.
@@ -32,13 +32,15 @@ Incluye dos versiones del script principal:
 ### ♻️ Deduplicación y Limpieza
 - **Deduplicación Exacta**: Detección bit a bit (SHA-256) para eliminar copias idénticas.
 - **Deduplicación "Fuzzy"**: Detección por nombre y tamaño para limpiar descargas repetidas.
+- **Matrioshka Hunter**: Finds structurally identical folders (e.g., duplicate project folders) and suggests a safe cleanup plan.
 - **Limpieza de Metadatos**: Eliminación de URLs basura en tags, normalización de nombres de archivo y detección de caracteres extraños.
 - **Conversión de Audio**: Herramienta integrada (Opción 71) para convertir WAV a MP3 (320kbps CBR) con backup automático de originales.
 
 ### 🧠 IA y Machine Learning (Local)
 - **Smart Analysis**: Escaneo profundo de la librería para sugerir acciones de limpieza.
+- **Smart Ingest**: Automatically analyzes, tags (Key/BPM), and organizes new music from an `INBOX` folder.
 - **Auto-Pilot**: Cadenas de automatización (A23-A28) que ejecutan diagnósticos, limpieza y backups en secuencia.
-- **Clasificación de Audio**: Organización automática de samples (Kicks, Snares, etc.) y detección de género.
+- **Audio Classification**: Automatic organization of samples (Kicks, Snares, etc.) and genre detection.
 - **Entorno Aislado**: Todo el ML corre en un entorno virtual (`venv`) local, sin enviar datos a la nube.
 
 ---
@@ -46,19 +48,18 @@ Incluye dos versiones del script principal:
 ## 🚀 Instalación
 
 Puedes instalar o actualizar los scripts ejecutando el siguiente bloque en tu terminal:
-
 ```bash
 # Crear script de instalación
 cat <<'EOF' > install_djpt.sh
 #!/usr/bin/env bash
 set -e
 echo "⬇️ Descargando DJProducerTools..."
-for f in DJProducerTools_MultiScript_ES.sh DJProducerTools_MultiScript_EN.sh; do
+for f in DJProducerTools_MultiScript_ES.sh DJProducerTools_MultiScript_EN.sh build_macos_pkg.sh; do
   url="https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/$f"
   curl -fsSL "$url" -o "$f"
   chmod +x "$f"
 done
-echo "✅ ¡Listo! Ejecuta ./DJProducerTools_MultiScript_ES.sh para empezar."
+echo "✅ ¡Listo! Ejecuta ./DJProducerTools_MultiScript_ES.sh o ./build_macos_pkg.sh para crear un instalador."
 EOF
 
 # Ejecutar instalador
@@ -68,6 +69,7 @@ chmod +x install_djpt.sh && ./install_djpt.sh
 ## Uso básico
 ```bash
 ./DJProducerTools_MultiScript_ES.sh   # o EN para inglés
+./build_macos_pkg.sh                  # Para crear un instalador .pkg
 ```
 - Opción 2: fija tu BASE_PATH (la raíz donde está `_DJProducerTools` o tu música).  
 - Menú 9→10→11: dedup exacto (hash_index → plan → quarantine).  

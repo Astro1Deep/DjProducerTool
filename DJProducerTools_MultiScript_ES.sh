@@ -1977,7 +1977,7 @@ action_29_toggle_dryrun() {
   pause_enter
 }
 
-action_60_reset_state() {
+action_53_reset_state() {
   print_header
   printf "%s[INFO]%s Reset de estado (config/reports/planes/quarantine/venv).\n" "$C_CYN" "$C_RESET"
   printf "BASE_PATH: %s\n" "$BASE_PATH"
@@ -2009,7 +2009,7 @@ action_60_reset_state() {
   pause_enter
 }
 
-action_65_compare_hash_indexes() {
+action_compare_hash_indexes() {
   print_header
   printf "%s[INFO]%s Comparar dos hash_index.tsv (sin recalcular hashes, formato: hash\\trel\\tpath).\n" "$C_CYN" "$C_RESET"
   printf "Hash index A (ENTER usa reports/hash_index.tsv): "
@@ -2034,7 +2034,7 @@ action_65_compare_hash_indexes() {
   pause_enter
 }
 
-action_68_mirror_integrity_check() {
+action_mirror_integrity_check() {
   print_header
   printf "%s[INFO]%s Validar integridad entre discos (hash_index por ruta, formato: hash\\trel\\tpath).\n" "$C_CYN" "$C_RESET"
   printf "Hash index A (ENTER usa reports/hash_index.tsv): "
@@ -2119,7 +2119,7 @@ action_68_mirror_integrity_check() {
   pause_enter
 }
 
-action_66_state_health() {
+action_state_health() {
   print_header
   refresh_artifact_state
   printf "%s[INFO]%s Doctor integral del estado (_DJProducerTools)\n" "$C_CYN" "$C_RESET"
@@ -2210,7 +2210,7 @@ PY
   pause_enter
 }
 
-action_67_export_import_config() {
+action_60_export_import_config() {
   print_header
   printf "%s[INFO]%s Export/Import solo config/perfiles.\n" "$C_CYN" "$C_RESET"
   printf "1) Exportar config\n2) Importar config\nOpción: "
@@ -2241,7 +2241,7 @@ action_67_export_import_config() {
   pause_enter
 }
 
-action_56_toggle_ml() {
+action_toggle_ml() {
   print_header
   if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
     ML_ENV_DISABLED=0
@@ -2255,7 +2255,7 @@ action_56_toggle_ml() {
   pause_enter
 }
 
-action_55_ml_evo_manager() {
+action_ml_evo_manager() {
   print_header
   maybe_activate_ml_env "ML Evolutivo (entrenamiento local)" 0 1
   printf "%s[INFO]%s ML Evolutivo local (modelo ligero, sin enviar datos).\n" "$C_CYN" "$C_RESET"
@@ -2515,7 +2515,7 @@ PY
   esac
 }
 
-action_57_tensorflow_manager() {
+action_tensorflow_manager() {
   print_header
   if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
     printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
@@ -2549,7 +2549,7 @@ PY
   pause_enter
 }
 
-action_58_tensorflow_lab() {
+submenu_T_tensorflow_lab() {
   while true; do
     clear
     print_header
@@ -4725,7 +4725,7 @@ PY
   pause_enter
 }
 
-action_71_wav_to_mp3() {
+action_40_wav_to_mp3() {
   print_header
   printf "%s[INFO]%s Convertir WAV a MP3 (320kbps CBR - Máxima Calidad).\n" "$C_CYN" "$C_RESET"
   if ! ensure_tool_installed "ffmpeg" "brew install ffmpeg"; then
@@ -4788,7 +4788,7 @@ action_71_wav_to_mp3() {
   pause_enter
 }
 
-action_72_update_self() {
+action_41_update_self() {
   print_header
   printf "%s[INFO]%s Buscando actualizaciones en GitHub...\n" "$C_CYN" "$C_RESET"
   local script_name
@@ -5954,7 +5954,8 @@ submenu_D_dupes_general() {
           for (k in cnt) if (cnt[k]>1) {
             for (i=1;i<=cnt[k];i++) print k"\t"files[k]"\t"cnt[k]"\t"rec[k,i];
           }
-        }' "$sig_tmp" >"$plan_m"
+        }' "$sig_tmp" >"$plan_m" # Genera el reporte
+
         # Generar plan de limpieza sugerido (KEEP/REMOVE) por fecha/size
         while IFS=$'\t' read -r sig files dupcount path; do
           if [ -z "$sig" ] || [ -z "$path" ]; then
@@ -5964,32 +5965,58 @@ submenu_D_dupes_general() {
           dsize=$({ du -sk "$path" 2>/dev/null || echo 0; } | awk '{print $1}')
           printf "%s\t%s\t%s\t%s\t%s\n" "$sig" "$path" "$mtime" "$dsize" "$dupcount" >>"$clean_plan.tmp"
         done <"$plan_m"
-        run_with_spinner "MATRIOSHKA_PLAN" "Generando plan de limpieza..." awk -F'\t' '{
-          sig=$1; path=$2; m=$3+0; sz=$4+0;
-          count[sig]++; idx=count[sig];
-          paths[sig,idx]=path;
-          mt[sig,idx]=m;
-          szs[sig,idx]=sz;
+
+        # Procesar el temporal para crear el plan de cuarentena final
+        run_with_spinner "MATRIOSHKA_PLAN" "Generando plan de limpieza..." awk -F'\t' -v quar_base="$QUAR_DIR/Matrioshka_Folders" '{
+            sig=$1; path=$2; m=$3+0; sz=$4+0;
+            count[sig]++; idx=count[sig];
+            paths[sig,idx]=path; mt[sig,idx]=m; szs[sig,idx]=sz;
         } END {
-          for (s in count) {
-            best=""; bestm=-1; bestsz=-1;
-            for (i=1;i<=count[s];i++) {
-              m=mt[s,i]; z=szs[s,i]; p=paths[s,i];
-              if (m>bestm || (m==bestm && z>bestsz)) { best=p; bestm=m; bestsz=z; }
+            for (s in count) {
+                best_path=""; best_mtime=-1; best_size=-1;
+                for (i=1; i<=count[s]; i++) {
+                    if (mt[s,i] > best_mtime || (mt[s,i] == best_mtime && szs[s,i] > best_size)) {
+                        best_path=paths[s,i]; best_mtime=mt[s,i]; best_size=szs[s,i];
+                    }
+                }
+                if (best_path != "") {
+                    for (i=1; i<=count[s]; i++) {
+                        p = paths[s,i];
+                        if (p != best_path && p != "") {
+                            p_basename = p; gsub(/.*\//, "", p_basename);
+                            dest = quar_base "/" s "/" p_basename;
+                            print p "\t" dest;
+                        }
+                    }
+                }
             }
-            if (best!="") {
-              print "KEEP\t"best >> "'"$clean_plan"'";
-              for (i=1;i<=count[s];i++) {
-                p=paths[s,i];
-                if (p!=best && p!="") print "REMOVE\t"p >> "'"$clean_plan"'";
-              }
-            }
-          }
-        }' "$clean_plan.tmp"
-        rm -f "$clean_plan.tmp"
+        }' "$clean_plan.tmp" > "$clean_plan"
+
+        rm -f "$clean_plan.tmp" "$sig_tmp"
         hits=$(wc -l <"$plan_m" | tr -d ' ')
-        printf "%s[OK]%s Reporte matrioshkas: %s (coincidencias: %s)\n" "$C_GRN" "$C_RESET" "$plan_m" "$hits"
-        printf "%s[OK]%s Plan de limpieza matrioshkas: %s\n" "$C_GRN" "$C_RESET" "$clean_plan"
+        printf "%s[OK]%s Reporte de matrioshkas: %s (coincidencias: %s)\n" "$C_GRN" "$C_RESET" "$plan_m" "$hits"
+        if [ -s "$clean_plan" ]; then
+            printf "%s[OK]%s Plan de cuarentena para matrioshkas: %s\n" "$C_GRN" "$C_RESET" "$clean_plan"
+            printf "Se moverán %s carpetas a %s/Matrioshka_Folders/\n" "$(wc -l < "$clean_plan" | tr -d ' ')" "$QUAR_DIR"
+            printf "¿Ejecutar el plan de cuarentena ahora? (y/N): "
+            read -r run_move
+            if [[ "$run_move" =~ ^[yY]$ ]]; then
+                if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
+                    printf "%s[WARN]%s SAFE_MODE o DJ_SAFE_LOCK activo. Solo simulación.\n" "$C_YLW" "$C_RESET"
+                fi
+                while IFS=$'\t' read -r src dest; do
+                    if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
+                        printf "[DRY] mkdir -p \"%s\" && mv \"%s\" \"%s\"\n" "$(dirname "$dest")" "$src" "$dest"
+                    else
+                        mkdir -p "$(dirname "$dest")"
+                        mv "$src" "$dest" 2>/dev/null && printf "[OK] Movido: %s\n" "$(basename "$src")"
+                    fi
+                done < "$clean_plan"
+                printf "%s[OK]%s Movimiento completado.\n" "$C_GRN" "$C_RESET"
+            fi
+        else
+            printf "%s[INFO]%s No se generó plan de limpieza (sin duplicados de estructura).\n" "$C_CYN" "$C_RESET"
+        fi
         pause_enter
         ;;
       9)
@@ -6128,7 +6155,7 @@ PY
         else
           printf "%s[OK]%s Reporte similitud: %s\n" "$C_GRN" "$C_RESET" "$report_sim"
           printf "%s[OK]%s Plan similitud: %s\n" "$C_GRN" "$C_RESET" "$plan_sim"
-        fi
+        fi;
         pause_enter
         ;;
       8)

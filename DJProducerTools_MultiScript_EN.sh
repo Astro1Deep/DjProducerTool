@@ -1626,18 +1626,16 @@ action_15_relink_helper() {
   >"$out"
   >"$doctor_out"
   tmp_list="$STATE_DIR/relink_list.tmp"
-  find "$BASE_PATH" -type f 2>/dev/null >"$tmp_list"
-  total=$(wc -l <"$tmp_list" | tr -d ' ')
+  run_with_spinner "RELINK" "Listing files..." find "$BASE_PATH" -type f 2>/dev/null >"$tmp_list"
+  total=$(wc -l < "$tmp_list" | tr -d ' ')
   if [ "$total" -eq 0 ]; then
     printf "%s[WARN]%s No files found.\n" "$C_YLW" "$C_RESET"
     pause_enter
     rm -f "$tmp_list"
     return
   fi
-  total=0
   zero_count=0
   count=0
-  zero_count=0
   while IFS= read -r f; do
     count=$((count + 1))
     rel="${f#$BASE_PATH/}"
@@ -5855,53 +5853,76 @@ submenu_D_dupes_general() {
             files=$(find "$d" -maxdepth 1 -type f 2>/dev/null | head -"$mf" | xargs -I{} basename "{}" | sort | tr '\n' '|' )
             if [ -n "$files" ]; then
               sig=$(printf "%s" "$files" | shasum -a 256 | awk '{print $1}')
-              printf "%s\t%s\t%s\n" "$sig" "$d" "$files" >>"$sig_tmp"
+              mtime=$({ stat -f %m "$d" 2>/dev/null || echo 0; } | tr -d '[:space:]')
+              dsize=$({ du -sk "$d" 2>/dev/null || echo 0; } | awk '{print $1}')
+              printf "%s\t%s\t%s\t%s\t%s\n" "$sig" "$d" "$mtime" "$dsize" "$files" >>"$sig_tmp"
             fi
         done <"$dir_list"
         rm -f "$dir_list"
         finish_status_line
-        awk -F'\t' '{
-          s=$1; d=$2; f=$3; cnt[s]++; rec[s,cnt[s]]=d; files[s]=f;
-        } END {
-          for (k in cnt) if (cnt[k]>1) {
-            for (i=1;i<=cnt[k];i++) print k"\t"files[k]"\t"cnt[k]"\t"rec[k,i];
-          }
-        }' "$sig_tmp" >"$plan_m"
-        # Generate suggested cleanup plan (KEEP/REMOVE) by date/size
-        while IFS=$'\t' read -r sig files dupcount path; do
-          if [ -z "$sig" ] || [ -z "$path" ]; then
-            continue
-          fi
-          mtime=$({ stat -f %m "$path" 2>/dev/null || echo 0; } | tr -d '[:space:]')
-          dsize=$({ du -sk "$path" 2>/dev/null || echo 0; } | awk '{print $1}')
-          printf "%s\t%s\t%s\t%s\t%s\n" "$sig" "$path" "$mtime" "$dsize" "$dupcount" >>"$clean_plan.tmp"
-        done <"$plan_m"
-        awk -F'\t' '{
-          sig=$1; path=$2; m=$3+0; sz=$4+0;
-          count[sig]++; idx=count[sig];
-          paths[sig,idx]=path;
-          mt[sig,idx]=m;
-          szs[sig,idx]=sz;
-        } END {
-          for (s in count) {
-            best=""; bestm=-1; bestsz=-1;
-            for (i=1;i<=count[s];i++) {
-              m=mt[s,i]; z=szs[s,i]; p=paths[s,i];
-              if (m>bestm || (m==bestm && z>bestsz)) { best=p; bestm=m; bestsz=z; }
+
+        # Process the temporary file in a single pass to generate report and cleanup plan
+        run_with_spinner "MATRIOSHKA_PLAN" "Generating efficient cleanup plan..." \
+        awk -F'\t' -v report_file="$plan_m" -v plan_file="$clean_plan" -v quar_base="$QUAR_DIR/Matrioshka_Folders" '
+        {
+            sig=$1; path=$2; mtime=$3; dsize=$4; files=$5;
+            count[sig]++;
+            idx = count[sig];
+            paths[sig,idx] = path;
+            mtimes[sig,idx] = mtime;
+            dsizes[sig,idx] = dsize;
+            if (!(sig in file_lists)) {
+                file_lists[sig] = files;
             }
-            if (best!="") {
-              print "KEEP\t"best >> "'"$clean_plan"'";
-              for (i=1;i<=count[s];i++) {
-                p=paths[s,i];
-                if (p!=best && p!="") print "REMOVE\t"p >> "'"$clean_plan"'";
-              }
+        } END {
+            for (s in count) {
+                if (count[s] > 1) {
+                    best_path=""; best_mtime=-1; best_size=-1;
+                    for (i=1; i<=count[s]; i++) {
+                        if (mtimes[s,i] > best_mtime || (mtimes[s,i] == best_mtime && dsizes[s,i] > best_size)) {
+                            best_path=paths[s,i]; best_mtime=mtimes[s,i]; best_size=dsizes[s,i];
+                        }
+                    }
+                    if (best_path != "") {
+                        for (i=1; i<=count[s]; i++) {
+                            print s "\t" file_lists[s] "\t" count[s] "\t" paths[s,i] >> report_file;
+                            p = paths[s,i];
+                            if (p != best_path && p != "") {
+                                p_basename = p; gsub(/.*\//, "", p_basename);
+                                dest = quar_base "/" s "/" p_basename;
+                                print p "\t" dest >> plan_file;
+                            }
+                        }
+                    }
+                }
             }
-          }
-        }' "$clean_plan.tmp"
-        rm -f "$clean_plan.tmp"
+        }' "$sig_tmp"
+
+        rm -f "$sig_tmp"
         hits=$(wc -l <"$plan_m" | tr -d ' ')
         printf "%s[OK]%s Matrioshka report: %s (matches: %s)\n" "$C_GRN" "$C_RESET" "$plan_m" "$hits"
-        printf "%s[OK]%s Matrioshka cleanup plan: %s\n" "$C_GRN" "$C_RESET" "$clean_plan"
+        if [ -s "$clean_plan" ]; then
+            printf "%s[OK]%s Matrioshka quarantine plan: %s\n" "$C_GRN" "$C_RESET" "$clean_plan"
+            printf "Will move %s folders to %s/Matrioshka_Folders/\n" "$(wc -l < "$clean_plan" | tr -d ' ')" "$QUAR_DIR"
+            printf "Execute quarantine plan now? (y/N): "
+            read -r run_move
+            if [[ "$run_move" =~ ^[yY]$ ]]; then
+                if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
+                    printf "%s[WARN]%s SAFE_MODE or DJ_SAFE_LOCK is active. Simulation only.\n" "$C_YLW" "$C_RESET"
+                fi
+                while IFS=$'\t' read -r src dest; do
+                    if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
+                        printf "[DRY] mkdir -p \"%s\" && mv \"%s\" \"%s\"\n" "$(dirname "$dest")" "$src" "$dest"
+                    else
+                        mkdir -p "$(dirname "$dest")"
+                        mv "$src" "$dest" 2>/dev/null && printf "[OK] Moved: %s\n" "$(basename "$src")"
+                    fi
+                done < "$clean_plan"
+                printf "%s[OK]%s Move complete.\n" "$C_GRN" "$C_RESET"
+            fi
+        else
+            printf "%s[INFO]%s No cleanup plan generated (no duplicate structures found).\n" "$C_CYN" "$C_RESET"
+        fi
         pause_enter
         ;;
       9)
