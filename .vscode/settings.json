@@ -1,3 +1,5 @@
 {
-    "idf.pythonInstallPath": "/usr/bin/python3"
+    "idf.pythonInstallPath": "/usr/bin/python3",
+    "chatgpt.openOnStartup": true,
+    "vscode-corda.isCordaProject": false
 }
