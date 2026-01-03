@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="2000" viewBox="0 0 1900 2000">
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="2100" viewBox="0 0 1900 2100">
   <defs>
     <style type="text/css"><![CDATA[
       .bg { fill: #0b0c10; }
-      .mono { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 20px; font-weight: 700; fill: #e8f6f3; }
+      .mono { font-family: "Menlo", "Courier New", "DejaVu Sans Mono", monospace; font-size: 22px; font-weight: 700; fill: #e8f6f3; }
       .purple { fill: #9b59b6; }
       .blue { fill: #3498db; }
       .cyan { fill: #1abc9c; }
@@ -12,7 +12,7 @@
       .red { fill: #e74c3c; }
     ]]></style>
   </defs>
-  <rect class="bg" x="0" y="0" width="1900" height="2000" rx="18" ry="18"/>
+  <rect class="bg" x="0" y="0" width="1900" height="2100" rx="18" ry="18"/>
 
   <!-- Banner -->
   <g transform="translate(40,70)">
@@ -38,7 +38,7 @@
   <!-- State -->
   <g transform="translate(40,470)">
     <text class="mono cyan">WAX SPACESHIP  DJProducerTools</text>
-    <text class="mono"><tspan class="yellow">Base:</tspan><tspan dx="10">/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/test_base</tspan></text>
+    <text class="mono"><tspan class="yellow">Base:</tspan><tspan dx="10">/Users/ivan/Desktop/0 SERATO BIBLIOTECA</tspan></text>
     <text class="mono" y="28">
       <tspan class="blue">Assist:</tspan><tspan class="green" dx="8">ON</tspan>
       <tspan class="blue" dx="18">AutoTools:</tspan><tspan class="green" dx="8">ON</tspan>
@@ -128,8 +128,9 @@
     <text class="mono" y="1472"> 66) LUFS plan (analysis, no normalize)</text>
     <text class="mono" y="1492"> 67) Auto-cues by onsets (librosa)</text>
     <text class="mono" y="1512"> 68) Automated chains (21 workflows)</text>
+    <text class="mono" y="1532"> 69) Artist profiles/links (template)</text>
 
-    <text class="mono green" y="1544">🔮 A) Automations (chains)</text>
-    <text class="mono green" y="1564">📚 L) DJ Libraries &amp; Cues   ♻️  D) General duplicates   🎥 V) Visuals / DAW / OSC   ℹ️  H) Help &amp; INFO   0) Exit</text>
+    <text class="mono green" y="1564">🔮 A) Automations (chains)</text>
+    <text class="mono green" y="1584">📚 L) DJ Libraries &amp; Cues   ♻️  D) General duplicates   🎥 V) Visuals / DAW / OSC   ℹ️  H) Help &amp; INFO   0) Exit</text>
   </g>
 </svg>

@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"vscode-corda.isCordaProject": false,
+		"chatgpt.openOnStartup": true,
+		"commentTranslate.multiLineMerge": true
+	}
+}

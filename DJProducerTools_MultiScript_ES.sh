@@ -397,6 +397,15 @@ ensure_dirs() {
 }
 
 init_paths() {
+  # Normaliza BASE_PATH: elimina barra final y corrige si apunta a _DJProducerTools
+  BASE_PATH="${BASE_PATH%/}"
+  # Normaliza BASE_PATH si el usuario metió la carpeta _DJProducerTools directamente
+  case "$BASE_PATH" in
+    */_DJProducerTools|*/_DJProducerTools/)
+      BASE_PATH="${BASE_PATH%/_DJProducerTools*}"
+      printf "%s[WARN]%s Ajustando BASE_PATH (no debe apuntar a _DJProducerTools): %s\n" "$C_YLW" "$C_RESET" "$BASE_PATH"
+      ;;
+  esac
   STATE_DIR="$BASE_PATH/_DJProducerTools"
   CONFIG_DIR="$STATE_DIR/config"
   PROFILES_DIR="$CONFIG_DIR/profiles"
@@ -460,6 +469,22 @@ file_meta() {
   ft=$(stat -f %m "$f")
   age_h=$(( (now - ft) / 3600 ))
   printf "%s|%s|%s" "$mtime" "$size" "$age_h"
+}
+
+maybe_reuse_file() {
+  local file="$1" desc="$2"
+  if [ -s "$file" ]; then
+    local meta_date meta_size
+    meta_date=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$file" 2>/dev/null)
+    meta_size=$(du -h "$file" 2>/dev/null | awk 'NR==1{print $1}')
+    printf "%s[INFO]%s %s ya existe (%s, %s). Reusar (R) o regenerar (g)? [R/g]: " "$C_YLW" "$C_RESET" "$desc" "${meta_date:-n/d}" "${meta_size:-n/d}"
+    read -r reuse
+    case "$reuse" in
+      g|G) return 0 ;;
+      *) printf "%s[OK]%s Reusando %s\n" "$C_GRN" "$C_RESET" "$file"; pause_enter; return 1 ;;
+    esac
+  fi
+  return 0
 }
 
 save_conf() {
@@ -959,19 +984,7 @@ action_8_backup_dj() {
 action_9_hash_index() {
   print_header
   out="$REPORTS_DIR/hash_index.tsv"
-  if [ -f "$out" ]; then
-    meta=$(file_meta "$out")
-    meta_date=$(echo "$meta" | cut -d'|' -f1)
-    meta_size=$(echo "$meta" | cut -d'|' -f2)
-    meta_age=$(echo "$meta" | cut -d'|' -f3)
-    printf "%s[INFO]%s Ya existe hash_index.tsv (%s, %s, %sh).\n" "$C_YLW" "$C_RESET" "$meta_date" "$meta_size" "$meta_age"
-    printf "¿Reusar (R) o regenerar (g)? [R/g]: "
-    read -r reuse
-    case "$reuse" in
-      g|G) ;;
-      *) printf "%s[OK]%s Reusando hash_index existente.\n" "$C_GRN" "$C_RESET"; pause_enter; return ;;
-    esac
-  fi
+  if ! maybe_reuse_file "$out" "hash_index.tsv"; then return; fi
   printf "%s[INFO]%s Generando índice SHA-256 -> %s\n" "$C_CYN" "$C_RESET" "$out"
   total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
   if [ "$total" -eq 0 ]; then
@@ -1024,6 +1037,7 @@ action_10_dupes_plan() {
   fi
   plan_tsv="$PLANS_DIR/dupes_plan.tsv"
   plan_json="$PLANS_DIR/dupes_plan.json"
+  if ! maybe_reuse_file "$plan_tsv" "dupes_plan.tsv"; then return; fi
   printf "%s[INFO]%s Generando plan de duplicados EXACTO.\n" "$C_CYN" "$C_RESET"
   awk '
   BEGIN { FS=OFS="\t" }
@@ -1238,6 +1252,7 @@ action_12_quarantine_manager() {
 action_13_ffprobe_report() {
   print_header
   out="$REPORTS_DIR/media_corrupt.tsv"
+  if ! maybe_reuse_file "$out" "media_corrupt.tsv"; then return; fi
   printf "%s[INFO]%s Detectando media corrupta (ffprobe) -> %s\n" "$C_CYN" "$C_RESET" "$out"
   if ! command -v ffprobe >/dev/null 2>&1; then
     printf "%s[ERR]%s ffprobe no está instalado.\n" "$C_RED" "$C_RESET"
@@ -1270,6 +1285,21 @@ action_15_relink_helper() {
   out="$REPORTS_DIR/relink_helper.tsv"
   doctor_out="$REPORTS_DIR/relink_doctor.txt"
   printf "%s[INFO]%s Doctor: Relink Helper -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  if [ -s "$out" ]; then
+    meta_date=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$out" 2>/dev/null)
+    meta_size=$(du -h "$out" 2>/dev/null | awk 'NR==1{print $1}')
+    printf "%s[INFO]%s Ya existe relink_helper.tsv (%s, %s).\n" "$C_YLW" "$C_RESET" "${meta_date:-n/d}" "${meta_size:-n/d}"
+    printf "¿Reusar (R) o regenerar (g)? [R/g]: "
+    read -r reuse
+    case "$reuse" in
+      g|G) ;;
+      *)
+        printf "%s[OK]%s Reusando archivos existentes:\n  %s\n  %s\n" "$C_GRN" "$C_RESET" "$out" "$doctor_out"
+        pause_enter
+        return
+        ;;
+    esac
+  fi
   include_hash=0
   printf "¿Incluir hash SHA-256 por archivo? (puede tardar) [y/N]: "
   read -r hash_ans
@@ -1279,11 +1309,26 @@ action_15_relink_helper() {
   esac
   >"$out"
   >"$doctor_out"
-  total=0
+  tmp_list="$STATE_DIR/relink_list.tmp"
+  find "$BASE_PATH" -type f 2>/dev/null >"$tmp_list"
+  total=$(wc -l <"$tmp_list" | tr -d ' ')
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron archivos.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    rm -f "$tmp_list"
+    return
+  fi
+  count=0
   zero_count=0
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
-    total=$((total + 1))
+  while IFS= read -r f; do
+    count=$((count + 1))
     rel="${f#$BASE_PATH/}"
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "RELINK" "$percent" "$rel"
     size=$(stat -f %z "$f" 2>/dev/null || echo 0)
     mtime=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$f" 2>/dev/null || echo "n/d")
     if [ "${size:-0}" -eq 0 ]; then
@@ -1295,7 +1340,9 @@ action_15_relink_helper() {
     else
       printf "%s\t%s\t%s\t%s\n" "$rel" "$f" "$size" "$mtime" >>"$out"
     fi
-  done
+  done <"$tmp_list"
+  finish_status_line
+  rm -f "$tmp_list"
   missing_tools=()
   for tool in ffprobe ffmpeg sox flac metaflac id3v2 mid3v2 shntool jq python3; do
     if ! command -v "$tool" >/dev/null 2>&1; then
@@ -1364,6 +1411,7 @@ action_16_mirror_by_genre() {
   print_header
   printf "%s[INFO]%s Mirror por género (plan seguro básico).\n" "$C_CYN" "$C_RESET"
   out="$PLANS_DIR/mirror_by_genre.tsv"
+  if ! maybe_reuse_file "$out" "mirror_by_genre.tsv"; then return; fi
   >"$out"
   find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null | while IFS= read -r f; do
     printf "%s\tGENRE_UNKNOWN\t%s\n" "$f" "$BASE_PATH/_MIRROR_BY_GENRE/GENRE_UNKNOWN/$(basename "$f")" >>"$out"
@@ -1383,6 +1431,7 @@ action_18_rescan_intelligent() {
   print_header
   printf "%s[INFO]%s Rescan inteligente.\n" "$C_CYN" "$C_RESET"
   out="$REPORTS_DIR/rescan_intelligent.tsv"
+  if ! maybe_reuse_file "$out" "rescan_intelligent.tsv"; then return; fi
   total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
   if [ "$total" -eq 0 ]; then
     >"$out"
@@ -1669,20 +1718,87 @@ action_mirror_integrity_check() {
 
 action_state_health() {
   print_header
-  printf "%s[INFO]%s Health-check de _DJProducerTools\n" "$C_CYN" "$C_RESET"
+  refresh_artifact_state
+  printf "%s[INFO]%s Doctor integral del estado (_DJProducerTools)\n" "$C_CYN" "$C_RESET"
+  local free_base free_state report_count plans_count quar_count log_count
+  free_base=$(df -h "$BASE_PATH" 2>/dev/null | awk 'NR==2{print $4" libres, uso "$5}')
+  free_state=$(df -h "$STATE_DIR" 2>/dev/null | awk 'NR==2{print $4" libres, uso "$5}')
+  report_count=$(find "$REPORTS_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+  plans_count=$(find "$PLANS_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+  quar_count=$(find "$QUAR_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+  log_count=$(find "$LOGS_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+  tools_missing=()
+  tools_versions=()
+  for tool in ffprobe ffmpeg sox flac metaflac id3v2 mid3v2 shntool jq python3 shasum; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      tools_missing+=("$tool")
+    else
+      ver="$($tool -version 2>/dev/null | head -n 1)"
+      [ -z "$ver" ] && ver="$($tool --version 2>/dev/null | head -n 1)"
+      tools_versions+=("$tool => ${ver:-n/d}")
+    fi
+  done
+  venv_status="No venv ML"
+  if [ -f "$VENV_DIR/bin/activate" ]; then
+    venv_status="Present"
+    if [ -x "$VENV_DIR/bin/python" ]; then
+      tf_ver="$("$VENV_DIR/bin/python" - <<'PY' 2>/dev/null
+try:
+    import tensorflow as tf
+    print(tf.__version__)
+except Exception:
+    print("")
+PY
+)"
+      venv_status="Present (TensorFlow ${tf_ver:-no import})"
+    fi
+  fi
   {
-    echo "STATE HEALTH REPORT"
+    echo "SUPER DOCTOR REPORT"
+    echo "Fecha: $(date '+%Y-%m-%d %H:%M')"
     echo "BASE_PATH: $BASE_PATH"
     echo "STATE_DIR: $STATE_DIR"
+    echo "Espacio BASE_PATH: ${free_base:-n/d}"
+    echo "Espacio STATE_DIR: ${free_state:-n/d}"
+    echo "STATE_DIR size:"
     du -sh "$STATE_DIR" 2>/dev/null || true
-    echo "Top 10 en quarantine:"
-    du -sh "$QUAR_DIR"/* 2>/dev/null | sort -hr | head -10 || true
-    echo "Logs size:"
-    du -sh "$LOGS_DIR" 2>/dev/null || true
-    echo "Reports size:"
-    du -sh "$REPORTS_DIR" 2>/dev/null || true
+    echo
+    echo "Artefactos clave:"
+    echo "  hash_index.tsv: $([ "$ART_HAS_HASH" -eq 1 ] && echo OK || echo missing) ${ART_HASH_DATE:+($ART_HASH_DATE)}"
+    echo "  snapshot_hash_fast.tsv: $([ "$ART_HAS_SNAPSHOT" -eq 1 ] && echo OK || echo missing) ${ART_SNAPSHOT_DATE:+($ART_SNAPSHOT_DATE)}"
+    echo "  dupes_plan.tsv: $([ "$ART_HAS_DUPES_PLAN" -eq 1 ] && echo OK || echo missing) ${ART_DUPES_PLAN_DATE:+($ART_DUPES_PLAN_DATE)}"
+    echo "  quarantine/: ${ART_QUAR_COUNT:-0} archivos${ART_QUAR_SIZE:+, ${ART_QUAR_SIZE}}"
+    echo "  reports/: ${ART_REPORTS_SIZE:-n/d}"
+    echo
+    echo "Conteos:"
+    echo "  reports: $report_count"
+    echo "  plans: $plans_count"
+    echo "  quarantine: $quar_count"
+    echo "  logs: $log_count"
+    echo "  ML venv: $venv_status"
+    echo
+    if [ "${#tools_missing[@]}" -gt 0 ]; then
+      echo "Herramientas faltantes:"
+      printf "  - %s\n" "${tools_missing[@]}"
+      echo "Sugerencia (Homebrew): brew install ffmpeg sox flac id3v2 shntool jq"
+      echo "Mutagen (para etiquetas): pip install mutagen"
+    else
+      echo "Herramientas requeridas: OK"
+    fi
+    if [ "${#tools_versions[@]}" -gt 0 ]; then
+      echo "Versiones detectadas:"
+      printf "  - %s\n" "${tools_versions[@]}"
+    fi
+    echo
+    echo "Recomendaciones:"
+    echo "  - Si falta hash/snapshot/plan dupes: ejecuta 9/10/27."
+    echo "  - Revisa quarantine con 11/12; libera espacio si es grande."
+    echo "  - Usa 57 para exclusiones antes de escaneos pesados."
   } >"$STATE_HEALTH_REPORT"
-  printf "%s[OK]%s Health report: %s\n" "$C_GRN" "$C_RESET" "$STATE_HEALTH_REPORT"
+  printf "%s[OK]%s Reporte doctor: %s\n" "$C_GRN" "$C_RESET" "$STATE_HEALTH_REPORT"
+  if [ "${#tools_missing[@]}" -gt 0 ]; then
+    printf "%s[WARN]%s Herramientas faltantes: %s\n" "$C_YLW" "$C_RESET" "${tools_missing[*]}"
+  fi
   pause_enter
 }
 
@@ -2733,6 +2849,7 @@ submenu_profiles_manager() {
 action_30_plan_tags() {
   print_header
   out="$PLANS_DIR/audio_by_tags_plan.tsv"
+  if ! maybe_reuse_file "$out" "audio_by_tags_plan.tsv"; then return; fi
   printf "%s[INFO]%s Organizar audio por TAGS -> plan TSV: %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
   find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null | while IFS= read -r f; do
@@ -2746,6 +2863,7 @@ action_31_report_tags() {
   print_header
   plan="$PLANS_DIR/audio_by_tags_plan.tsv"
   out="$REPORTS_DIR/audio_tags_report.tsv"
+  if ! maybe_reuse_file "$out" "audio_tags_report.tsv"; then return; fi
   printf "%s[INFO]%s Reporte de tags de audio -> %s\n" "$C_CYN" "$C_RESET" "$out"
   if [ ! -f "$plan" ]; then
     printf "%s[WARN]%s No hay plan de TAGS, generando primero.\n" "$C_YLW" "$C_RESET"
@@ -3606,6 +3724,47 @@ chain_22_presskit_pack() {
   pause_enter
 }
 
+chain_23_autopilot_quick() {
+  chain_run_header "Auto-pilot: cadenas 5,16,21"
+  chain_5_show_prep
+  chain_16_clean_backup
+  chain_21_multidisk_dedup
+  printf "%s[OK]%s Auto-pilot rápido completado.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_24_autopilot_all_in_one() {
+  chain_run_header "Auto-pilot: hash -> dupes -> quarantine -> snapshot -> doctor"
+  action_9_hash_index
+  action_10_dupes_plan
+  action_11_quarantine_from_plan
+  action_27_snapshot
+  action_state_health
+  printf "%s[OK]%s Auto-pilot todo en uno completado.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_25_autopilot_clean_backup() {
+  chain_run_header "Auto-pilot: limpieza + backup seguro"
+  action_18_rescan_intelligent
+  action_9_hash_index
+  action_10_dupes_plan
+  action_11_quarantine_from_plan
+  action_8_backup_dj
+  action_27_snapshot
+  printf "%s[OK]%s Auto-pilot limpieza + backup completado.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
+chain_26_autopilot_relink_doctor() {
+  chain_run_header "Auto-pilot: relink doctor + super doctor + export estado"
+  action_15_relink_helper
+  action_state_health
+  action_26_export_import_state
+  printf "%s[OK]%s Auto-pilot relink doctor completado.\n" "$C_GRN" "$C_RESET"
+  pause_enter
+}
+
 action_69_artist_pages() {
   print_header
   local artist_file="$CONFIG_DIR/artist_pages.tsv"
@@ -3807,6 +3966,10 @@ submenu_A_chains() {
     printf "%s20)%s Seguridad Serato reforzada (7 -> 8 -> 59 -> 12 -> 47)\n" "$C_YLW" "$C_RESET"
     printf "%s21)%s Dedup multi-disco + espejo (9 -> 10 -> 44 -> 11 -> 61)\n" "$C_YLW" "$C_RESET"
     printf "%s22)%s Pack presskit (69 -> export)\n" "$C_YLW" "$C_RESET"
+    printf "%s23)%s Auto-pilot: cadenas 5,16,21 (prep show + clean/backup + dedup multi)\n" "$C_YLW" "$C_RESET"
+    printf "%s24)%s Auto-pilot: todo en uno (hash -> dupes -> quarantine -> snapshot -> doctor)\n" "$C_YLW" "$C_RESET"
+    printf "%s25)%s Auto-pilot: limpieza + backup seguro (rescan -> dupes -> quarantine -> backup -> snapshot)\n" "$C_YLW" "$C_RESET"
+    printf "%s26)%s Auto-pilot: relink doctor + super doctor + export estado\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r aop
@@ -3833,6 +3996,10 @@ submenu_A_chains() {
       20) chain_20_serato_safe ;;
       21) chain_21_multidisk_dedup ;;
       22) chain_22_presskit_pack ;;
+      23) chain_23_autopilot_quick ;;
+      24) chain_24_autopilot_all_in_one ;;
+      25) chain_25_autopilot_clean_backup ;;
+      26) chain_26_autopilot_relink_doctor ;;
       B|b) break ;;
       *) invalid_option ;;
     esac
@@ -5372,7 +5539,13 @@ action_H_help_info() {
   printf "  A1-A10: flujos predefinidos (backup+snapshot, dedup+quarantine, limpieza metadatos/nombres, health scan, prep show, integridad, eficiencia, ML básica, backup predictivo, sync multi).\n"
   printf "  A11-A14: diagnóstico rápido, salud Serato, hash+mirror check, audio prep (tags+LUFS+cues).\n"
   printf "  A15-A20: auditoría integridad, limpieza+backup, prep sync, salud visuales, org audio avanzada, seguridad Serato.\n"
+  printf "  A23-A26: auto-pilot (prep+clean+dedup), todo en uno, limpieza+backup seguro, relink doctor + export estado.\n"
   printf "  Tip: SafeMode/DJ_SAFE_LOCK siguen activos; quarantine y operaciones peligrosas respetan bloqueos.\n\n"
+
+  printf "%sAutoguías y wiki:%s\n" "$C_YLW" "$C_RESET"
+  printf "  - GUIDE.md (wiki extensa) en el repo: rutas, flujos recomendados, tips de exclusiones y snapshots.\n"
+  printf "  - Capturas menú: docs/menu_es_full.svg y docs/menu_en_full.svg (visibles en GitHub).\n"
+  printf "  - Auto-pilot (A23-A26) para ejecutar flujos completos sin intervención.\n\n"
 
   printf "%sSubmenú V) Visuales / DAW / OSC / DMX:%s\n" "$C_YLW" "$C_RESET"
   printf "  V1-V2: reportes Ableton .als y catálogo de visuales.\n"

@@ -112,7 +112,7 @@ chmod +x install_djpt.sh
 - Para dedup multi-disco, usa 61 (mirror check) con hash_index de origen/destino.
 
 ## 13) Recursos visuales
-- Capturas menú completo: `docs/menu_es_full.svg` / `.png` y `docs/menu_en_full.svg` / `.png`.
+- Capturas menú completo: `docs/menu_es_full.svg` y `docs/menu_en_full.svg`.
 - Banners de ejemplo: `docs/banner_es.png`, `docs/banner_en.png`, `docs/banner_es_terminal.svg`.
 - Añade en README (ya enlazado) o en issues/wikis de GitHub.
 
