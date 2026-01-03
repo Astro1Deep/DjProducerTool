@@ -1262,13 +1262,52 @@ action_14_playlists_per_folder() {
 action_15_relink_helper() {
   print_header
   out="$REPORTS_DIR/relink_helper.tsv"
-  printf "%s[INFO]%s Generating Relink Helper TSV: %s\n" "$C_CYN" "$C_RESET" "$out"
+  doctor_out="$REPORTS_DIR/relink_doctor.txt"
+  printf "%s[INFO]%s Doctor: Relink Helper -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
+  >"$doctor_out"
+  total=0
+  zero_count=0
   find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
+    total=$((total + 1))
     rel="${f#$BASE_PATH/}"
-    printf "%s\t%s\n" "$rel" "$f" >>"$out"
+    size=$(stat -f %z "$f" 2>/dev/null || echo 0)
+    mtime=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$f" 2>/dev/null || echo "n/a")
+    if [ "${size:-0}" -eq 0 ]; then
+      zero_count=$((zero_count + 1))
+    fi
+    printf "%s\t%s\t%s\t%s\n" "$rel" "$f" "$size" "$mtime" >>"$out"
   done
-  printf "%s[OK]%s Relink Helper generated.\n" "$C_GRN" "$C_RESET"
+  missing_tools=()
+  for tool in ffprobe ffmpeg sox flac metaflac id3v2 mid3v2 shntool jq python3; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      missing_tools+=("$tool")
+    fi
+  done
+  {
+    echo "DOCTOR RELINK REPORT"
+    echo "BASE_PATH: $BASE_PATH"
+    echo "Total files: $total"
+    echo "Zero-byte files: $zero_count"
+    echo
+    if [ "${#missing_tools[@]}" -gt 0 ]; then
+      echo "Missing tools:"
+      printf "  - %s\n" "${missing_tools[@]}"
+      echo
+      echo "Suggested (Homebrew):"
+      echo "  brew install ffmpeg sox flac id3v2 shntool jq"
+      echo "  # For mutagen: pip install mutagen"
+    else
+      echo "Required tools detected: OK"
+    fi
+    echo
+    echo "Recommendations:"
+    echo "  - Use relink_helper.tsv (col1=relative, col2=absolute, col3=size, col4=mtime) to map/move files."
+    echo "  - Review zero-size files (col3=0) and replace from backup."
+    echo "  - If mirrors are involved, run option 61 to compare hash_index."
+  } >"$doctor_out"
+  printf "%s[OK]%s Relink Helper generated: %s\n" "$C_GRN" "$C_RESET" "$out"
+  printf "%s[OK]%s Relink doctor: %s\n" "$C_GRN" "$C_RESET" "$doctor_out"
   pause_enter
 }
 
