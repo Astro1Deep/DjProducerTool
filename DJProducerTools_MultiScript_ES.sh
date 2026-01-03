@@ -601,7 +601,11 @@ maybe_activate_ml_env() {
         printf "%s[WARN]%s Venv ML usa Python 3.%s (no compatible con TF en macOS). Recrear con python3.11? (y/N): " "$C_YLW" "$C_RESET" "$venv_minor"
         read -r recrear
         if [[ "$recrear" =~ ^[yY]$ ]]; then
-          rm -rf "$VENV_DIR"
+          rm -rf "$VENV_DIR" 2>/dev/null || true
+          if [ -d "$VENV_DIR" ]; then
+            printf "%s[WARN]%s No se pudo borrar el venv (archivos en uso). Cierra procesos Python y reintenta.\n" "$C_YLW" "$C_RESET"
+            return
+          fi
         else
           printf "%s[ERR]%s TF_ADV requiere Python 3.11. Instala python@3.11 y reintenta.\n" "$C_RED" "$C_RESET"
           return
