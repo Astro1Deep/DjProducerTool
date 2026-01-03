@@ -516,6 +516,10 @@ print(sys.version_info.minor)
 PY
 }
 
+list_python_procs() {
+  ps -ax -o pid,command | awk 'NR==1 || /python/ {print}'
+}
+
 save_conf() {
   mkdir -p "$CONFIG_DIR"
   : "${AUDIO_ROOT:=}"
@@ -576,7 +580,9 @@ maybe_activate_ml_env() {
         if [[ "$recreate" =~ ^[yY]$ ]]; then
           rm -rf "$VENV_DIR" 2>/dev/null || true
           if [ -d "$VENV_DIR" ]; then
-            printf "%s[WARN]%s Could not remove venv (files in use). Close Python processes and retry.\n" "$C_YLW" "$C_RESET"
+            printf "%s[WARN]%s Could not remove venv (files in use). Active Python processes:\n" "$C_YLW" "$C_RESET"
+            list_python_procs
+            printf "%s[WARN]%s Close those processes and retry.\n" "$C_YLW" "$C_RESET"
             return
           fi
         else
