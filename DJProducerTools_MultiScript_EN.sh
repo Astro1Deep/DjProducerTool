@@ -14,6 +14,7 @@ C_YLW="${ESC}[1;33m"
 C_BLU="${ESC}[1;34m"
 C_CYN="${ESC}[1;36m"
 C_PURP="${ESC}[38;5;129m"
+C_WHT="${ESC}[1;37m"
 BANNER_SOFT="${ESC}[0;37;44m"
 C_GRN_SOFT="${ESC}[0;32m"
 C_YLW_SOFT="${ESC}[0;33m"
@@ -66,6 +67,13 @@ SPIN_IDX=0
 SPIN_COLOR_IDX=0
 GHOST_COLORS=("${ESC}[38;5;129m" "${ESC}[38;5;46m") # violeta y verde
 GHOST_IDX=0
+
+ART_HAS_HASH=0
+ART_HAS_SNAPSHOT=0
+ART_HAS_DUPES_PLAN=0
+ART_QUAR_COUNT=0
+ART_DUPES_QUAR=0
+ART_REPORTS_SIZE=""
 
 BASE_DEFAULT="$PWD"
 BASE_PATH="$BASE_DEFAULT"
@@ -367,6 +375,35 @@ init_paths() {
   touch "$EXCLUDES_PROFILES_FILE"
 }
 
+refresh_artifact_state() {
+  ART_HAS_HASH=0
+  ART_HAS_SNAPSHOT=0
+  ART_HAS_DUPES_PLAN=0
+  ART_QUAR_COUNT=0
+  ART_DUPES_QUAR=0
+  ART_REPORTS_SIZE=""
+  ART_HASH_DATE=""
+  ART_SNAPSHOT_DATE=""
+  ART_DUPES_PLAN_DATE=""
+  ART_QUAR_SIZE=""
+  [ -s "$REPORTS_DIR/hash_index.tsv" ] && ART_HAS_HASH=1
+  [ -s "$REPORTS_DIR/snapshot_hash_fast.tsv" ] && ART_HAS_SNAPSHOT=1
+  if [ -s "$PLANS_DIR/dupes_plan.tsv" ]; then
+    ART_HAS_DUPES_PLAN=1
+    ART_DUPES_QUAR=$(awk -F'\t' '$2=="QUARANTINE"{c++} END{print c+0}' "$PLANS_DIR/dupes_plan.tsv")
+  fi
+  if [ -d "$QUAR_DIR" ]; then
+    ART_QUAR_COUNT=$(find "$QUAR_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+    ART_QUAR_SIZE=$(du -sh "$QUAR_DIR" 2>/dev/null | awk '{print $1}')
+  fi
+  if [ -d "$REPORTS_DIR" ]; then
+    ART_REPORTS_SIZE=$(du -sh "$REPORTS_DIR" 2>/dev/null | awk '{print $1}')
+  fi
+  [ -f "$REPORTS_DIR/hash_index.tsv" ] && ART_HASH_DATE=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$REPORTS_DIR/hash_index.tsv")
+  [ -f "$REPORTS_DIR/snapshot_hash_fast.tsv" ] && ART_SNAPSHOT_DATE=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$REPORTS_DIR/snapshot_hash_fast.tsv")
+  [ -f "$PLANS_DIR/dupes_plan.tsv" ] && ART_DUPES_PLAN_DATE=$(stat -f "%Sm" -t "%Y-%m-%d %H:%M" "$PLANS_DIR/dupes_plan.tsv")
+}
+
 save_conf() {
   mkdir -p "$CONFIG_DIR"
   : "${AUDIO_ROOT:=}"
@@ -562,6 +599,17 @@ EOF
 }
 
 print_menu() {
+  refresh_artifact_state
+  local tag9 tag10 tag11 tag27
+  [ "$ART_HAS_HASH" -eq 1 ] && tag9=" [prev]"
+  [ "$ART_HAS_DUPES_PLAN" -eq 1 ] && tag10=" [prev ${ART_DUPES_QUAR}q]"
+  [ "$ART_HAS_SNAPSHOT" -eq 1 ] && tag27=" [prev]"
+  if [ "$ART_QUAR_COUNT" -gt 0 ]; then
+    tag11=" [${ART_QUAR_COUNT} in quarantine]"
+  elif [ "$ART_HAS_DUPES_PLAN" -eq 1 ]; then
+    tag11=" [plan ready]"
+  fi
+
   printf "%sMenu (grouped view)%s\n" "$C_GRN" "$C_RESET"
   printf "%s⚙️  Core (1-12):%s\n" "$C_CYN" "$C_RESET"
   printf "  %s1)%s Status / paths / locks\n" "$C_GRN" "$C_RESET"
@@ -572,9 +620,9 @@ print_menu() {
   printf "  %s6)%s Scan workspace (catalog)\n" "$C_GRN" "$C_RESET"
   printf "  %s7)%s Backup Serato (_Serato_ / _Serato_Backup)\n" "$C_GRN" "$C_RESET"
   printf "  %s8)%s Backup DJ (Serato/Traktor/Rekordbox/Ableton metadata)\n" "$C_GRN" "$C_RESET"
-  printf "  %s9)%s SHA-256 index (generate/reuse)\n" "$C_GRN" "$C_RESET"
-  printf "  %s10)%s Exact duplicate report (PLAN JSON/TSV)\n" "$C_GRN" "$C_RESET"
-  printf "  %s11)%s Quarantine duplicates (from LAST_PLAN)\n" "$C_GRN" "$C_RESET"
+  printf "  %s9)%s SHA-256 index (generate/reuse)%s\n" "$C_GRN" "$C_RESET" "${tag9:-}"
+  printf "  %s10)%s Exact duplicate report (PLAN JSON/TSV)%s\n" "$C_GRN" "$C_RESET" "${tag10:-}"
+  printf "  %s11)%s Quarantine duplicates (from LAST_PLAN)%s\n" "$C_GRN" "$C_RESET" "${tag11:-}"
   printf "  %s12)%s Quarantine Manager (list/purge/restore)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
@@ -596,7 +644,7 @@ print_menu() {
   printf "%s🧹 Processes / cleanup (25-39):%s\n" "$C_CYN" "$C_RESET"
   printf "  %s25)%s Quick Help (process guide)\n" "$C_GRN" "$C_RESET"
   printf "  %s26)%s State: Export/Import (bundle)\n" "$C_GRN" "$C_RESET"
-  printf "  %s27)%s Integrity snapshot (fast hash) with progress\n" "$C_GRN" "$C_RESET"
+  printf "  %s27)%s Integrity snapshot (fast hash) with progress%s\n" "$C_GRN" "$C_RESET" "${tag27:-}"
   printf "  %s28)%s Logs viewer (selector)\n" "$C_GRN" "$C_RESET"
   printf "  %s29)%s Toggle DryRunForce (ON/OFF)\n" "$C_GRN" "$C_RESET"
   printf "  %s30)%s Organize audio by TAGS (genre) -> plan TSV\n" "$C_GRN" "$C_RESET"
@@ -662,6 +710,7 @@ invalid_option() {
 
 action_1_status() {
   print_header
+  refresh_artifact_state
   printf "%s[INFO]%s Estado actual:\n" "$C_CYN" "$C_RESET"
   printf "  BASE_PATH: %s\n" "$BASE_PATH"
   printf "  STATE_DIR: %s\n" "$STATE_DIR"
@@ -679,6 +728,24 @@ action_1_status() {
   printf "  SAFE_MODE: %s\n" "$safe_disp"
   printf "  DJ_SAFE_LOCK: %s\n" "$lock_disp"
   printf "  DRYRUN_FORCE: %s\n" "$dry_disp"
+  printf "\n%sArtifacts (existing):%s\n" "$C_YLW" "$C_RESET"
+  if [ "$ART_HAS_HASH" -eq 1 ]; then
+    printf "  hash_index.tsv: OK (%s)\n" "${ART_HASH_DATE:-n/a}"
+  else
+    printf "  hash_index.tsv: (not generated)\n"
+  fi
+  if [ "$ART_HAS_SNAPSHOT" -eq 1 ]; then
+    printf "  snapshot_hash_fast.tsv: OK (%s)\n" "${ART_SNAPSHOT_DATE:-n/a}"
+  else
+    printf "  snapshot_hash_fast.tsv: (not generated)\n"
+  fi
+  if [ "$ART_HAS_DUPES_PLAN" -eq 1 ]; then
+    printf "  dupes_plan.tsv: OK (%s) [%s marked QUAR]\n" "${ART_DUPES_PLAN_DATE:-n/a}" "$ART_DUPES_QUAR"
+  else
+    printf "  dupes_plan.tsv: (not generated)\n"
+  fi
+  printf "  quarantine/: %s files%s\n" "${ART_QUAR_COUNT:-0}" "${ART_QUAR_SIZE:+, ${ART_QUAR_SIZE}}"
+  printf "  reports/: %s\n" "${ART_REPORTS_SIZE:-n/a}"
   pause_enter
 }
 
