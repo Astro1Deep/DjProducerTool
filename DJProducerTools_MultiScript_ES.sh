@@ -2344,8 +2344,12 @@ submenu_profiles_manager() {
         pause_enter
         ;;
       2)
-        printf "Nombre de perfil a cargar: "
+        mkdir -p "$PROFILES_DIR"
+        printf "%s[INFO]%s Perfiles disponibles en %s:\n" "$C_CYN" "$C_RESET" "$PROFILES_DIR"
+        ls -1 "$PROFILES_DIR" 2>/dev/null | sed 's/\\.conf$//' || true
+        printf "Nombre de perfil a cargar (ENTER para cancelar): "
         read -r pname
+        [ -z "$pname" ] && { printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"; pause_enter; continue; }
         pfile="$PROFILES_DIR/${pname}.conf"
         if [ ! -f "$pfile" ]; then
           printf "%s[ERR]%s No existe: %s\n" "$C_RED" "$C_RESET" "$pfile"
