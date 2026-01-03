@@ -684,7 +684,13 @@ maybe_activate_ml_env() {
         . "$VENV_DIR/bin/activate"
         VENV_ACTIVE=1
         "$VENV_DIR/bin/pip" install --upgrade pip >/dev/null 2>&1 || true
-        "$VENV_DIR/bin/pip" install "${pkgs_arr[@]}" >/dev/null 2>&1 || true
+        ("$VENV_DIR/bin/pip" install "${pkgs_arr[@]}" >/dev/null 2>&1) &
+        pip_pid=$!
+        while kill -0 "$pip_pid" 2>/dev/null; do
+          status_line "ML" "--" "Instalando paquetes..."
+          sleep 1
+        done
+        finish_status_line
       fi
       ;;
     *)
