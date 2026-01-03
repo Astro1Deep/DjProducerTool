@@ -756,6 +756,20 @@ finish_status_line() {
   printf "\n"
 }
 
+run_with_spinner() {
+  local task="$1"
+  local detail="$2"
+  shift 2
+  "$@" &
+  local pid=$!
+  while kill -0 "$pid" 2>/dev/null; do
+    status_line "$task" "--" "$detail"
+    sleep 1
+  done
+  finish_status_line
+  wait "$pid"
+}
+
 print_header() {
   clear
   if [ -f "$BANNER_FILE" ]; then
@@ -1091,10 +1105,10 @@ action_7_backup_serato() {
   dest="$STATE_DIR/serato_backup"
   mkdir -p "$dest"
   if [ -d "$src1" ]; then
-    rsync -a "$src1"/ "$dest/_Serato_"/ 2>/dev/null || true
+    run_with_spinner "BACKUP" "_Serato_" rsync -a "$src1"/ "$dest/_Serato_"/ 2>/dev/null || true
   fi
   if [ -d "$src2" ]; then
-    rsync -a "$src2"/ "$dest/_Serato_Backup"/ 2>/dev/null || true
+    run_with_spinner "BACKUP" "_Serato_Backup" rsync -a "$src2"/ "$dest/_Serato_Backup"/ 2>/dev/null || true
   fi
   printf "%s[OK]%s Backup Serato completado (si había fuentes).\n" "$C_GRN" "$C_RESET"
   pause_enter
@@ -1197,7 +1211,7 @@ action_10_dupes_plan() {
   plan_json="$PLANS_DIR/dupes_plan.json"
   if ! maybe_reuse_file "$plan_tsv" "dupes_plan.tsv"; then return; fi
   printf "%s[INFO]%s Generando plan de duplicados EXACTO.\n" "$C_CYN" "$C_RESET"
-  awk '
+  HASH_FILE="$hash_file" PLAN_TSV="$plan_tsv" run_with_spinner "DUPES" "Generando plan..." bash -c '
   BEGIN { FS=OFS="\t" }
   {
     if (NF < 3) next
@@ -1224,19 +1238,29 @@ action_10_dupes_plan() {
         }
       }
     }
-  }' "$hash_file" >"$plan_tsv"
+  }' "$HASH_FILE" >"$PLAN_TSV"
   {
     echo "{"
     echo "  \"type\": \"dupes_plan\","
     echo "  \"entries\": ["
     first=1
+    total_json=$(wc -l <"$plan_tsv" | tr -d ' ')
+    count_json=0
     while IFS=$'\t' read -r h action f; do
+      count_json=$((count_json + 1))
+      if [ "$total_json" -gt 0 ]; then
+        percent_json=$((count_json * 100 / total_json))
+      else
+        percent_json=0
+      fi
+      status_line "DUPES_JSON" "$percent_json" "$(basename "$f")"
       if [ "$first" -eq 0 ]; then
         echo "    ,"
       fi
       first=0
       printf "    {\"hash\": \"%s\", \"action\": \"%s\", \"path\": \"%s\"}" "$h" "$action" "$f"
     done <"$plan_tsv"
+    finish_status_line
     echo
     echo "  ]"
     echo "}"
@@ -1307,11 +1331,21 @@ action_11_quarantine_from_plan() {
 
   # Calcula espacio necesario para mover a quarantine
   needed_bytes=0
+  total_quar="$sample_count"
+  count_quar=0
   while IFS=$'\t' read -r _ action f; do
     [ "$action" != "QUARANTINE" ] && continue
+    count_quar=$((count_quar + 1))
+    if [ "$total_quar" -gt 0 ]; then
+      percent=$((count_quar * 100 / total_quar))
+    else
+      percent=0
+    fi
+    status_line "QUAR_SPACE" "$percent" "$(basename "$f")"
     sz=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d ' ')
     needed_bytes=$((needed_bytes + sz))
   done <"$plan_tsv"
+  finish_status_line
   avail_bytes=$(df -k "$QUAR_DIR" 2>/dev/null | awk 'NR==2{print $4*1024}')
   if [ -z "$avail_bytes" ]; then
     avail_bytes=0
@@ -1341,11 +1375,19 @@ action_11_quarantine_from_plan() {
     y|Y) ;;
     *) printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
   esac
+  count_quar=0
   while IFS=$'\t' read -r h action f; do
     if [ "$action" != "QUARANTINE" ]; then
       continue
     fi
+    count_quar=$((count_quar + 1))
+    if [ "$total_quar" -gt 0 ]; then
+      percent=$((count_quar * 100 / total_quar))
+    else
+      percent=0
+    fi
     rel="${f#$BASE_PATH/}"
+    status_line "QUARANTINE" "$percent" "$rel"
     dest_dir="$QUAR_DIR/$h"
     dest="$dest_dir/$(basename "$f")"
     if [ "$mark_only" -eq 1 ] || [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ] || [ "$DRYRUN_FORCE" -eq 1 ]; then
@@ -1358,6 +1400,7 @@ action_11_quarantine_from_plan() {
       fi
     fi
   done <"$plan_tsv"
+  finish_status_line
   pause_enter
 }
 
@@ -1906,11 +1949,11 @@ action_mirror_integrity_check() {
   missing_in_b="$REPORTS_DIR/mirror_missing_in_B_$(date +%s).tsv"
   missing_in_a="$REPORTS_DIR/mirror_missing_in_A_$(date +%s).tsv"
   mismatch="$REPORTS_DIR/mirror_hash_mismatch_$(date +%s).tsv"
-  awk -F'\t' '{map[$2]=$1} END {for (p in map) print p"\t"map[p]}' "$file_a" | sort >"$STATE_DIR/mirror_a.tmp"
-  awk -F'\t' '{map[$2]=$1} END {for (p in map) print p"\t"map[p]}' "$file_b" | sort >"$STATE_DIR/mirror_b.tmp"
-  join -v1 -t$'\t' "$STATE_DIR/mirror_a.tmp" "$STATE_DIR/mirror_b.tmp" >"$missing_in_b"
-  join -v2 -t$'\t' "$STATE_DIR/mirror_a.tmp" "$STATE_DIR/mirror_b.tmp" >"$missing_in_a"
-  join -t$'\t' "$STATE_DIR/mirror_a.tmp" "$STATE_DIR/mirror_b.tmp" | awk -F'\t' '{if ($2!=$3) print $1"\tA:"$2"\tB:"$3}' >"$mismatch"
+  FILE_A="$file_a" run_with_spinner "MIRROR" "Indexando A..." bash -c 'awk -F"\t" "{map[\$2]=\$1} END {for (p in map) print p\"\t\"map[p]}" "$FILE_A" | sort >"'"$STATE_DIR/mirror_a.tmp"'"'
+  FILE_B="$file_b" run_with_spinner "MIRROR" "Indexando B..." bash -c 'awk -F"\t" "{map[\$2]=\$1} END {for (p in map) print p\"\t\"map[p]}" "$FILE_B" | sort >"'"$STATE_DIR/mirror_b.tmp"'"'
+  run_with_spinner "MIRROR" "Comparando faltantes (B)..." bash -c 'join -v1 -t$'"'"'\t'"'"' "'"$STATE_DIR/mirror_a.tmp"'" "'"$STATE_DIR/mirror_b.tmp"'" >"'"$missing_in_b"'"'
+  run_with_spinner "MIRROR" "Comparando faltantes (A)..." bash -c 'join -v2 -t$'"'"'\t'"'"' "'"$STATE_DIR/mirror_a.tmp"'" "'"$STATE_DIR/mirror_b.tmp"'" >"'"$missing_in_a"'"'
+  run_with_spinner "MIRROR" "Detectando hashes distintos..." bash -c 'join -t$'"'"'\t'"'"' "'"$STATE_DIR/mirror_a.tmp"'" "'"$STATE_DIR/mirror_b.tmp"'" | awk -F"\t" "{if (\$2!=\$3) print \$1\"\tA:\"\$2\"\tB:\"\$3}" >"'"$mismatch"'"'
   printf "%s[OK]%s Mirror check generado:\n" "$C_GRN" "$C_RESET"
   printf "  Falta en B: %s\n" "$missing_in_b"
   printf "  Falta en A: %s\n" "$missing_in_a"
@@ -4338,12 +4381,22 @@ submenu_L_libraries() {
           printf "%s[INFO]%s Generando plan de duplicados por basename+tamaño -> %s\n" "$C_CYN" "$C_RESET" "$out"
           tmp="$STATE_DIR/audio_cat_with_size.tmp"
           >"$tmp"
+          total=$(wc -l <"$cat_master" | tr -d ' ')
+          count=0
           while IFS=$'\t' read -r lib path; do
             [ -z "$path" ] && continue
+            count=$((count + 1))
+            if [ "$total" -gt 0 ]; then
+              percent=$((count * 100 / total))
+            else
+              percent=0
+            fi
+            status_line "DUPES_CATALOG" "$percent" "$(basename "$path")"
             base=$(basename "$path")
             size=$(stat -f %z -- "$path" 2>/dev/null || echo 0)
             printf "%s|%s\t%s\t%s\n" "$base" "$size" "$lib" "$path" >>"$tmp"
           done <"$cat_master"
+          finish_status_line
           awk -F'\t' '
           {
             key=$1
@@ -4396,6 +4449,7 @@ submenu_L_libraries() {
         clear
         out="$REPORTS_DIR/library_inventory.tsv"
         printf "%s[INFO]%s Inventario de librerías DJ -> %s\n" "$C_CYN" "$C_RESET" "$out"
+        status_line "INVENTORY" "--" "Buscando librerías..."
         {
           printf "Plataforma\tEstado\tRuta\n"
           if [ -d "$BASE_PATH/_Serato_" ]; then
@@ -4428,6 +4482,7 @@ submenu_L_libraries() {
             printf "Serato Video SVD\tNO\t-\n"
           fi
         } >"$out"
+        finish_status_line
         printf "%s[OK]%s Inventario generado.\n" "$C_GRN" "$C_RESET"
         pause_enter
         ;;
@@ -5390,7 +5445,7 @@ action_V6_visuals_ffprobe_report() {
     IFS=',' read -r width height codec dur <<<"$info"
     size=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d '[:space:]')
     printf "%s\t%spx\t%spx\t%s\t%s\t%s\n" "$f" "${width:-?}" "${height:-?}" "${codec:-?}" "${dur:-?}" "$size" >>"$out"
-    status_line "ffprobe visuals" "$percent" "$(basename "$f")"
+    status_line "VIDEO_FFPROBE" "$percent" "$(basename "$f")"
   done
   finish_status_line
   printf "%s[OK]%s Reporte generado.\n" "$C_GRN" "$C_RESET"
@@ -5620,11 +5675,24 @@ action_V13_dmx_fixtures_inventory() {
   fi
   printf "%s[INFO]%s Buscando fixtures (.ift, .qxf, .ssl, .d4) en %s\n" "$C_CYN" "$C_RESET" "$search_root"
   printf "Archivo\tNombre\tRuta\n" >"$out"
-  find "$search_root" -type f \( -iname "*.ift" -o -iname "*.qxf" -o -iname "*.ssl" -o -iname "*.d4" \) 2>/dev/null | head -200 | while IFS= read -r f; do
+  list_tmp=$(mktemp "${STATE_DIR}/fixtures.XXXXXX") || list_tmp="/tmp/fixtures.$$"
+  find "$search_root" -type f \( -iname "*.ift" -o -iname "*.qxf" -o -iname "*.ssl" -o -iname "*.d4" \) 2>/dev/null | head -200 >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "DMX_FIXTURES" "$percent" "$(basename "$f")"
     base=$(basename "$f")
     name="${base%.*}"
     printf "%s\t%s\t%s\n" "$base" "$name" "$f" >>"$out"
-  done
+  done <"$list_tmp"
+  rm -f "$list_tmp"
+  finish_status_line
   printf "%s[OK]%s Inventario generado (máx 200 resultados). Ajusta ruta si necesitas más.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -5647,13 +5715,26 @@ action_V14_visuals_transcode_adv() {
   [ -z "$exts" ] && exts="mp4,mov,mkv"
   IFS=',' read -r -a arr_exts <<<"$exts"
   printf "Input\tOutput\tComando_sugerido\n" >"$out"
-  find "$BASE_PATH" -type f \( $(printf -- '-iname "*.%s" -o ' "${arr_exts[@]}" | sed 's/ -o $//') \) 2>/dev/null | head -100 | while IFS= read -r f; do
+  list_tmp=$(mktemp "${STATE_DIR}/visuals.XXXXXX") || list_tmp="/tmp/visuals.$$"
+  find "$BASE_PATH" -type f \( $(printf -- '-iname "*.%s" -o ' "${arr_exts[@]}" | sed 's/ -o $//') \) 2>/dev/null | head -100 >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "VIDEO_TRANSCODE" "$percent" "$(basename "$f")"
     dir=$(dirname "$f")
     base=$(basename "$f")
     out_name="${base%.*}_h264.mp4"
     cmd="ffmpeg -i \"$f\" -c:v $codec -b:v $br -vf scale=$res -c:a aac -b:a 192k \"$dir/$out_name\""
     printf "%s\t%s\t%s\n" "$f" "$dir/$out_name" "$cmd" >>"$out"
-  done
+  done <"$list_tmp"
+  rm -f "$list_tmp"
+  finish_status_line
   printf "%s[OK]%s Plan generado (hasta 100 archivos). Revisa comandos antes de ejecutar.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
