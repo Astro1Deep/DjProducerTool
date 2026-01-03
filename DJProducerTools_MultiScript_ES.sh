@@ -183,6 +183,26 @@ ensure_base_path_valid() {
   fi
 
   printf "%s[WARN]%s BASE_PATH inválido: %s\n" "$C_YLW" "$C_RESET" "$BASE_PATH"
+  local state_candidates=()
+  while IFS= read -r sc; do
+    [ -n "$sc" ] && state_candidates+=("$sc")
+  done < <(find_state_candidates)
+  if [ "${#state_candidates[@]}" -gt 0 ]; then
+    echo "Estados detectados (_DJProducerTools):"
+    idx=1
+    for sc in "${state_candidates[@]}"; do
+      echo "  [$idx] $sc"
+      idx=$((idx + 1))
+    done
+    echo "  [S] Saltar selección automática"
+    printf "Elegir número para usar como BASE_PATH: "
+    read -r sel
+    if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -le "${#state_candidates[@]}" ]; then
+      BASE_PATH="${state_candidates[$((sel-1))]}"
+      append_history "$BASE_HISTORY_FILE" "$BASE_PATH"
+      return
+    fi
+  fi
   if [ "${#candidates[@]}" -gt 0 ]; then
     choice=$(select_from_candidates "Selecciona BASE_PATH de sugerencias:" "${candidates[@]}")
     if [ -n "$choice" ]; then
@@ -202,6 +222,26 @@ ensure_base_path_valid() {
     BASE_PATH="$PWD"
     append_history "$BASE_HISTORY_FILE" "$BASE_PATH"
   fi
+}
+
+find_state_candidates() {
+  local -a roots candidates
+  candidates=()
+  roots=("$PWD" "$LAUNCH_PATH" "$HOME")
+  for v in /Volumes/*; do
+    [ -d "$v" ] && roots+=("$v")
+  done
+  for r in "${roots[@]}"; do
+    [ -d "$r" ] || continue
+    while IFS= read -r d; do
+      base_dir="$(dirname "$d")"
+      candidates+=("$base_dir")
+    done < <(find "$r" -maxdepth 3 -type d -name "_DJProducerTools" 2>/dev/null | head -n 50)
+  done
+  if [ "${#candidates[@]}" -gt 0 ]; then
+    mapfile -t candidates < <(printf "%s\n" "${candidates[@]}" | awk '!seen[$0]++')
+  fi
+  printf "%s\n" "${candidates[@]}"
 }
 
 ensure_general_root_valid() {
