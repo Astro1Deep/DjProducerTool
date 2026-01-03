@@ -737,6 +737,7 @@ EOF
   local safemode_str
   local lock_str
   local dryrun_str
+  local ai_str
 
   if [ "$SAFE_MODE" -eq 1 ]; then
     safemode_str="${C_GRN}ON${C_RESET}"
@@ -756,13 +757,19 @@ EOF
     dryrun_str="${C_RED}OFF${C_RESET}"
   fi
 
-  printf "%sAssist:%s %sON%s | %sAutoTools:%s %sON%s | %sSafeMode:%s %s | %sDJ_SAFE_LOCK:%s %s | %sDryRunForce:%s %s | %sAI:%s %s\n" \
+  if [ "${ML_PROFILE:-LIGHT}" = "TF_ADV" ]; then
+    ai_str="${C_GRN}${ML_PROFILE}${C_RESET}"
+  else
+    ai_str="${C_RED}${ML_PROFILE:-LIGHT}${C_RESET}"
+  fi
+
+  printf "%sAssist:%s %sON%s | %sAutoTools:%s %sON%s | %sSafeMode:%s %s | %sDJ_SAFE_LOCK:%s %s | %sDryRunForce:%s %s | %s🧠 AI:%s %s\n" \
     "$C_BLU" "$C_RESET" "$C_GRN" "$C_RESET" \
     "$C_BLU" "$C_RESET" "$C_GRN" "$C_RESET" \
     "$C_BLU" "$C_RESET" "$safemode_str" \
     "$C_BLU" "$C_RESET" "$lock_str" \
     "$C_BLU" "$C_RESET" "$dryrun_str" \
-    "$C_BLU" "$C_RESET" "${ML_PROFILE:-LIGHT}"
+    "$C_BLU" "$C_RESET" "$ai_str"
 
   printf "────────────────────────────────────────────────────────────\n"
 }
