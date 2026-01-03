@@ -683,9 +683,10 @@ maybe_activate_ml_env() {
 
 spin_colors_for_task() {
   case "$1" in
-    SCAN|RESCAN|CATALOG|INVENTORY|INDEX) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_BLU" ;;
+    SCAN|RESCAN|CATALOG|CATALOGO*|INVENTORY|INVENTARIO*|INDEX) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_BLU" ;;
     HASH*) SPIN_COLOR_A="$C_PURP"; SPIN_COLOR_B="$C_WHT" ;;
     DUP*|DEDUP*|QUARANTINE) SPIN_COLOR_A="$C_YLW"; SPIN_COLOR_B="$C_RED" ;;
+    MIRROR*|MATRIOSHKA) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_GRN" ;;
     SNAP* ) SPIN_COLOR_A="$C_GRN"; SPIN_COLOR_B="$C_CYN" ;;
     BACKUP* ) SPIN_COLOR_A="$C_GRN"; SPIN_COLOR_B="$C_YLW" ;;
     DOCTOR*|RELINK* ) SPIN_COLOR_A="$C_BLU"; SPIN_COLOR_B="$C_GRN" ;;
@@ -1911,7 +1912,49 @@ action_mirror_integrity_check() {
   printf "Hash index B (mirror path, drag & drop): "
   read -e -r file_b
   if [ -z "$file_b" ]; then
-    printf "%s[INFO]%s Cancelled (no file B provided).\n" "$C_CYN" "$C_RESET"
+    printf "%s[INFO]%s Quick mode: validate file A against disk (no B).\n" "$C_CYN" "$C_RESET"
+    printf "Continue? (y/N): "
+    read -r quick
+    case "$quick" in
+      y|Y) ;;
+      *) printf "%s[INFO]%s Cancelled.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
+    esac
+    if [ ! -f "$file_a" ]; then
+      printf "%s[ERR]%s Invalid file A.\n" "$C_RED" "$C_RESET"
+      pause_enter
+      return
+    fi
+    missing_on_disk="$REPORTS_DIR/mirror_missing_on_disk_$(date +%s).tsv"
+    mismatch_on_disk="$REPORTS_DIR/mirror_hash_mismatch_$(date +%s).tsv"
+    >"$missing_on_disk"
+    >"$mismatch_on_disk"
+    total=$(wc -l <"$file_a" | tr -d ' ')
+    count=0
+    while IFS=$'\t' read -r h rel f; do
+      if [ -z "$f" ]; then
+        f="$rel"
+        rel=""
+      fi
+      count=$((count + 1))
+      if [ "$total" -gt 0 ]; then
+        percent=$((count * 100 / total))
+      else
+        percent=0
+      fi
+      status_line "MIRROR_QC" "$percent" "$(basename "$f")"
+      if [ ! -f "$f" ]; then
+        printf "%s\t%s\t%s\n" "$h" "$rel" "$f" >>"$missing_on_disk"
+        continue
+      fi
+      h2=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')
+      if [ -n "$h2" ] && [ "$h2" != "$h" ]; then
+        printf "%s\t%s\t%s\n" "$h" "$h2" "$f" >>"$mismatch_on_disk"
+      fi
+    done <"$file_a"
+    finish_status_line
+    printf "%s[OK]%s Quick mode generated:\n" "$C_GRN" "$C_RESET"
+    printf "  Missing on disk: %s\n" "$missing_on_disk"
+    printf "  Hash mismatch: %s\n" "$mismatch_on_disk"
     pause_enter
     return
   fi
@@ -3180,9 +3223,22 @@ action_32_serato_video_report() {
   out="$REPORTS_DIR/serato_video_report.tsv"
   printf "%s[INFO]%s Serato Video REPORT -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null | while IFS= read -r f; do
+  list_tmp=$(mktemp "${STATE_DIR}/sv_report.XXXXXX") || list_tmp="/tmp/sv_report.$$"
+  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "VIDEO_REPORT" "$percent" "$(basename "$f")"
     printf "%s\n" "$f" >>"$out"
-  done
+  done <"$list_tmp"
+  rm -f "$list_tmp"
+  finish_status_line
   printf "%s[OK]%s Video report generated.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -3192,9 +3248,22 @@ action_33_serato_video_prep() {
   out="$PLANS_DIR/serato_video_transcode_plan.tsv"
   printf "%s[INFO]%s Serato Video PREP (transcode plan) -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null | while IFS= read -r f; do
+  list_tmp=$(mktemp "${STATE_DIR}/sv_prep.XXXXXX") || list_tmp="/tmp/sv_prep.$$"
+  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "VIDEO_PREP" "$percent" "$(basename "$f")"
     printf "%s\tTRANSCODE_H264\n" "$f" >>"$out"
-  done
+  done <"$list_tmp"
+  rm -f "$list_tmp"
+  finish_status_line
   printf "%s[OK]%s Transcode plan generated.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -4961,7 +5030,7 @@ submenu_D_dupes_general() {
             if should_exclude_path "$f" "$exclude_patterns"; then
               continue
             fi
-            status_line "COUNT" "--" "$f"
+            status_line "DUP_COUNT" "--" "$f"
             total=$((total + 1))
           done
           finish_status_line
@@ -5130,17 +5199,31 @@ submenu_D_dupes_general() {
         >"$plan_m"
         >"$clean_plan"
         printf "%s[INFO]%s Generating structure signatures (depth=%s, max_files=%s)...\n" "$C_CYN" "$C_RESET" "$md" "$mf"
+        dir_list=$(mktemp "${STATE_DIR}/matrioshka_dirs.XXXXXX") || dir_list="/tmp/matrioshka_dirs.$$"
+        >"$dir_list"
         for r in "${MROOTS[@]}"; do
           r_trim=$(printf "%s" "$r" | xargs)
           [ -d "$r_trim" ] || { printf "%s[WARN]%s Invalid root: %s\n" "$C_YLW" "$C_RESET" "$r_trim"; continue; }
-          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null | while IFS= read -r d; do
+          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null >>"$dir_list"
+        done
+        total_dirs=$(wc -l <"$dir_list" | tr -d ' ')
+        count_dirs=0
+        while IFS= read -r d; do
+            count_dirs=$((count_dirs + 1))
+            if [ "$total_dirs" -gt 0 ]; then
+              percent=$((count_dirs * 100 / total_dirs))
+            else
+              percent=0
+            fi
+            status_line "MATRIOSHKA" "$percent" "$(basename "$d")"
             files=$(find "$d" -maxdepth 1 -type f 2>/dev/null | head -"$mf" | xargs -I{} basename "{}" | sort | tr '\n' '|' )
             if [ -n "$files" ]; then
               sig=$(printf "%s" "$files" | shasum -a 256 | awk '{print $1}')
               printf "%s\t%s\t%s\n" "$sig" "$d" "$files" >>"$sig_tmp"
             fi
-          done
-        done
+        done <"$dir_list"
+        rm -f "$dir_list"
+        finish_status_line
         awk -F'\t' '{
           s=$1; d=$2; f=$3; cnt[s]++; rec[s,cnt[s]]=d; files[s]=f;
         } END {
@@ -5349,10 +5432,23 @@ PY
         >"$report_mirror"
         >"$clean_mirror"
         printf "%s[INFO]%s Calculating folder signatures (depth=%s, max_files=%s, mode=%s)...\n" "$C_CYN" "$C_RESET" "$md" "$mf" "$mode"
+        dir_list=$(mktemp "${STATE_DIR}/mirror_dirs.XXXXXX") || dir_list="/tmp/mirror_dirs.$$"
+        >"$dir_list"
         for r in "${MROOTS[@]}"; do
           r_trim=$(printf "%s" "$r" | xargs)
           [ -d "$r_trim" ] || { printf "%s[WARN]%s Invalid root: %s\n" "$C_YLW" "$C_RESET" "$r_trim"; continue; }
-          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null | while IFS= read -r d; do
+          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null >>"$dir_list"
+        done
+        total_dirs=$(wc -l <"$dir_list" | tr -d ' ')
+        count_dirs=0
+        while IFS= read -r d; do
+            count_dirs=$((count_dirs + 1))
+            if [ "$total_dirs" -gt 0 ]; then
+              percent=$((count_dirs * 100 / total_dirs))
+            else
+              percent=0
+            fi
+            status_line "MIRROR_FOLDERS" "$percent" "$(basename "$d")"
             list_file=$(mktemp "${STATE_DIR}/mirror_list.XXXXXX") || list_file="/tmp/mirror_list.$$"
             >"$list_file"
             count=0
@@ -5379,8 +5475,9 @@ PY
             mtime=$({ stat -f %m "$d" 2>/dev/null || echo 0; } | tr -d '[:space:]')
             printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$sig" "$d" "$count" "$total_bytes" "$mode" "$mtime" >>"$sig_tmp"
             rm -f "$list_file"
-          done
-        done
+        done <"$dir_list"
+        rm -f "$dir_list"
+        finish_status_line
         awk -F'\t' '{
           sig=$1; path=$2; files=$3+0; bytes=$4+0; mode=$5; mt=$6+0;
           c[sig]++; idx=c[sig];
@@ -5436,7 +5533,8 @@ action_V1_ableton_report() {
     printf "%s[WARN]%s No .als files found in base.\n" "$C_YLW" "$C_RESET"
     pause_enter; return
   fi
-  python3 - "$out" "${als_list[@]}" <<'PY'
+  script_tmp=$(mktemp "${STATE_DIR}/als_report.XXXXXX") || script_tmp="/tmp/als_report.$$"
+  cat >"$script_tmp" <<'PY'
 import sys, gzip, xml.etree.ElementTree as ET
 out = sys.argv[1]
 paths = sys.argv[2:]
@@ -5455,6 +5553,8 @@ with open(out, "w", encoding="utf-8") as f:
             pass
         f.write(f"{p}\t{samples}\t{plugins}\t{midi}\n")
 PY
+  run_with_spinner "ABLETON" "Analyzing .als..." python3 "$script_tmp" "$out" "${als_list[@]}"
+  rm -f "$script_tmp"
   printf "%s[OK]%s Report generated.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -5477,7 +5577,7 @@ action_V2_visuals_inventory() {
     percent=$((count*100/total))
     size=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d '[:space:]')
     printf "%s\t%s\t%s\n" "$f" "$(basename "$f")" "$size" >>"$out"
-    status_line "Visual inventory" "$percent" "$(basename "$f")"
+    status_line "VIDEO_INV" "$percent" "$(basename "$f")"
   done
   finish_status_line
   printf "%s[OK]%s Inventory generated.\n" "$C_GRN" "$C_RESET"
@@ -5559,7 +5659,7 @@ action_V7_visuals_by_resolution() {
     w=${width:-0}; h=${height:-0}
     if [ "$w" -ge 3800 ] || [ "$h" -ge 2100 ]; then bucket="4K"; elif [ "$w" -ge 1800 ] || [ "$h" -ge 1000 ]; then bucket="1080p"; elif [ "$w" -ge 1200 ] || [ "$h" -ge 700 ]; then bucket="720p"; fi
     printf "%s\t%s\n" "$f" "$bucket" >>"$out"
-    status_line "Bucket visuals" "$percent" "$(basename "$f")"
+    status_line "VIDEO_BUCKET" "$percent" "$(basename "$f")"
   done
   finish_status_line
   printf "%s[OK]%s Plan generated.\n" "$C_GRN" "$C_RESET"
@@ -5585,7 +5685,7 @@ action_V8_visuals_hash_dupes() {
     percent=$((count*100/total))
     h=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')
     [ -n "$h" ] && printf "%s\t%s\n" "$h" "$f" >>"$tmp"
-    status_line "Hashing visuals" "$percent" "$(basename "$f")"
+    status_line "VIDEO_HASH" "$percent" "$(basename "$f")"
   done
   finish_status_line
   awk -F'\t' '{
@@ -5636,7 +5736,7 @@ action_V9_visuals_optimize_plan() {
       action="SUGGEST_TRANSCODE_H264_1080P"
     fi
     printf "%s\t%s\t%s\t%s\t%s\n" "$f" "${width:-?}" "${height:-?}" "${codec:-?}" "$action" >>"$out"
-    status_line "Optimize visuals" "$percent" "$(basename "$f")"
+    status_line "VIDEO_OPT" "$percent" "$(basename "$f")"
   done
   finish_status_line
   printf "%s[OK]%s Plan generated (suggestions only).\n" "$C_GRN" "$C_RESET"

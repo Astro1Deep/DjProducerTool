@@ -710,9 +710,10 @@ maybe_activate_ml_env() {
 
 spin_colors_for_task() {
   case "$1" in
-    SCAN|RESCAN|CATALOG|INVENTORY|INDEX) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_BLU" ;;
+    SCAN|RESCAN|CATALOG|CATALOGO*|INVENTORY|INVENTARIO*|INDEX) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_BLU" ;;
     HASH*) SPIN_COLOR_A="$C_PURP"; SPIN_COLOR_B="$C_WHT" ;;
     DUP*|DEDUP*|QUARANTINE) SPIN_COLOR_A="$C_YLW"; SPIN_COLOR_B="$C_RED" ;;
+    MIRROR*|MATRIOSHKA) SPIN_COLOR_A="$C_CYN"; SPIN_COLOR_B="$C_GRN" ;;
     SNAP* ) SPIN_COLOR_A="$C_GRN"; SPIN_COLOR_B="$C_CYN" ;;
     BACKUP* ) SPIN_COLOR_A="$C_GRN"; SPIN_COLOR_B="$C_YLW" ;;
     DOCTOR*|RELINK* ) SPIN_COLOR_A="$C_BLU"; SPIN_COLOR_B="$C_GRN" ;;
@@ -1060,7 +1061,7 @@ action_2_change_base() {
 action_3_summary() {
   print_header
   printf "%s[INFO]%s Resumen del volumen:\n" "$C_CYN" "$C_RESET"
-  du -sh "$BASE_PATH" 2>/dev/null || true
+  run_with_spinner "SUMMARY" "Calculando tamaño..." du -sh "$BASE_PATH"
   printf "\nÚltimos reports en %s:\n" "$REPORTS_DIR"
   ls -1t "$REPORTS_DIR" 2>/dev/null | head || true
   pause_enter
@@ -1069,14 +1070,14 @@ action_3_summary() {
 action_4_top_dirs() {
   print_header
   printf "%s[INFO]%s Top carpetas por tamaño (nivel 2):\n" "$C_CYN" "$C_RESET"
-  find "$BASE_PATH" -maxdepth 2 -type d -print0 2>/dev/null | xargs -0 du -sh 2>/dev/null | sort -hr | head || true
+  run_with_spinner "TOP_DIRS" "Calculando..." bash -c 'find "$BASE_PATH" -maxdepth 2 -type d -print0 2>/dev/null | xargs -0 du -sh 2>/dev/null | sort -hr | head || true'
   pause_enter
 }
 
 action_5_top_files() {
   print_header
   printf "%s[INFO]%s Top archivos grandes:\n" "$C_CYN" "$C_RESET"
-  find "$BASE_PATH" -type f -print0 2>/dev/null | xargs -0 ls -lhS 2>/dev/null | head || true
+  run_with_spinner "TOP_FILES" "Buscando..." bash -c 'find "$BASE_PATH" -type f -print0 2>/dev/null | xargs -0 ls -lhS 2>/dev/null | head || true'
   pause_enter
 }
 
@@ -1499,8 +1500,19 @@ action_13_ffprobe_report() {
     return
   fi
   >"$out"
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
-    status_line "FFPROBE" 0 "$f"
+  mapfile -t files < <(find "$BASE_PATH" -type f 2>/dev/null)
+  total=${#files[@]}
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron archivos.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count + 1))
+    percent=$((count * 100 / total))
+    status_line "FFPROBE" "$percent" "$f"
     ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$f" >/dev/null 2>&1 || printf "%s\tCORRUPT\n" "$f" >>"$out"
   done
   finish_status_line
@@ -1676,7 +1688,7 @@ action_16_mirror_by_genre() {
 action_17_find_dj_libs() {
   print_header
   printf "%s[INFO]%s Buscando librerías DJ en %s\n" "$C_CYN" "$C_RESET" "$BASE_PATH"
-  find "$BASE_PATH" -type d \( -iname "*Serato*" -o -iname "*Traktor*" -o -iname "*Rekordbox*" -o -iname "*Ableton*" \) 2>/dev/null || true
+  run_with_spinner "FIND_LIBS" "Buscando..." find "$BASE_PATH" -type d \( -iname "*Serato*" -o -iname "*Traktor*" -o -iname "*Rekordbox*" -o -iname "*Ableton*" \)
   pause_enter
 }
 
@@ -1940,7 +1952,49 @@ action_mirror_integrity_check() {
   printf "Hash index B (ruta espejo, drag & drop): "
   read -e -r file_b
   if [ -z "$file_b" ]; then
-    printf "%s[INFO]%s Cancelado (no se indicó archivo B).\n" "$C_CYN" "$C_RESET"
+    printf "%s[INFO]%s Modo rápido: validar archivo A contra disco (sin B).\n" "$C_CYN" "$C_RESET"
+    printf "¿Continuar? (y/N): "
+    read -r quick
+    case "$quick" in
+      y|Y) ;;
+      *) printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
+    esac
+    if [ ! -f "$file_a" ]; then
+      printf "%s[ERR]%s Archivo A inválido.\n" "$C_RED" "$C_RESET"
+      pause_enter
+      return
+    fi
+    missing_on_disk="$REPORTS_DIR/mirror_missing_on_disk_$(date +%s).tsv"
+    mismatch_on_disk="$REPORTS_DIR/mirror_hash_mismatch_$(date +%s).tsv"
+    >"$missing_on_disk"
+    >"$mismatch_on_disk"
+    total=$(wc -l <"$file_a" | tr -d ' ')
+    count=0
+    while IFS=$'\t' read -r h rel f; do
+      if [ -z "$f" ]; then
+        f="$rel"
+        rel=""
+      fi
+      count=$((count + 1))
+      if [ "$total" -gt 0 ]; then
+        percent=$((count * 100 / total))
+      else
+        percent=0
+      fi
+      status_line "MIRROR_QC" "$percent" "$(basename "$f")"
+      if [ ! -f "$f" ]; then
+        printf "%s\t%s\t%s\n" "$h" "$rel" "$f" >>"$missing_on_disk"
+        continue
+      fi
+      h2=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')
+      if [ -n "$h2" ] && [ "$h2" != "$h" ]; then
+        printf "%s\t%s\t%s\n" "$h" "$h2" "$f" >>"$mismatch_on_disk"
+      fi
+    done <"$file_a"
+    finish_status_line
+    printf "%s[OK]%s Modo rápido generado:\n" "$C_GRN" "$C_RESET"
+    printf "  Faltantes en disco: %s\n" "$missing_on_disk"
+    printf "  Hash distinto: %s\n" "$mismatch_on_disk"
     pause_enter
     return
   fi
@@ -2136,8 +2190,9 @@ PY
         pause_enter
         return
       fi
+      run_with_spinner "ML_TRAIN" "Entrenando modelo..." bash -c '
       PLAN_HASH="$PLANS_DIR/general_hash_dupes_plan.tsv" PLAN_NAME="$PLANS_DIR/general_dupes_plan.tsv" \
-      FEATURES_OUT="$ML_FEATURES_FILE" MODEL_OUT="$ML_MODEL_PATH" BASE="$BASE_PATH" python3 - <<'PY'
+      FEATURES_OUT="$ML_FEATURES_FILE" MODEL_OUT="$ML_MODEL_PATH" BASE="$BASE_PATH" python3 - <<'"'PY'"'
 import os, sys, pathlib, hashlib, csv
 from collections import defaultdict
 
@@ -2259,6 +2314,7 @@ print(f"[OK] Modelo entrenado: {model_out}")
 print(f"[INFO] Features guardadas en: {features_out}")
 print(f"[INFO] Métricas (macro f1): {report.get('macro avg', {}).get('f1-score', 0):.3f}")
 PY
+'
       printf "%s[OK]%s Entrenamiento completado (ver consola para métricas).\n" "$C_GRN" "$C_RESET"
       pause_enter
       ;;
@@ -2273,7 +2329,8 @@ PY
         pause_enter
         return
       fi
-      BASE="$BASE_PATH" MODEL="$ML_MODEL_PATH" REPORT="$ML_PRED_REPORT" python3 - <<'PY'
+      run_with_spinner "ML_PREDICT" "Prediciendo con modelo..." bash -c '
+      BASE="$BASE_PATH" MODEL="$ML_MODEL_PATH" REPORT="$ML_PRED_REPORT" python3 - <<'"'PY'"'
 import os, sys, pathlib, csv
 import joblib
 
@@ -2351,6 +2408,7 @@ print("[INFO] Top 5 sospechosos:")
 for _, row in top5.iterrows():
     print(f"  {row['prob']:.3f}\t{row['path']}")
 PY
+'
       pause_enter
       ;;
     3)
@@ -3157,9 +3215,22 @@ action_30_plan_tags() {
   if ! maybe_reuse_file "$out" "audio_by_tags_plan.tsv"; then return; fi
   printf "%s[INFO]%s Organizar audio por TAGS -> plan TSV: %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null | while IFS= read -r f; do
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null)
+  total=${#files[@]}
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron archivos de audio.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count + 1))
+    percent=$((count * 100 / total))
+    status_line "TAG_PLAN" "$percent" "$(basename "$f")"
     printf "%s\tGENRE_UNKNOWN\n" "$f" >>"$out"
   done
+  finish_status_line
   printf "%s[OK]%s Plan de TAGS generado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -3184,9 +3255,22 @@ action_32_serato_video_report() {
   out="$REPORTS_DIR/serato_video_report.tsv"
   printf "%s[INFO]%s Serato Video REPORT -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null | while IFS= read -r f; do
+  list_tmp=$(mktemp "${STATE_DIR}/sv_report.XXXXXX") || list_tmp="/tmp/sv_report.$$"
+  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "VIDEO_REPORT" "$percent" "$(basename "$f")"
     printf "%s\n" "$f" >>"$out"
-  done
+  done <"$list_tmp"
+  rm -f "$list_tmp"
+  finish_status_line
   printf "%s[OK]%s Reporte vídeo generado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -3196,9 +3280,22 @@ action_33_serato_video_prep() {
   out="$PLANS_DIR/serato_video_transcode_plan.tsv"
   printf "%s[INFO]%s Serato Video PREP (plan transcode) -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null | while IFS= read -r f; do
+  list_tmp=$(mktemp "${STATE_DIR}/sv_prep.XXXXXX") || list_tmp="/tmp/sv_prep.$$"
+  find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null >"$list_tmp"
+  total=$(wc -l <"$list_tmp" | tr -d ' ')
+  count=0
+  while IFS= read -r f; do
+    count=$((count + 1))
+    if [ "$total" -gt 0 ]; then
+      percent=$((count * 100 / total))
+    else
+      percent=0
+    fi
+    status_line "VIDEO_PREP" "$percent" "$(basename "$f")"
     printf "%s\tTRANSCODE_H264\n" "$f" >>"$out"
-  done
+  done <"$list_tmp"
+  rm -f "$list_tmp"
+  finish_status_line
   printf "%s[OK]%s Plan de transcode generado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -3233,7 +3330,19 @@ action_35_samples_by_type() {
   out="$PLANS_DIR/samples_by_type_plan.tsv"
   printf "%s[INFO]%s Organizar samples por TIPO (plan TSV) -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*kick*.wav" -o -iname "*snare*.wav" -o -iname "*hat*.wav" -o -iname "*bass*.wav" \) 2>/dev/null | while IFS= read -r f; do
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*kick*.wav" -o -iname "*snare*.wav" -o -iname "*hat*.wav" -o -iname "*bass*.wav" \) 2>/dev/null)
+  total=${#files[@]}
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron samples con nombres comunes.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count + 1))
+    percent=$((count * 100 / total))
+    status_line "SAMPLES" "$percent" "$(basename "$f")"
     type="OTHER"
     case "$(basename "$f" | tr '[:upper:]' '[:lower:]')" in
       *kick*) type="KICK" ;;
@@ -3243,6 +3352,7 @@ action_35_samples_by_type() {
     esac
     printf "%s\t%s\n" "$f" "$type" >>"$out"
   done
+  finish_status_line
   printf "%s[OK]%s Plan de samples por tipo generado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -3282,11 +3392,28 @@ action_37_web_whitelist_manager() {
 action_38_clean_web_playlists() {
   print_header
   printf "%s[INFO]%s Limpiar entradas WEB en playlists.\n" "$C_CYN" "$C_RESET"
-  find "$BASE_PATH" -type f \( -iname "*.m3u" -o -iname "*.m3u8" \) 2>/dev/null | while IFS= read -r f; do
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*.m3u" -o -iname "*.m3u8" \) 2>/dev/null)
+  total=${#files[@]}
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron playlists (.m3u, .m3u8).\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count + 1))
+    percent=$((count * 100 / total))
+    status_line "WEB_CLEAN" "$percent" "$(basename "$f")"
     tmp="$f.tmp"
     grep -vE "^https?://" "$f" >"$tmp" 2>/dev/null || true
-    mv "$tmp" "$f" 2>/dev/null || true
+    if [ -s "$tmp" ] || [ ! -s "$f" ]; then
+      mv "$tmp" "$f" 2>/dev/null || true
+    else
+      rm -f "$tmp"
+    fi
   done
+  finish_status_line
   printf "%s[OK]%s Playlists limpiadas.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -3296,9 +3423,22 @@ action_39_clean_web_tags() {
   out="$PLANS_DIR/clean_web_tags_plan.tsv"
   printf "%s[INFO]%s Limpiar WEB en TAGS (plan) -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null | while IFS= read -r f; do
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null)
+  total=${#files[@]}
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron archivos de audio.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count + 1))
+    percent=$((count * 100 / total))
+    status_line "TAG_WEB_CLEAN" "$percent" "$(basename "$f")"
     printf "%s\tCLEAN_WEB_TAGS\n" "$f" >>"$out"
   done
+  finish_status_line
   printf "%s[OK]%s Plan de limpieza WEB en TAGS generado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -3311,10 +3451,12 @@ action_40_smart_analysis() {
   local ts analysis_report total_files audio_files video_files size_kb
   ts=$(date +%s)
   analysis_report="$REPORTS_DIR/smart_analysis_${ts}.json"
-  total_files=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
-  audio_files=$(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.m4a" \) 2>/dev/null | wc -l | tr -d ' ')
-  video_files=$(find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null | wc -l | tr -d ' ')
-  size_kb=$(du -sk "$BASE_PATH" 2>/dev/null | awk '{print $1}')
+  
+  run_with_spinner "ANALYSIS" "Contando archivos totales..." total_files=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
+  run_with_spinner "ANALYSIS" "Contando archivos de audio..." audio_files=$(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.m4a" \) 2>/dev/null | wc -l | tr -d ' ')
+  run_with_spinner "ANALYSIS" "Contando archivos de video..." video_files=$(find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null | wc -l | tr -d ' ')
+  run_with_spinner "ANALYSIS" "Calculando tamaño total..." size_kb=$(du -sk "$BASE_PATH" 2>/dev/null | awk '{print $1}')
+  
   : "${total_files:=0}"
   : "${audio_files:=0}"
   : "${video_files:=0}"
@@ -3353,7 +3495,19 @@ action_41_ml_predictor() {
   prediction_report="$REPORTS_DIR/ml_predictions_${ts}.tsv"
   printf "Archivo\tProblema\tConfianza\tAccion\n" >"$prediction_report"
 
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.m4a" \) 2>/dev/null | head -50 | while IFS= read -r f; do
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.m4a" \) 2>/dev/null | head -50)
+  total=${#files[@]}
+  if [ "$total" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron archivos de audio para analizar.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count + 1))
+    percent=$((count * 100 / total))
+    status_line "ML_PREDICT" "$percent" "$(basename "$f")"
     fname=$(basename "$f")
     size=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d ' ')
     if [ "${#fname}" -gt 80 ]; then
@@ -3363,6 +3517,7 @@ action_41_ml_predictor() {
       printf "%s\tArchivo vacío\t90%%\tReemplazar o borrar\n" "$f" >>"$prediction_report"
     fi
   done
+  finish_status_line
 
   lines=$(wc -l <"$prediction_report" | tr -d ' ')
   if [ "$lines" -le 1 ]; then
@@ -4610,7 +4765,7 @@ submenu_D_dupes_general() {
         printf "Exclusiones (patrones coma, ej: *.asd,*/Cache/*; ENTER usa defecto): "
         read -r exclude_patterns
         [ -z "$exclude_patterns" ] && exclude_patterns="$DEFAULT_EXCLUDES"
-        total=$(find "$GENERAL_ROOT" -type f 2>/dev/null | wc -l | tr -d ' ')
+        run_with_spinner "CATALOG" "Contando archivos..." total=$(find "$GENERAL_ROOT" -type f 2>/dev/null | wc -l | tr -d ' ')
         count=0
         find_opts=()
         >"$out"
@@ -4642,15 +4797,14 @@ submenu_D_dupes_general() {
         clear
         printf "%s[INFO]%s Duplicados generales por basename+tamaño.\n" "$C_CYN" "$C_RESET"
         cat_file="$REPORTS_DIR/general_catalog.tsv"
-        if [ ! -s "$cat_file" ]; then
-          printf "%s[WARN]%s No hay general_catalog.tsv o está vacío, generando primero.\n" "$C_YLW" "$C_RESET"
-          out="$REPORTS_DIR/general_catalog.tsv"
-          printf "Exclusiones (patrones coma, ej: *.asd,*/Cache/*; ENTER usa defecto): "
-          read -r exclude_patterns
-          [ -z "$exclude_patterns" ] && exclude_patterns="$DEFAULT_EXCLUDES"
-          total=$(find "$GENERAL_ROOT" -type f 2>/dev/null | wc -l | tr -d ' ')
-          count=0
-          >"$out"
+                  if [ ! -s "$cat_file" ]; then
+                    printf "%s[WARN]%s No hay general_catalog.tsv o está vacío, generando primero.\n" "$C_YLW" "$C_RESET"
+                    out="$REPORTS_DIR/general_catalog.tsv"
+                    printf "Exclusiones (patrones coma, ej: *.asd,*/Cache/*; ENTER usa defecto): "
+                    read -r exclude_patterns
+                    [ -z "$exclude_patterns" ] && exclude_patterns="$DEFAULT_EXCLUDES"
+                    run_with_spinner "CATALOG" "Contando archivos..." total=$(find "$GENERAL_ROOT" -type f 2>/dev/null | wc -l | tr -d ' ')
+                    count=0          >"$out"
           if [ "$total" -eq 0 ]; then
             printf "%s[WARN]%s No se encontraron archivos.\n" "$C_YLW" "$C_RESET"
           else
@@ -4691,7 +4845,7 @@ submenu_D_dupes_general() {
         done <"$cat_file"
         finish_status_line
 
-        awk -F'\t' '
+        run_with_spinner "DUPES_PLAN" "Generando plan..." awk -F'\t' '
         {
           key=$1
           path=$2
@@ -4949,7 +5103,7 @@ submenu_D_dupes_general() {
             if should_exclude_path "$f" "$exclude_patterns"; then
               continue
             fi
-            status_line "COUNT" "--" "$f"
+            status_line "DUP_COUNT" "--" "$f"
             total=$((total + 1))
           done
           finish_status_line
@@ -5118,17 +5272,31 @@ submenu_D_dupes_general() {
         >"$plan_m"
         >"$clean_plan"
         printf "%s[INFO]%s Generando firmas de estructura (prof=%s, max_files=%s)...\n" "$C_CYN" "$C_RESET" "$md" "$mf"
+        dir_list=$(mktemp "${STATE_DIR}/matrioshka_dirs.XXXXXX") || dir_list="/tmp/matrioshka_dirs.$$"
+        >"$dir_list"
         for r in "${MROOTS[@]}"; do
           r_trim=$(printf "%s" "$r" | xargs)
           [ -d "$r_trim" ] || { printf "%s[WARN]%s Raíz inválida: %s\n" "$C_YLW" "$C_RESET" "$r_trim"; continue; }
-          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null | while IFS= read -r d; do
+          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null >>"$dir_list"
+        done
+        total_dirs=$(wc -l <"$dir_list" | tr -d ' ')
+        count_dirs=0
+        while IFS= read -r d; do
+            count_dirs=$((count_dirs + 1))
+            if [ "$total_dirs" -gt 0 ]; then
+              percent=$((count_dirs * 100 / total_dirs))
+            else
+              percent=0
+            fi
+            status_line "MATRIOSHKA" "$percent" "$(basename "$d")"
             files=$(find "$d" -maxdepth 1 -type f 2>/dev/null | head -"$mf" | xargs -I{} basename "{}" | sort | tr '\n' '|' )
             if [ -n "$files" ]; then
               sig=$(printf "%s" "$files" | shasum -a 256 | awk '{print $1}')
               printf "%s\t%s\t%s\n" "$sig" "$d" "$files" >>"$sig_tmp"
             fi
-          done
-        done
+        done <"$dir_list"
+        rm -f "$dir_list"
+        finish_status_line
         awk -F'\t' '{
           s=$1; d=$2; f=$3; cnt[s]++; rec[s,cnt[s]]=d; files[s]=f;
         } END {
@@ -5337,10 +5505,23 @@ PY
         >"$report_mirror"
         >"$clean_mirror"
         printf "%s[INFO]%s Calculando firmas de carpetas (prof=%s, max_files=%s, modo=%s)...\n" "$C_CYN" "$C_RESET" "$md" "$mf" "$mode"
+        dir_list=$(mktemp "${STATE_DIR}/mirror_dirs.XXXXXX") || dir_list="/tmp/mirror_dirs.$$"
+        >"$dir_list"
         for r in "${MROOTS[@]}"; do
           r_trim=$(printf "%s" "$r" | xargs)
           [ -d "$r_trim" ] || { printf "%s[WARN]%s Raíz inválida: %s\n" "$C_YLW" "$C_RESET" "$r_trim"; continue; }
-          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null | while IFS= read -r d; do
+          find "$r_trim" -maxdepth "$md" -type d 2>/dev/null >>"$dir_list"
+        done
+        total_dirs=$(wc -l <"$dir_list" | tr -d ' ')
+        count_dirs=0
+        while IFS= read -r d; do
+            count_dirs=$((count_dirs + 1))
+            if [ "$total_dirs" -gt 0 ]; then
+              percent=$((count_dirs * 100 / total_dirs))
+            else
+              percent=0
+            fi
+            status_line "MIRROR_FOLDERS" "$percent" "$(basename "$d")"
             list_file=$(mktemp "${STATE_DIR}/mirror_list.XXXXXX") || list_file="/tmp/mirror_list.$$"
             >"$list_file"
             count=0
@@ -5367,8 +5548,9 @@ PY
             mtime=$({ stat -f %m "$d" 2>/dev/null || echo 0; } | tr -d '[:space:]')
             printf "%s\t%s\t%s\t%s\t%s\t%s\n" "$sig" "$d" "$count" "$total_bytes" "$mode" "$mtime" >>"$sig_tmp"
             rm -f "$list_file"
-          done
-        done
+        done <"$dir_list"
+        rm -f "$dir_list"
+        finish_status_line
         awk -F'\t' '{
           sig=$1; path=$2; files=$3+0; bytes=$4+0; mode=$5; mt=$6+0;
           c[sig]++; idx=c[sig];
@@ -5424,7 +5606,8 @@ action_V1_ableton_report() {
     printf "%s[WARN]%s No se encontraron .als en la base.\n" "$C_YLW" "$C_RESET"
     pause_enter; return
   fi
-  python3 - "$out" "${als_list[@]}" <<'PY'
+  script_tmp=$(mktemp "${STATE_DIR}/als_report.XXXXXX") || script_tmp="/tmp/als_report.$$"
+  cat >"$script_tmp" <<'PY'
 import sys, gzip, xml.etree.ElementTree as ET
 out = sys.argv[1]
 paths = sys.argv[2:]
@@ -5443,6 +5626,8 @@ with open(out, "w", encoding="utf-8") as f:
             pass
         f.write(f"{p}\t{samples}\t{plugins}\t{midi}\n")
 PY
+  run_with_spinner "ABLETON" "Analizando .als..." python3 "$script_tmp" "$out" "${als_list[@]}"
+  rm -f "$script_tmp"
   printf "%s[OK]%s Reporte generado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -5465,7 +5650,7 @@ action_V2_visuals_inventory() {
     percent=$((count*100/total))
     size=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d '[:space:]')
     printf "%s\t%s\t%s\n" "$f" "$(basename "$f")" "$size" >>"$out"
-    status_line "Inventario visuals" "$percent" "$(basename "$f")"
+    status_line "VIDEO_INV" "$percent" "$(basename "$f")"
   done
   finish_status_line
   printf "%s[OK]%s Inventario generado.\n" "$C_GRN" "$C_RESET"
@@ -5547,7 +5732,7 @@ action_V7_visuals_by_resolution() {
     w=${width:-0}; h=${height:-0}
     if [ "$w" -ge 3800 ] || [ "$h" -ge 2100 ]; then bucket="4K"; elif [ "$w" -ge 1800 ] || [ "$h" -ge 1000 ]; then bucket="1080p"; elif [ "$w" -ge 1200 ] || [ "$h" -ge 700 ]; then bucket="720p"; fi
     printf "%s\t%s\n" "$f" "$bucket" >>"$out"
-    status_line "Bucket resolución" "$percent" "$(basename "$f")"
+    status_line "VIDEO_BUCKET" "$percent" "$(basename "$f")"
   done
   finish_status_line
   printf "%s[OK]%s Plan generado.\n" "$C_GRN" "$C_RESET"
@@ -5573,7 +5758,7 @@ action_V8_visuals_hash_dupes() {
     percent=$((count*100/total))
     h=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')
     [ -n "$h" ] && printf "%s\t%s\n" "$h" "$f" >>"$tmp"
-    status_line "Hash visuals" "$percent" "$(basename "$f")"
+    status_line "VIDEO_HASH" "$percent" "$(basename "$f")"
   done
   finish_status_line
   awk -F'\t' '{
@@ -5624,7 +5809,7 @@ action_V9_visuals_optimize_plan() {
       action="SUGGEST_TRANSCODE_H264_1080P"
     fi
     printf "%s\t%s\t%s\t%s\t%s\n" "$f" "${width:-?}" "${height:-?}" "${codec:-?}" "$action" >>"$out"
-    status_line "Optimización visual" "$percent" "$(basename "$f")"
+    status_line "VIDEO_OPT" "$percent" "$(basename "$f")"
   done
   finish_status_line
   printf "%s[OK]%s Plan generado (sólo sugerencias).\n" "$C_GRN" "$C_RESET"
