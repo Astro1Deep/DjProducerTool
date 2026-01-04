@@ -9,51 +9,52 @@
 
 ---
 
-## 📖 Descripción
+## 📖 Description
 
-**DJProducerTools** es una suite de automatización diseñada para mantener tu biblioteca musical impecable, segura y organizada. Compatible con los ecosistemas de **Serato, Traktor, Rekordbox y Ableton Live**, este toolkit ofrece desde deduplicación exacta por hash (SHA-256) hasta análisis inteligente de metadatos y contenido de audio mediante Machine Learning local.
+**DJProducerTools** is an automation suite designed to keep your music library pristine, safe, and organized. Compatible with **Serato, Traktor, Rekordbox, and Ableton Live** ecosystems, this toolkit offers everything from exact deduplication via hashing (SHA-256) to intelligent metadata and audio content analysis using local Machine Learning.
 
-Incluye dos versiones del script principal:
-- 🇪🇸 `DJProducerTools_MultiScript_ES.sh` (Español)
+It includes two versions of the main script:
+- 🇪🇸 `DJProducerTools_MultiScript_ES.sh` (Spanish)
 - 🇺🇸 `DJProducerTools_MultiScript_EN.sh` (English)
 
-### 📸 Vistazo Rápido
+### 📸 Quick Look
+
 !Menú ES
 
 !Menú EN
 
 ## ✨ Características Principales
 
-### 🛡️ Seguridad y Backups
+### 🛡️ Security and Backups
 
 - **Auto-Detection**: Automatically finds your project root (`BASE_PATH`) and other library locations.
-- **Backups Inteligentes**: Copias de seguridad específicas para metadatos de Serato, Traktor, Rekordbox y Ableton.
-- **Snapshots de Integridad**: Generación rápida de hashes para verificar que tus archivos no se han corrompido.
-- **Quarantine Segura**: Los archivos duplicados o problemáticos se mueven a una cuarentena reversible, nunca se borran directamente sin revisión.
+- **Smart Backups**: Specific backups for Serato, Traktor, Rekordbox, and Ableton metadata.
+- **Integrity Snapshots**: Quickly generate hashes to verify that your files have not been corrupted.
+- **Safe Quarantine**: Duplicate or problematic files are moved to a reversible quarantine, never deleted directly without review.
 
-### ♻️ Deduplicación y Limpieza
+### ♻️ Deduplication and Cleanup
 
-- **Deduplicación Exacta**: Detección bit a bit (SHA-256) para eliminar copias idénticas.
-- **Deduplicación "Fuzzy"**: Detección por nombre y tamaño para limpiar descargas repetidas.
+- **Exact Deduplication**: Bit-by-bit detection (SHA-256) to eliminate identical copies.
+- **"Fuzzy" Deduplication**: Detection by name and size to clean up repeated downloads.
 - **Matrioshka Hunter**: Finds structurally identical folders (e.g., duplicate project folders) and suggests a safe cleanup plan.
-- **Limpieza de Metadatos**: Eliminación de URLs basura en tags, normalización de nombres de archivo y detección de caracteres extraños.
-- **Conversión de Audio**: Herramienta integrada (Opción 71) para convertir WAV a MP3 (320kbps CBR) con backup automático de originales.
+- **Metadata Cleanup**: Removes junk URLs from tags, normalizes filenames, and detects strange characters.
+- **Audio Conversion**: Integrated tool (Option 71) to convert WAV to MP3 (320kbps CBR) with automatic backup of originals.
 
-### 🧠 IA y Machine Learning (Local)
+### 🧠 AI and Machine Learning (Local)
 
-- **Smart Analysis**: Escaneo profundo de la librería para sugerir acciones de limpieza.
+- **Smart Analysis**: Deep library scan to suggest cleanup actions.
 - **Smart Ingest**: Automatically analyzes, tags (Key/BPM), and organizes new music from an `INBOX` folder.
-- **Auto-Pilot**: Cadenas de automatización (A23-A28) que ejecutan diagnósticos, limpieza y backups en secuencia.
+- **Auto-Pilot**: Automation chains (A23-A28) that run diagnostics, cleanup, and backups in sequence.
 - **Audio Classification**: Automatic organization of samples (Kicks, Snares, etc.) and genre detection.
-- **Entorno Aislado**: Todo el ML corre en un entorno virtual (`venv`) local, sin enviar datos a la nube.
+- **Isolated Environment**: All ML runs in a local virtual environment (`venv`), without sending data to the cloud.
 
 ---
 
-## 🚀 Instalación
+## 🚀 Installation
 
-### Instalación Rápida (Usuario)
+### Quick Install (User)
 
-Para una instalación de usuario, ejecuta este comando en tu terminal. Descargará los scripts principales y los hará ejecutables:
+For a user installation, run this command in your terminal. It will download the main scripts and make them executable:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/install_djpt.sh | bash
@@ -61,6 +62,7 @@ curl -sL https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/instal
 
 ### Entorno de Desarrollo (Completo)
 Para obtener el proyecto completo, incluyendo los scripts de build, tests y documentación, clona el repositorio:
+
 ```bash
 git clone https://github.com/Astro1Deep/DjProducerTool.git
 cd DjProducerTool
@@ -69,7 +71,8 @@ cd DjProducerTool
 ## Uso básico
 ```bash
 ./DJProducerTools_MultiScript_ES.sh   # o EN para inglés
-./build_macos_pkg.sh                  # Para crear un instalador .pkg
+./build_macos_pkg.sh                  # Para crear un instalador .pkg para distribuir
+./build_release_pack.sh               # Para empaquetar una nueva versión para GitHub
 ```
 - Opción 2: fija tu BASE_PATH (la raíz donde está `_DJProducerTools` o tu música).  
 - Menú 9→10→11: dedup exacto (hash_index → plan → quarantine).  
@@ -104,3 +107,4 @@ El estado vive en `BASE_PATH/_DJProducerTools/` (config, reports, planes, quaran
 
 ## Licencia
 DJProducerTools License (Attribution + Revenue Share). Consulta `LICENSE`.
+ 

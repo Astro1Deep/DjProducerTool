@@ -1,22 +1,22 @@
-# DJProducerTools – Complete Wiki
+# DJProducerTools – Wiki Completa
 
-Extensive documentation for using the library cleaning and organization toolkit for DJs and Producers on macOS.
+Documentación extensa para usar el toolkit de limpieza y organización de librerías para DJs y Productores en macOS.
 
-## 1) What It Is and Who It's For
+## 1) Qué es y para quién
 
-- Cleaning and organization of Serato/Rekordbox/Traktor/Ableton libraries (audio, video, visuals, DMX).
-- Secure backups and integrity snapshots.
-- Duplicate detection and management (exact matches and advanced plans).
-- Optional Deep/ML tools (recommendations, organization, similarity).
-- Creation of `.pkg` installers and automation of development tasks.
+- Limpieza y organización de bibliotecas Serato/Rekordbox/Traktor/Ableton (audio, video, visuales, DMX).
+- Backups seguros y snapshots de integridad.
+- Detección y gestión de duplicados (exactos y planes avanzados).
+- Herramientas Deep/ML opcionales (recomendaciones, organización, similitud).
+- Creación de instaladores `.pkg` y automatización de tareas de desarrollo.
 
-## 2) Main Files
+## 2) Archivos principales
 
-- `DJProducerTools_MultiScript_ES.sh` – Spanish interface.
-- `DJProducerTools_MultiScript_EN.sh` – English interface.
-- `install_djpt.sh` – simple installer (downloads the latest version).
+- `DJProducerTools_MultiScript_ES.sh` – interfaz en español.
+- `DJProducerTools_MultiScript_EN.sh` – interfaz en inglés.
+- `install_djpt.sh` – instalador simple (descarga última versión).
 
-## 3) Quick Installation
+## 3) Instalación rápida
 
 ```bash
 cat <<'EOF' > install_djpt.sh
@@ -27,7 +27,7 @@ for f in DJProducerTools_MultiScript_ES.sh DJProducerTools_MultiScript_EN.sh; do
   curl -fsSL "$url" -o "$f"
   chmod +x "$f"
 done
-echo "Done. Run ./DJProducerTools_MultiScript_ES.sh or ./DJProducerTools_MultiScript_EN.sh"
+echo "Listo. Ejecuta ./DJProducerTools_MultiScript_ES.sh o ./DJProducerTools_MultiScript_EN.sh"
 EOF
 chmod +x install_djpt.sh
 ./install_djpt.sh
@@ -38,7 +38,7 @@ chmod +x install_djpt.sh
 - `python3` recomendado para ffprobe/librosa y ML opcional.
 - Espacio libre para `_DJProducerTools/` (config, logs, planes, quarantine).
 - ML opcional: descarga básica ~300 MB (numpy/pandas); evolutiva ~450 MB (scikit-learn/joblib); TensorFlow opcional +600 MB.
- - Perfil IA local (opción 59): LIGHT recomendado (numpy+pandas+scikit-learn+joblib+librosa). TF_ADV opcional para Apple Silicon (tensorflow-macos + tensorflow-metal).
+- Perfil IA local (opción 59): LIGHT recomendado (numpy+pandas+scikit-learn+joblib+librosa). TF_ADV opcional para Apple Silicon (tensorflow-macos + tensorflow-metal).
 
 ## 5) Uso básico
 ```bash
@@ -61,8 +61,10 @@ chmod +x install_djpt.sh
 - `SAFE_MODE` y `DJ_SAFE_LOCK` bloquean acciones peligrosas (quarantine/movidas). Desactiva ambos si quieres aplicar planes.
 - `DRYRUN_FORCE` fuerza simulación en algunas acciones.
 - El script siempre pide confirmación antes de mover/quarantine.
+- `DEBUG_MODE`: Si una tarea se queda "colgada" con el logo girando, puedes editar el script y poner `DEBUG_MODE=1` al principio. Esto desactivará las animaciones y mostrará la salida de los comandos en tiempo real para ayudarte a diagnosticar el problema.
 
 ## 8) Menús y ventajas (vista agrupada)
+
 - **Core (1-12)**: estado, cambio de base, resumen, top dirs/files, backups, hash_index, plan exacto de duplicados, quarantine.  
   *Ventaja:* base segura para cualquier workflow (hashes + backups antes de tocar nada).
 - **Media/organización (13-24)**: ffprobe corruptos, playlists por carpeta, relink helper, mirrors por género, rescan inteligente, diagnóstico de herramientas, permisos/flags, instalar CLI.  
@@ -156,7 +158,7 @@ Los CDJs antiguos pueden fallar con caracteres extraños o art works muy grandes
 - Uso comercial o de derivados: notificar y compartir 20% de ingresos brutos (ver `LICENSE`).
 
 ## 17) Soporte
-- Autor: Astro One Deep — onedeep1@gmail.com
+- Autor: Astro One Deep — <onedeep1@gmail.com>
 - Issues/sugerencias: abrir issue en GitHub o enviar correo.
 
 ## 18) Testing y Desarrollo
@@ -167,17 +169,17 @@ El proyecto incluye una suite de tests unitarios básicos para verificar la func
 
 1.  **Abre una terminal** y navega hasta el directorio raíz de tu proyecto. Usa comillas si la ruta tiene espacios:
     ```bash
-    **cd "/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project "**
+    cd "/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project "
     ```
 
 2.  **Da permisos de ejecución** al script de test (solo necesitas hacerlo una vez):
     ```bash
-    **chmod +x tests/test_runner.sh**
+    chmod +x tests/test_runner.sh
     ```
 
 3.  **Ejecuta los tests**:
     ```bash
-    **bash tests/test_runner.sh**
+    bash tests/test_runner.sh
     ```
 
 El runner descubrirá y ejecutará automáticamente todas las funciones de test, mostrando un resumen de los tests pasados y fallidos.
@@ -199,6 +201,68 @@ Para añadir un nuevo test, abre `tests/test_runner.sh` y crea una nueva funció
 - **`generate_menu_svgs.sh`**: Genera automáticamente las capturas de pantalla de los menús en formato SVG. Requiere `termtosvg` (`pip install termtosvg`).
 - **`test_runner.sh`**: Ejecuta la suite de tests unitarios para asegurar la calidad del código.
 - **`tests/check_consistency.sh`**: Verifica la consistencia interna del proyecto. Comprueba menús, funciones, cadenas, existencia de documentación, busca `TODOs`/`FIXMEs` pendientes, valida la sintaxis de todos los scripts `.sh` usando `shellcheck` (si está instalado) y busca posibles secretos o claves hardcodeadas. Esencial para ejecutar antes de un commit.
-- **`build_release_pack.sh`**: Prepara un paquete completo para un lanzamiento en GitHub. Ejecuta los otros scripts de build, comprime el código fuente y agrupa todo en una carpeta `release/VERSION`.
+- **`build_release_pack.sh`**: Prepara un paquete completo para un lanzamiento en GitHub. Genera un borrador del `CHANGELOG.md` agrupando los commits por tipo (ej. `feat`, `fix`) a partir del historial de git. Opcionalmente, puede publicar el release automáticamente en GitHub si configuras un token de acceso.
+- **`generate_html_report.sh`**: Ejecuta el script `check_consistency.sh` y genera un informe de estado visual en formato HTML (`project_status_report.html`), con secciones separadas para fallos, tareas pendientes (TODOs) y comprobaciones correctas.
 
 Estos scripts automatizan el ciclo de vida del desarrollo, desde las pruebas hasta la creación del producto final y la actualización de la documentación.
+
+## 19) Firma de Código y Notarización (macOS)
+
+Para distribuir tu aplicación fuera de la Mac App Store sin que los usuarios vean advertencias de seguridad de Gatekeeper, necesitas firmar tu instalador `.pkg` con un certificado de desarrollador de Apple y, opcionalmente, notarizarlo.
+
+### Requisitos Previos
+
+1.  **Apple Developer Program**: Debes estar inscrito en el Apple Developer Program (es un servicio de pago anual).
+2.  **Certificado "Developer ID Installer"**:
+    *   Desde tu cuenta de desarrollador, crea un certificado de tipo "Developer ID Installer".
+    *   Descárgalo e instálalo en tu Llavero (Keychain Access) de macOS haciendo doble clic en el archivo `.cer`.
+
+### Cómo Firmar el Paquete `.pkg`
+
+1.  **Encuentra tu Identidad de Firma**:
+    Abre la aplicación **Terminal** y ejecuta el siguiente comando para listar tus identidades de firma disponibles:
+    ```bash
+    security find-identity -v -p codesigning
+    ```
+    Busca en la lista una línea que se parezca a esto:
+    `1) XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "Developer ID Installer: Tu Nombre (XXXXXXXXXX)"`
+    Copia el texto completo que está entre comillas, incluyendo el ID entre paréntesis.
+
+2.  **Modifica el Script `build_macos_pkg.sh`**:
+    Abre el archivo `build_macos_pkg.sh` en un editor de texto. Verás una sección comentada para la firma. Descomenta la línea `SIGNING_IDENTITY=...` y pega la identidad que copiaste.
+
+    El resultado debería ser algo así:
+    ```shell
+    SIGNING_IDENTITY="Developer ID Installer: John Appleseed (123ABC456D)"
+    ```
+
+3.  **Ejecuta el Script de Build**:
+    Ahora, cuando ejecutes `./build_macos_pkg.sh`, el script usará automáticamente tu certificado para firmar el paquete `.pkg` resultante.
+
+### Notarización (Paso Avanzado)
+
+La firma evita la mayoría de las advertencias, pero para una compatibilidad total con las últimas versiones de macOS, Apple recomienda "notarizar" la aplicación. El script `build_macos_pkg.sh` puede automatizar este proceso.
+
+1.  **Crea una Contraseña Específica de App**:
+    *   Ve a appleid.apple.com e inicia sesión.
+    *   En la sección "Inicio de sesión y seguridad", busca "Contraseñas específicas de apps" y haz clic en "Generar contraseña".
+    *   Dale un nombre (ej. "DJProducerTools Notary") y copia la contraseña generada (ej. `xxxx-xxxx-xxxx-xxxx`).
+
+2.  **Modifica el Script `build_macos_pkg.sh`**:
+    Abre el script y busca la sección de notarización. Descomenta y rellena las siguientes variables:
+    ```shell
+    # Tu correo electrónico de Apple ID
+    APPLE_ID_EMAIL="tu-correo@example.com"
+    # La contraseña específica de app que generaste
+    APPLE_ID_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+    ```
+
+3.  **Ejecuta el Script de Build**:
+    Asegúrate de que también tienes configurada la `SIGNING_IDENTITY`. Al ejecutar `./build_macos_pkg.sh`, el script firmará el paquete, lo subirá a Apple para su notarización, esperará el resultado y, si tiene éxito, adjuntará el "ticket" de notarización al instalador.
+
+### Publicación Automática en GitHub
+
+El script `build_release_pack.sh` puede publicar automáticamente el release en GitHub.
+1.  **Crea un Token de Acceso Personal** en GitHub con el permiso `repo`.
+2.  **Exporta el token** como una variable de entorno en tu terminal: `export GITHUB_TOKEN="ghp_..."`.
+3.  Al ejecutar `build_release_pack.sh`, el script detectará el token y te ofrecerá publicar el release de forma automática.

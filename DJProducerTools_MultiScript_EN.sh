@@ -26,6 +26,14 @@ BANNER="${ESC}[1;37;44m"
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
 
+# --- Directory Check ---
+# Ensure the script is run from the main project directory.
+if [ ! -f "DJProducerTools_MultiScript_EN.sh" ] || [ ! -d "tests" ]; then
+    printf "\n%s[ERROR] Script is not being run from the main project directory.%s\n" "$C_RED" "$C_RESET" >&2
+    printf "Please 'cd' into the 'DJProducerTools_Project' folder and run the script from there.\n" >&2
+    exit 1
+fi
+
 LAUNCH_NON_INTERACTIVE=0
 if [ -z "${PS1:-}" ] && [ -z "${TMUX:-}" ] && [ -z "${SSH_CONNECTION:-}" ]; then
   LAUNCH_NON_INTERACTIVE=1
@@ -60,6 +68,14 @@ fi
 SAFE_MODE=1
 DJ_SAFE_LOCK=1
 DRYRUN_FORCE=0
+DEBUG_MODE=0 # Set to 1 to see detailed command output
+
+AUDIO_ROOT=""
+GENERAL_ROOT=""
+SERATO_ROOT=""
+REKORDBOX_XML=""
+ABLETON_ROOT=""
+ML_ENV_DISABLED=0
 
 SPIN_FRAMES=("\\" "|" "/" "-")
 SPIN_COLORS=("$C_PURP" "$C_GRN" "$C_WHT") # purple, green, white flash
@@ -650,11 +666,9 @@ save_conf() {
 
 load_conf() {
   if [ -f "$CONF_FILE" ]; then
-    set +u
     if ! . "$CONF_FILE" 2>/dev/null; then
       printf "%s[WARN]%s Could not load %s, it will be regenerated.\n" "$C_YLW" "$C_RESET" "$CONF_FILE"
     fi
-    set -u
   fi
 }
 
@@ -807,6 +821,11 @@ status_line() {
   percent="$2"
   current="$3"
   local emoji="$4"
+  if [ "$DEBUG_MODE" -eq 1 ]; then
+    # In debug mode, just print the status without overwriting the line.
+    echo "[DEBUG] $task | $percent% | $current"
+    return
+  fi
   local frame="${SPIN_FRAMES[$SPIN_IDX]}"
   local spin_idx="$SPIN_IDX"
   SPIN_IDX=$(((SPIN_IDX + 1) % ${#SPIN_FRAMES[@]}))
@@ -832,6 +851,11 @@ run_with_spinner() {
   local task="$1"
   local detail="$2"
   shift 2
+  if [ "$DEBUG_MODE" -eq 1 ]; then
+    echo "[DEBUG] Running command: $@"
+    "$@"
+    return
+  fi
   "$@" &
   local pid=$!
   while kill -0 "$pid" 2>/dev/null; do
@@ -976,7 +1000,7 @@ print_menu() {
   printf "  %s12)%s Quarantine Manager (list/purge/restore)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🎛️  Media / organization (13-24):%s\n" "$C_CYN" "$C_RESET"
+  printf "%s🎛️  Media / Organization (13-24):%s\n" "$C_CYN" "$C_RESET"
   printf "  %s13)%s Detect corrupt media (ffprobe) -> TSV\n" "$C_GRN" "$C_RESET"
   printf "  %s14)%s Create .m3u8 playlists per folder\n" "$C_GRN" "$C_RESET"
   printf "  %s15)%s Doctor: Relink Helper (non-destructive TSV)\n" "$C_GRN" "$C_RESET"
@@ -991,7 +1015,7 @@ print_menu() {
   printf "  %s24)%s Toggle DJ_SAFE_LOCK (ACTIVE/INACTIVE)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧹 Processes / cleanup (25-39):%s\n" "$C_CYN" "$C_RESET"
+  printf "%s🧹 Processes / Cleanup (25-41):%s\n" "$C_CYN" "$C_RESET"
   printf "  %s25)%s Quick Help (process guide)\n" "$C_GRN" "$C_RESET"
   printf "  %s26)%s State: Export/Import (bundle)\n" "$C_GRN" "$C_RESET"
   printf "  %s27)%s Integrity snapshot (fast hash) with progress%s\n" "$C_GRN" "$C_RESET" "${tag27:-}"
@@ -1007,47 +1031,45 @@ print_menu() {
   printf "  %s37)%s WEB: Whitelist Manager (allowed domains)\n" "$C_GRN" "$C_RESET"
   printf "  %s38)%s Clean WEB in Playlists (.m3u/.m3u8)\n" "$C_GRN" "$C_RESET"
   printf "  %s39)%s Clean WEB in TAGS (mutagen) (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s71)%s Convert WAV to MP3 (320kbps, Max Quality)\n" "$C_GRN" "$C_RESET"
-  printf "  %s72)%s Update script from GitHub\n" "$C_GRN" "$C_RESET"
+  printf "  %s40)%s Convert WAV to MP3 (320kbps, Max Quality)\n" "$C_GRN" "$C_RESET"
+  printf "  %s41)%s Update script from GitHub\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧠 Deep/ML (40-52):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s40)%s Deep Thinking: Smart Analysis (JSON)\n" "$C_GRN" "$C_RESET"
-  printf "  %s41)%s Machine Learning: Problem predictor\n" "$C_GRN" "$C_RESET"
-  printf "  %s42)%s Deep Thinking: Efficiency optimizer\n" "$C_GRN" "$C_RESET"
-  printf "  %s43)%s Deep Thinking: Smart workflow\n" "$C_GRN" "$C_RESET"
-  printf "  %s44)%s Deep Thinking: Integrated deduplication\n" "$C_GRN" "$C_RESET"
-  printf "  %s45)%s ML: Automatic organization (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s46)%s Deep Thinking: Metadata harmonizer (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s47)%s ML: Predictive backup\n" "$C_GRN" "$C_RESET"
-  printf "  %s48)%s Deep Thinking: Cross-platform sync\n" "$C_GRN" "$C_RESET"
-  printf "  %s49)%s Deep Thinking: Advanced analysis\n" "$C_GRN" "$C_RESET"
-  printf "  %s50)%s Deep Thinking: Integration engine\n" "$C_GRN" "$C_RESET"
-  printf "  %s51)%s ML: Adaptive recommendations\n" "$C_GRN" "$C_RESET"
-  printf "  %s52)%s Deep Thinking: Automated cleanup pipeline\n" "$C_GRN" "$C_RESET"
-  printf "  %s62)%s Evolutive ML (train/predict locally)\n" "$C_GRN" "$C_RESET"
-  printf "  %s63)%s Toggle ML ON/OFF (avoid ML venv)\n" "$C_GRN" "$C_RESET"
-  printf "  %s64)%s Optional TensorFlow (install/advanced ideas)\n" "$C_GRN" "$C_RESET"
-  printf "  %s65)%s TensorFlow Lab (auto-tagging/similarity/etc.)\n" "$C_GRN" "$C_RESET"
-  printf "  %s70)%s Local AI: TensorFlowADV+Light-IA\n" "$C_GRN" "$C_RESET"
+  printf "%s🧠 Deep/ML (42-59):%s\n" "$C_CYN" "$C_RESET"
+  printf "  %s42)%s Deep Thinking: Smart Analysis (JSON)\n" "$C_GRN" "$C_RESET"
+  printf "  %s43)%s Machine Learning: Problem predictor\n" "$C_GRN" "$C_RESET"
+  printf "  %s44)%s Deep Thinking: Efficiency optimizer\n" "$C_GRN" "$C_RESET"
+  printf "  %s45)%s Deep Thinking: Smart workflow\n" "$C_GRN" "$C_RESET"
+  printf "  %s46)%s Deep Thinking: Integrated deduplication\n" "$C_GRN" "$C_RESET"
+  printf "  %s47)%s ML: Automatic organization (plan)\n" "$C_GRN" "$C_RESET"
+  printf "  %s48)%s Deep Thinking: Metadata harmonizer (plan)\n" "$C_GRN" "$C_RESET"
+  printf "  %s49)%s ML: Predictive backup\n" "$C_GRN" "$C_RESET"
+  printf "  %s50)%s Deep Thinking: Cross-platform sync\n" "$C_GRN" "$C_RESET"
+  printf "  %s51)%s Deep Thinking: Advanced analysis\n" "$C_GRN" "$C_RESET"
+  printf "  %s52)%s Deep Thinking: Integration engine\n" "$C_GRN" "$C_RESET"
+  printf "  %s53)%s ML: Adaptive recommendations\n" "$C_GRN" "$C_RESET"
+  printf "  %s54)%s Deep Thinking: Automated cleanup pipeline\n" "$C_GRN" "$C_RESET"
+  printf "  %s55)%s Evolutive ML (train/predict locally)\n" "$C_GRN" "$C_RESET"
+  printf "  %s56)%s Toggle ML ON/OFF (avoid ML venv)\n" "$C_GRN" "$C_RESET"
+  printf "  %s57)%s Optional TensorFlow (install/advanced ideas)\n" "$C_GRN" "$C_RESET"
+  printf "  %s58)%s TensorFlow Lab (auto-tagging/similarity/etc.)\n" "$C_GRN" "$C_RESET"
+  printf "  %s59)%s Local AI: TensorFlowADV+Light-IA\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧰 Extras / utilities (53-67):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s53)%s Reset state / clean extras\n" "$C_GRN" "$C_RESET"
-  printf "  %s54)%s Profiles manager (save/load paths)\n" "$C_GRN" "$C_RESET"
-  printf "  %s55)%s Ableton Tools (basic analytics)\n" "$C_GRN" "$C_RESET"
-  printf "  %s56)%s Importers: Rekordbox/Traktor cues\n" "$C_GRN" "$C_RESET"
-  printf "  %s57)%s Exclusions manager (profiles)\n" "$C_GRN" "$C_RESET"
-  printf "  %s58)%s Compare hash_index between disks (no rehash)\n" "$C_GRN" "$C_RESET"
-  printf "  %s59)%s State health-check (_DJProducerTools)\n" "$C_GRN" "$C_RESET"
-  printf "  %s60)%s Export/Import config/profiles only\n" "$C_GRN" "$C_RESET"
-  printf "  %s61)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
-  printf "  %s66)%s LUFS plan (analysis, no normalize)\n" "$C_GRN" "$C_RESET"
-  printf "  %s67)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
-  printf "  %s68)%s Automated chains (21 workflows)\n" "$C_GRN" "$C_RESET"
-  printf "  %s69)%s Artist profiles/links (fillable template)\n" "$C_GRN" "$C_RESET"
-  printf "  %s71)%s Convert WAV to MP3 (320kbps, Max Quality)\n" "$C_GRN" "$C_RESET"
-  printf "  %s72)%s Update script from GitHub\n" "$C_GRN" "$C_RESET"
+  printf "%s🧰 Extras / Utilities (60-72):%s\n" "$C_CYN" "$C_RESET"
+  printf "  %s60)%s Reset state / clean extras\n" "$C_GRN" "$C_RESET"
+  printf "  %s61)%s Profiles manager (save/load paths)\n" "$C_GRN" "$C_RESET"
+  printf "  %s62)%s Ableton Tools (basic analytics)\n" "$C_GRN" "$C_RESET"
+  printf "  %s63)%s Importers: Rekordbox/Traktor cues\n" "$C_GRN" "$C_RESET"
+  printf "  %s64)%s Exclusions manager (profiles)\n" "$C_GRN" "$C_RESET"
+  printf "  %s65)%s Compare hash_index between disks (no rehash)\n" "$C_GRN" "$C_RESET"
+  printf "  %s66)%s State health-check (_DJProducerTools)\n" "$C_GRN" "$C_RESET"
+  printf "  %s67)%s Export/Import config/profiles only\n" "$C_GRN" "$C_RESET"
+  printf "  %s68)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
+  printf "  %s69)%s LUFS plan (analysis, no normalize)\n" "$C_GRN" "$C_RESET"
+  printf "  %s70)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
+  printf "  %s71)%s Automated chains (21 workflows)\n" "$C_GRN" "$C_RESET"
+  printf "  %s72)%s Artist profiles/links (fillable template)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%s🔮 A) Automations (chains)%s\n" "$C_GRN" "$C_RESET"
@@ -1381,6 +1403,11 @@ action_11_quarantine_from_plan() {
     return
   fi
   meta=$(file_meta "$plan_tsv")
+  if ! ensure_tool_installed "bc" "brew install bc"; then
+    printf "%s[WARN]%s 'bc' is required to calculate disk space. Space check will be skipped.\n" "$C_YLW" "$C_RESET"
+    pause_enter
+  fi
+
   if [ -n "$meta" ]; then
     meta_date=$(echo "$meta" | cut -d'|' -f1)
     meta_age=$(echo "$meta" | cut -d'|' -f3)
@@ -1777,7 +1804,7 @@ action_18_rescan_intelligent() {
 action_19_tools_diag() {
   print_header
   printf "%s[INFO]%s Tools diagnostic.\n" "$C_CYN" "$C_RESET"
-  for cmd in ffprobe shasum rsync find ls du; do
+  for cmd in ffprobe shasum rsync find ls du bc; do
     if command -v "$cmd" >/dev/null 2>&1; then
       printf "  %s: OK\n" "$cmd"
     else
@@ -4989,7 +5016,7 @@ action_72_update_self() {
   pause_enter
 }
 
-submenu_A_chains() {
+action_71_chains() {
   while true; do
     clear
     print_header
@@ -5002,20 +5029,20 @@ submenu_A_chains() {
     printf "%s6)%s Media integrity + corrupts (13 -> 18)\n" "$C_YLW" "$C_RESET"
     printf "%s7)%s Efficiency plan (42 -> 44 -> 43)\n" "$C_YLW" "$C_RESET"
     printf "%s8)%s ML org basics (45 -> 46)\n" "$C_YLW" "$C_RESET"
-    printf "%s9)%s Predictive backup (47 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
-    printf "%s10)%s Cross-platform sync (48 -> 39 -> 8 -> 8)\n" "$C_YLW" "$C_RESET"
+    printf "%s9)%s Predictive backup (49 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
+    printf "%s10)%s Cross-platform sync (50 -> 39 -> 8 -> 8)\n" "$C_YLW" "$C_RESET"
     printf "%s11)%s Quick diagnostics (1 -> 3 -> 4 -> 5)\n" "$C_YLW" "$C_RESET"
     printf "%s12)%s Serato health (7 -> 59)\n" "$C_YLW" "$C_RESET"
     printf "%s13)%s Hash + mirror check (9 -> 61)\n" "$C_YLW" "$C_RESET"
-    printf "%s14)%s Audio prep (31 -> 66 -> 67)\n" "$C_YLW" "$C_RESET"
+    printf "%s14)%s Audio prep (31 -> 69 -> 70)\n" "$C_YLW" "$C_RESET"
     printf "%s15)%s Integrity audit (6 -> 9 -> 27 -> 61)\n" "$C_YLW" "$C_RESET"
     printf "%s16)%s Cleanup + safe backup (39 -> 34 -> 10 -> 11 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
-    printf "%s17)%s Library sync prep (18 -> 14 -> 48 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
+    printf "%s17)%s Library sync prep (18 -> 14 -> 50 -> 8 -> 27)\n" "$C_YLW" "$C_RESET"
     printf "%s18)%s Visual/video health (V2 -> V6 -> V8 -> V9 -> 8)\n" "$C_YLW" "$C_RESET"
     printf "%s19)%s Advanced audio org (31 -> 30 -> 35 -> 45 -> 46)\n" "$C_YLW" "$C_RESET"
-    printf "%s20)%s Serato safety hardening (7 -> 8 -> 59 -> 12 -> 47)\n" "$C_YLW" "$C_RESET"
+    printf "%s20)%s Serato safety hardening (7 -> 8 -> 59 -> 12 -> 49)\n" "$C_YLW" "$C_RESET"
     printf "%s21)%s Multi-disk dedup + mirror (9 -> 10 -> 44 -> 11 -> 61)\n" "$C_YLW" "$C_RESET"
-    printf "%s22)%s Presskit pack (69 -> export)\n" "$C_YLW" "$C_RESET"
+    printf "%s22)%s Presskit pack (72 -> export)\n" "$C_YLW" "$C_RESET"
     printf "%s23)%s Auto-pilot: chains 5,16,21 (show prep + clean/backup + multi-dedup)\n" "$C_YLW" "$C_RESET"
     printf "%s24)%s Auto-pilot: all-in-one (hash -> dupes -> quarantine -> snapshot -> doctor)\n" "$C_YLW" "$C_RESET"
     printf "%s25)%s Auto-pilot: clean + safe backup (rescan -> dupes -> quarantine -> backup -> snapshot)\n" "$C_YLW" "$C_RESET"

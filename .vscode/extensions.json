@@ -3,9 +3,9 @@
         "google.geminicodeassist",
         "fabioz.vscode-pydev-python-debugger",
         "ms-azuretools.vscode-azurelogicapps",
-        "openai.chatgpt",
         "formulahendry.code-runner",
         "xqua.ducky-script-lang-vscode-flipper",
-        "bini.vscode-gemini-assistant"
+        "bini.vscode-gemini-assistant",
+        "openai.chatgpt"
     ]
 }
