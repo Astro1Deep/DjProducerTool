@@ -1,4 +1,7 @@
-# 🎛️ DJProducerTools
+<img width="1536" height="1024" alt="20260103_1357_Futuristic DJ Tool Banner_remix_01ke22aqhxe2r9n8vcsd71a4a3" src="https://github.com/user-attachments/assets/ec237d17-0aa3-4363-baea-fb9f08528714" />
+
+
+# 🎛️ DJProducerTool
 
 **Advanced toolkit for auditing, cleaning, organizing, and managing music libraries for DJs and Producers on macOS.**
 
