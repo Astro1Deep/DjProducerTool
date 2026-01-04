@@ -4219,43 +4219,47 @@ chain_2_dedup_quarantine() {
 }
 
 chain_3_metadata_names() {
-  chain_run_header "Limpieza de metadatos y nombres (39 -> 34)"
+  chain_run_header "Limpieza de metadatos y nombres (39 -> 34) [Robusto]"
   if ensure_tool_installed "python3"; then
     if ensure_python_package_installed "mutagen"; then
-        action_39_clean_web_tags
+        action_39_clean_web_tags || printf "%s[WARN]%s Falló limpieza de tags, continuando...\n" "$C_YLW" "$C_RESET"
     fi
   fi
-  action_34_normalize_names
-  printf "%s[OK]%s Cadena completada: limpieza de metadatos y nombres.\n" "$C_GRN" "$C_RESET"
+  action_34_normalize_names || printf "%s[WARN]%s Falló normalización, continuando...\n" "$C_YLW" "$C_RESET"
+  printf "%s[OK]%s Cadena 3 completada.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
 
 chain_4_health_scan() {
-  chain_run_header "Escaneo salud media (18 -> 14 -> 15)"
-  action_18_rescan_intelligent
-  action_14_playlists_per_folder
+  chain_run_header "Escaneo salud media (Robusto)"
+  action_18_rescan_intelligent || printf "\n[WARN] Falló rescan.\n"
+  action_14_playlists_per_folder || printf "\n[WARN] Falló playlists.\n"
   if ensure_tool_installed "shasum" "brew install coreutils"; then
-    action_15_relink_helper
+    action_15_relink_helper || printf "\n[WARN] Falló relink helper.\n"
   fi
-  printf "%s[OK]%s Cadena completada: escaneo de salud media.\n" "$C_GRN" "$C_RESET"
+  printf "%s[OK]%s Cadena 4 completada.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
 
 chain_5_show_prep() {
-  chain_run_header "Prep de show (8 -> 27 -> 10 -> 11 -> 14 -> 8)"
+  chain_run_header "Prep de show (Robusto)"
+  # Backup inicial
   if ensure_tool_installed "rsync" "brew install rsync"; then
-    action_8_backup_dj
+    action_8_backup_dj || printf "\n[WARN] Falló backup inicial.\n"
   fi
+  # Limpieza y Snapshot
   if ensure_tool_installed "shasum" "brew install coreutils"; then
-    action_27_snapshot
-    action_10_dupes_plan
-    action_11_quarantine_from_plan
+    action_27_snapshot || printf "\n[WARN] Falló snapshot.\n"
+    action_10_dupes_plan || printf "\n[WARN] Falló plan duplicados.\n"
+    action_11_quarantine_from_plan || printf "\n[WARN] Falló quarantine.\n"
   fi
-  action_14_playlists_per_folder
+  # Playlists
+  action_14_playlists_per_folder || printf "\n[WARN] Falló playlists.\n"
+  # Backup final (Safety)
   if ensure_tool_installed "rsync" "brew install rsync"; then
-    action_8_backup_dj
+    action_8_backup_dj || printf "\n[WARN] Falló backup final.\n"
   fi
-  printf "%s[OK]%s Cadena completada: pre/post backup, duplicados y playlists.\n" "$C_GRN" "$C_RESET"
+  printf "%s[OK]%s Cadena 5 completada (Show Ready).\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
 
