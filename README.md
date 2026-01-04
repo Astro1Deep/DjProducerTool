@@ -1,364 +1,275 @@
-# 🎧 DJProducerTools v2.1.0
+# DJ Producer Tools 🎵
 
-Professional DJ Production Suite for macOS | [Guía en Español](README_ES.md)
+**Multi-language professional DJ production suite for macOS**
 
----
+English | [Español](#versión-en-español)
 
-## Overview
+## ✨ Features
 
-**DJProducerTools** is a comprehensive, production-ready toolkit for DJs, producers, and audio professionals on macOS. It provides integrated solutions for lighting control, video sync, OSC networking, BPM detection, library management, and system diagnostics.
-
-### Key Features
-
-| Feature | Status | Details |
-|---------|--------|---------|
-| 🎨 **DMX Lighting Control** | ✅ Production Ready | 512-channel DMX512 control for lights, lasers, effects |
-| 🎬 **Serato Video Integration** | ✅ Production Ready | Auto-detection, import, sync, and metadata management |
-| 🎛️ **OSC (Open Sound Control)** | ✅ Production Ready | Network-based control protocol for advanced integration |
-| 🔊 **BPM Detection & Sync** | ✅ Production Ready | 95%+ accuracy with batch processing and tempo mapping |
-| 📚 **Library Management** | ✅ Production Ready | Organization, deduplication, metadata cleanup, multi-format support |
-| ⚙️ **System Diagnostics** | ✅ Production Ready | Real-time monitoring, logging, health checks, detailed reports |
-
----
+- 🎚️ **Library Management** - Organize and sync DJ libraries
+- 🎵 **Audio Processing** - BPM detection, key analysis, waveform generation
+- 🎥 **Serato Video** - Integration with Serato video features
+- 💡 **Lighting Control** - DMX support for lights, lasers, and effects
+- 🎙️ **OSC Support** - Open Sound Control for advanced automation
+- 📊 **Visualization** - Advanced waveform and frequency analysis
+- 🔊 **Audio Analysis** - Comprehensive audio metadata extraction
 
 ## 🚀 Quick Start
 
-### Installation (30 seconds)
+### One-line Installation
 
 ```bash
-# Clone repository
-git clone https://github.com/Astro1Deep/DjProducerTool.git
-cd DjProducerTool
-
-# Or use installer
-curl -fsSL https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/install_djpt.sh | bash
-
-# Make executable
-chmod +x DJProducerTools_MultiScript_EN.sh
-chmod +x DJProducerTools_MultiScript_ES.sh
-
-# Run
-./DJProducerTools_MultiScript_EN.sh  # English
-./DJProducerTools_MultiScript_ES.sh  # Spanish
+curl -fsSL https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/INSTALL.sh | bash
 ```
 
-### System Requirements
+### Manual Installation
 
-- **macOS** 10.13 or later
-- **Bash** 4.0 or later  
-- **Disk Space** 100 MB
-- **Memory** 512 MB minimum
-
-### Optional Dependencies
+1. Clone or download the repository
+2. Navigate to the project directory
+3. Run the main script:
 
 ```bash
-# Install recommended tools
-brew install ffmpeg sox curl
+# English version
+./scripts/DJProducerTools_MultiScript_EN.sh
 
-# Verify installation
-ffprobe -version
-sox -version
+# Spanish version  
+./scripts/DJProducerTools_MultiScript_ES.sh
 ```
 
----
+## 📋 Main Menu Options
 
-## 📋 Feature Details
+### Library & Duplicates (L/D)
+- Scan and analyze music libraries
+- Find and remove duplicate files
+- Merge cue points and metadata
 
-### 1. DMX Lighting Control (🎨)
+### Video & OSC (V/O)
+- Serato video integration
+- OSC protocol support
+- Real-time sync with controllers
 
-Professional lighting system control for DJ performances:
+### Lights & Effects (L/E)
+- DMX lighting control
+- Laser effect management
+- Real-time synchronization
 
-- **Initialize DMX Interface** - Auto-detection of connected controllers
-- **Configure Fixtures** - Define lights, lasers, fog machines
-- **Create Scenes** - Design and sequence lighting effects
-- **Real-time Control** - Adjust 512 channels independently
-- **Diagnostics** - Monitor signal strength, latency, connected fixtures
-
-**Supported Controllers:**
-- ENTTEC DMX USB Pro
-- Chauvet ShowXpress
-- ETC Ion
-- Other DMX512-compatible interfaces
-
-**Use Cases:**
-- Live DJ performances
-- Studio production
-- Theater and event lighting
-- Club installations
-
----
-
-### 2. Serato Video Integration (🎬)
-
-Seamless integration with Serato DJ Pro for video performance:
-
-- **Auto-Detection** - Finds Serato installation automatically
-- **Video Import** - Batch import from local library (MP4, MOV, MKV, AVI, FLV)
-- **Metadata Extraction** - Duration, resolution, codec analysis
-- **Video-Audio Sync** - BPM-based synchronization with music
-- **Library Management** - Organize, search, and report on video collection
-- **Sync Profiles** - Save and reuse video sync settings
-
-**Supported Formats:**
-- MP4 (H.264, H.265)
-- MOV (ProRes, DNxHD)
-- MKV (VP9, H.264)
-- AVI (multiple codecs)
-- FLV (H.264)
-
----
-
-### 3. OSC (Open Sound Control) (🎛️)
-
-Advanced network-based control protocol for modern DJ setups:
-
-- **Server Setup** - UDP-based on 127.0.0.1:9000
-- **Custom Endpoints** - Define your own OSC messages
-- **Live Monitoring** - Real-time traffic visualization
-- **Low Latency** - 2-5ms response time
-- **Multi-Client** - Support multiple connected devices
-
-**Standard Endpoints:**
-```
-/dj/mixer/crossfader        Float (0.0-1.0)
-/dj/mixer/eq                Float array [low, mid, high]
-/dj/deck/pitch              Float (0.5-2.0)
-/dj/deck/jog                Float (-1.0 to 1.0)
-/dj/effects/[effect]        Variable by effect
-/light/dmx/[channel]        Int (0-255)
-```
-
----
-
-### 4. BPM Detection & Synchronization (🔊)
-
-Professional tempo analysis with high accuracy:
-
-- **Single File Analysis** - Quick BPM detection with confidence rating
-- **Batch Processing** - Analyze 50+ files in one operation
-- **Tempo Mapping** - Create tempo curves with sync points
-- **Master Sync** - Synchronize entire library to reference tempo
-- **Statistics** - Detailed reports and metrics
-
-**Accuracy:**
-- Electronic Music: 95%+
-- Acoustic Music: 88%+
-- Range: 60-200 BPM
-- Confidence: 80-100%
-
----
-
-### 5. Library & Metadata Management (📚)
-
-Comprehensive library organization and maintenance:
-
-- **Auto-Organization** - Sort by Artist > Album > Title
-- **Metadata Cleanup** - Validate and repair tags
-- **Duplicate Detection** - Hash-based identification
-- **Playlist Import** - M3U, PLS, XSPF support
-- **Multi-Format Export** - CSV, JSON, M3U formats
-- **Library Backup** - Automated backup and recovery
-
-**Supported Formats:**
-- Audio: MP3, FLAC, WAV, OGG, M4A, AIFF
-- Playlists: M3U, M3U8, PLS, XSPF
-
----
-
-### 6. System Diagnostics & Logging (⚙️)
-
-Complete system monitoring and troubleshooting:
-
-- **Health Checks** - CPU, memory, disk, network monitoring
-- **Performance Metrics** - Real-time usage statistics
-- **Structured Logging** - Detailed activity logs with levels
-- **Diagnostics Reports** - Comprehensive system analysis
-- **Debug Mode** - Extended logging for troubleshooting
-
-**Log Locations:**
-```
-Config:  ~/.DJProducerTools/config/
-Logs:    ~/.DJProducerTools/logs/
-Reports: ~/.DJProducerTools/reports/
-Data:    ~/.DJProducerTools/data/
-```
-
----
+### Advanced (A)
+- BPM analysis and correction
+- Key detection and mixing recommendations
+- Batch processing capabilities
 
 ## 📚 Documentation
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| [GUIDE.md](GUIDE.md) | Quick reference and feature overview | All users |
-| [FEATURES.md](FEATURES.md) | Detailed feature implementation status | Developers |
-| [INSTALL.md](INSTALL.md) | Installation and setup guide | New users |
-| [API.md](API.md) | Technical API documentation | Developers |
-| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions | Support |
-| [CHANGELOG.md](CHANGELOG.md) | Version history and updates | All users |
-| [SECURITY.md](SECURITY.md) | Security guidelines and best practices | Administrators |
+- **[GUIDE.md](./GUIDE.md)** - Comprehensive user guide
+- **[FEATURES.md](./FEATURES.md)** - Detailed feature documentation  
+- **[API.md](./API.md)** - API reference for developers
+- **[INSTALL.md](./INSTALL.md)** - Installation guide
 
----
+### En Español
+- **[GUIA_ES.md](./GUIDE_ES.md)** - Guía completa del usuario
+- **[FEATURES_ES.md](./FEATURES_ES.md)** - Documentación detallada de características
+- **[INSTALL_ES.md](./INSTALL_ES.md)** - Guía de instalación
 
-## 🔧 Usage Examples
+## 🛠️ Usage
 
-### Enable Debug Mode
+### Quick Commands
+
 ```bash
-DEBUG=1 ./DJProducerTools_MultiScript_EN.sh
+# After installation, use global command
+dj           # Auto-detects system language
+dj-en        # Force English
+dj-es        # Force Spanish (Fuerza español)
+
+# Or run directly
+~/DJProducerTools/scripts/DJProducerTools_MultiScript_EN.sh
+~/DJProducerTools/scripts/DJProducerTools_MultiScript_ES.sh
 ```
 
-### Run Diagnostics Only
+### From Project Directory
+
 ```bash
-# Start script and select: 6 > 5
-./DJProducerTools_MultiScript_EN.sh
+# Make sure you're in the project root
+cd DJProducerTools_Project
+
+# Run English version
+./scripts/DJProducerTools_MultiScript_EN.sh
+
+# Run Spanish version
+./scripts/DJProducerTools_MultiScript_ES.sh
 ```
 
-### Check Recent Logs
+## ⚙️ System Requirements
+
+- **OS**: macOS 10.13+
+- **Shell**: bash 4.0+ or zsh
+- **Dependencies**:
+  - `ffmpeg` (audio processing)
+  - `jq` (JSON parsing)
+  - `curl` (downloads)
+
+### Install Dependencies
+
 ```bash
-tail -50 ~/.DJProducerTools/logs/djpt_$(date +%Y%m%d).log
+# Using Homebrew
+brew install ffmpeg jq
 ```
 
-### View Generated Reports
+## 🔧 Configuration
+
+All settings are stored in `~/.djproducertools/config`:
+
 ```bash
-ls -lah ~/.DJProducerTools/reports/
-open ~/.DJProducerTools/reports/  # Open in Finder
+# Library paths
+LIBRARY_PATH="/path/to/music"
+BACKUP_PATH="/path/to/backup"
+
+# Audio processing
+FFMPEG_OPTS="-q:a 9"  # Quality settings
 ```
 
----
+## 📊 Project Structure
 
-## 🧪 Testing & Quality
+```
+DJProducerTools_Project/
+├── scripts/
+│   ├── DJProducerTools_MultiScript_EN.sh  (1000 lines)
+│   └── DJProducerTools_MultiScript_ES.sh  (1000 lines)
+├── docs/
+│   ├── README.md, GUIDE.md, FEATURES.md
+│   ├── README_ES.md, GUIDE_ES.md, FEATURES_ES.md
+│   └── API.md, INSTALL.md (bilingual)
+├── INSTALL.sh  (Universal installer)
+└── VERSION     (Current: v2.1.0)
+```
 
-### Test Coverage
-- Unit Tests: 95%
-- Integration Tests: 90%
-- System Tests: 85%
-- User Acceptance: 98%
+## 🧪 Testing
 
-### Performance Metrics
-- Startup Time: <2 seconds
-- Menu Response: <100ms
-- File Processing: 1-10 files/second
-- Memory Footprint: <50 MB
+Run test suite:
 
-### Stability
-- Uptime: 99.9%
-- Error Rate: <0.1%
-- Recovery Time: <5 seconds
+```bash
+# From project directory
+bash ./scripts/DJProducerTools_MultiScript_EN.sh --test
 
----
+# Or Spanish version
+bash ./scripts/DJProducerTools_MultiScript_ES.sh --test
+```
+
+## 🐛 Troubleshooting
+
+### Scripts not found (404 error)
+
+Make sure you're in the correct directory:
+
+```bash
+cd ~/DJProducerTools_Project  # Project root
+./scripts/DJProducerTools_MultiScript_EN.sh
+```
+
+### Permission denied
+
+Make scripts executable:
+
+```bash
+chmod +x ~/DJProducerTools/scripts/*.sh
+```
+
+### Missing dependencies
+
+Install required tools:
+
+```bash
+brew install ffmpeg jq curl
+```
+
+## 📝 Version History
+
+- **v2.1.0** (Jan 2025)
+  - ✓ Complete bilingual support (EN/ES)
+  - ✓ DMX lighting integration
+  - ✓ Serato Video support
+  - ✓ OSC protocol support
+  - ✓ Advanced progress indicators with spinners
+  - ✓ Comprehensive error handling
+
+- **v2.0.0** (Jan 2025)
+  - Initial production release
+  - Core feature implementation
+  - Bilingual documentation
 
 ## 🤝 Contributing
 
-We welcome contributions! To contribute:
+To contribute:
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
+2. Create a feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
 5. Open a Pull Request
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
-
----
-
-## 🐛 Support & Bug Reports
-
-### Getting Help
-
-1. **Documentation** - Check [GUIDE.md](GUIDE.md) and [FEATURES.md](FEATURES.md)
-2. **Troubleshooting** - See [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-3. **Enable Debug Mode** - `DEBUG=1 ./DJProducerTools_MultiScript_EN.sh`
-4. **Check Logs** - `tail -f ~/.DJProducerTools/logs/djpt_*.log`
-
-### Report Issues
-
-Open an issue on [GitHub](https://github.com/Astro1Deep/DjProducerTool/issues) with:
-- macOS version
-- Bash version
-- Error messages
-- Debug logs
-- Steps to reproduce
-
----
-
-## 📊 Version History
-
-### v2.1.0 (Current) - January 4, 2025
-- ✅ All 6 core features implemented and tested
-- ✅ Bilingual support (EN/ES)
-- ✅ Comprehensive documentation
-- ✅ Production-ready release
-
-### v2.0.0 - December 2024
-- Initial feature development
-- Basic testing framework
-
-### v1.0.0 - November 2024
-- Foundation and architecture
-
-See [CHANGELOG.md](CHANGELOG.md) for full history.
-
----
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 ## 📄 License
 
-MIT License - See [LICENSE](LICENSE) for details
+This project is licensed under the MIT License - see [LICENSE](./LICENSE) file for details.
 
-**Key Points:**
-- ✅ Free for personal and commercial use
-- ✅ Modification allowed
-- ✅ Distribution allowed
-- ✅ Include license with copies
-- ✅ No warranty provided
+Commercial use attribution to **Astro1Deep**.
 
----
+## 👨‍💻 Author
 
-## 🙏 Acknowledgments
+**Astro1Deep** - DJ Producer Tools Creator
 
-- **Astro1Deep** - Developer
-- **Open Source Community** - Essential tools and libraries
-- **Serato DJ** - Video integration partnership
-- **Contributors** - Bug reports and feature requests
+- GitHub: [@Astro1Deep](https://github.com/Astro1Deep)
+- Project: [DjProducerTool](https://github.com/Astro1Deep/DjProducerTool)
 
 ---
 
-## 📞 Contact & Social
+## Versión en Español
 
-- **Repository:** [github.com/Astro1Deep/DjProducerTool](https://github.com/Astro1Deep/DjProducerTool)
-- **Author:** Astro1Deep
-- **License:** MIT
-- **Status:** Active & Maintained
+# DJ Producer Tools 🎵
 
----
+**Suite de producción para DJ de nivel profesional para macOS**
 
-## 🎯 Project Status
+## 🚀 Instalación Rápida
 
-```
-Phase 1: Development     [████████████████████] 100% ✅
-Phase 2: Testing         [████████████████████] 100% ✅
-Phase 3: Documentation   [████████████████████] 100% ✅
-Phase 4: Release         [████████████████████] 100% ✅
-Overall: Production Ready [████████████████████] 100% ✅
+```bash
+curl -fsSL https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/INSTALL.sh | bash
 ```
 
+Luego usa:
+
+```bash
+dj            # Detecta idioma automáticamente
+dj-es         # Versión en español
+dj-en         # Versión en inglés
+```
+
+## 📚 Documentación en Español
+
+- **[GUIA_ES.md](./GUIDE_ES.md)** - Guía del usuario completa
+- **[FEATURES_ES.md](./FEATURES_ES.md)** - Características detalladas
+- **[INSTALL_ES.md](./INSTALL_ES.md)** - Guía de instalación
+
+## ✨ Características
+
+- 🎚️ Gestión de Librerías
+- 🎵 Procesamiento de Audio
+- 🎥 Integración Serato Video
+- 💡 Control de Iluminación DMX
+- 🎙️ Soporte OSC
+- 📊 Visualización Avanzada
+
+## 🔧 Requisitos
+
+- macOS 10.13+
+- bash 4.0+ o zsh
+- ffmpeg, jq, curl
+
+```bash
+brew install ffmpeg jq
+```
+
+Para más información, consulta [INSTALL_ES.md](./INSTALL_ES.md)
+
 ---
 
-## 🚀 What's Next?
-
-### Planned Features (v2.2-3.0)
-
-- [ ] MIDI controller integration
-- [ ] Real-time visualization
-- [ ] Plugin system support
-- [ ] Web-based dashboard
-- [ ] Cloud sync capabilities
-
-### Community Requests
-
-Have a feature idea? [Open an issue](https://github.com/Astro1Deep/DjProducerTool/issues) and we'll review it!
-
----
-
-**Last Updated:** January 4, 2025  
-**Version:** 2.1.0  
-**Status:** ✅ Production Ready
-
+**Made with ❤️ for DJ Producers | Hecho con ❤️ para Productores DJ**
