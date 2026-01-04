@@ -5,7 +5,7 @@
 
 
 
-# DJ Producer Tools 🎵
+# DJProducerTool 🎵
 
 **Multi-language professional DJ production suite for macOS**
 
