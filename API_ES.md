@@ -75,6 +75,22 @@ Restaura archivos de cuarentena.
 restore_quarantine FILE_ID [--destination PATH]
 ```
 
+## Configuración
+
+### Formato del Archivo de Configuración
+Ubicado en `_DJProducerTools/config/djpt.conf`
+
+```bash
+BASE_PATH="/ruta/a/musica"
+AUDIO_ROOT="/ruta/a/musica/audio"
+SERATO_ROOT="/Users/usuario/Music/_Serato_"
+SAFE_MODE=1
+DEBUG_MODE=0
+```
+
+### Configuración de Perfil
+Perfiles de análisis personalizados en `_DJProducerTools/config/profiles/`
+
 ## Variables de Entorno
 
 | Variable | Propósito | Ejemplo |
@@ -95,7 +111,83 @@ restore_quarantine FILE_ID [--destination PATH]
 | 4 | Archivo no encontrado |
 | 5 | Directorio no encontrado |
 
----
+## Códigos de Salida
 
-**Versión**: 2.0.0  
-**Licencia**: DJProducerTools License
+```bash
+exit 0   # Ejecución exitosa
+exit 1   # Error general
+exit 2   # Ruta inválida
+exit 3   # Dependencias faltantes
+```
+
+## Formatos de Archivo
+
+### Índice de Hash (JSON)
+```json
+{
+  "generated": "2024-01-04T08:30:00Z",
+  "hashes": {
+    "hash_sha256": {
+      "path": "/ruta/a/archivo.mp3",
+      "size": 5242880,
+      "modified": "2024-01-04"
+    }
+  }
+}
+```
+
+### Plan de Duplicados (JSON)
+```json
+{
+  "timestamp": "2024-01-04T08:30:00Z",
+  "duplicates": [
+    {
+      "hash": "abc123...",
+      "count": 2,
+      "files": [
+        {"path": "/ruta/a/archivo1.mp3", "size": 5242880},
+        {"path": "/ruta/a/archivo2.mp3", "size": 5242880}
+      ]
+    }
+  ]
+}
+```
+
+## Manejo de Errores
+
+Todas las funciones siguen el manejo estándar de errores:
+```bash
+nombre_funcion() {
+    if [ ! -d "$1" ]; then
+        printf "%s[ERROR] Directorio no encontrado: %s%s\n" "$C_RED" "$1" "$C_RESET" >&2
+        return 1
+    fi
+    # ... lógica de la función ...
+    return 0
+}
+```
+
+## Pruebas
+
+Suite de pruebas: `tests/test_runner_fixed.sh`
+
+Ejecutar todas las pruebas:
+```bash
+bash tests/test_runner_fixed.sh
+```
+
+## Depuración
+
+Habilitar salida de depuración:
+```bash
+DEBUG_MODE=1 ./DJProducerTools_MultiScript_ES.sh
+```
+
+## Versión
+
+Versión actual: 2.0.0
+Ver archivo `VERSION` para más detalles.
+
+## Contribuyendo
+
+Ver `CONTRIBUTING_ES.md` para guías de desarrollo.
