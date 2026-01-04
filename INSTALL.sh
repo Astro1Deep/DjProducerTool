@@ -1,8 +1,8 @@
 #!/bin/bash
 #
-# DJProducerTools - Universal Installer v1.0
+# DJProducerTools - Universal Installer v2.0
 # Installs both English and Spanish versions
-# Usage: ./install.sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/INSTALL.sh | bash
 #
 
 set -e
@@ -14,89 +14,152 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Spinner
+spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while kill -0 $pid 2>/dev/null; do
+        for i in $(seq 0 9); do
+            echo -ne "\r${spinstr:$i:1} "
+            sleep $delay
+        done
+    done
+}
+
 # Progress bar
 progress_bar() {
     local current=$1
     local total=$2
-    local width=40
+    local msg="$3"
+    local width=30
     local percent=$((current * 100 / total))
     local filled=$((width * current / total))
     
-    printf "${BLUE}["
-    printf "%${filled}s" | tr ' ' '='
-    printf "%$((width-filled))s" | tr ' ' '-'
-    printf "]${NC} ${percent}%% ($current/$total)\n"
+    printf "${BLUE}[%-${width}s]${NC} ${percent}%% - ${msg}\n" | head -c $(($width + 1)) | tr '\n' ' '
+    printf "%-${width}s" | head -c $filled | tr ' ' '=' > /dev/null 2>&1
+    echo ""
 }
 
+# Header
+clear
 echo -e "${GREEN}"
-echo "╔══════════════════════════════════════════════════════════╗"
-echo "║        DJProducerTools Universal Installer              ║"
-echo "║              Instalador Universal v1.0                   ║"
-echo "╚══════════════════════════════════════════════════════════╝"
+cat << "HEADER"
+╔════════════════════════════════════════════════════════════════╗
+║         DJProducerTools - Universal Installer v2.0            ║
+║    Instalador Universal para DJ Producer Tools v2.0           ║
+╚════════════════════════════════════════════════════════════════╝
+HEADER
 echo -e "${NC}"
 
-# Get GitHub repo info
+# GitHub configuration
 GITHUB_USER="Astro1Deep"
 GITHUB_REPO="DjProducerTool"
 GITHUB_BRANCH="main"
 BASE_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}"
 
-# Create directories
-echo -e "${BLUE}Creating directories...${NC}"
-mkdir -p ~/DJProducerTools/scripts
-mkdir -p ~/DJProducerTools/docs
-mkdir -p ~/DJProducerTools/bin
+# Installation directory
+INSTALL_DIR="${HOME}/DJProducerTools"
+mkdir -p "${INSTALL_DIR}/scripts" "${INSTALL_DIR}/docs" "${INSTALL_DIR}/bin"
 
-INSTALL_DIR=~/DJProducerTools
+echo -e "${BLUE}📦 Installation Directory: ${INSTALL_DIR}${NC}\n"
 
-progress_bar 1 3
-
-# Download scripts
-echo -e "${BLUE}Downloading scripts...${NC}"
-
-scripts=("DJProducerTools_MultiScript_EN.sh" "DJProducerTools_MultiScript_ES.sh")
-script_count=${#scripts[@]}
-
-for i in "${!scripts[@]}"; do
-    script="${scripts[$i]}"
-    progress_bar $((i + 1)) $script_count
-    echo -ne "${BLUE}Downloading ${script}...${NC}\r"
+# Function to download with error handling
+download_file() {
+    local url=$1
+    local dest=$2
+    local name=$3
     
-    curl -fsSL "${BASE_URL}/scripts/${script}" -o "${INSTALL_DIR}/scripts/${script}" 2>/dev/null
-    chmod +x "${INSTALL_DIR}/scripts/${script}"
-    echo -e "${GREEN}✓ ${script} downloaded${NC}"
-done
+    echo -ne "${BLUE}⏳ Downloading ${name}...${NC}"
+    
+    if curl -fsSL "${url}" -o "${dest}" 2>/dev/null; then
+        echo -e "\r${GREEN}✓ ${name}${NC}"
+        return 0
+    else
+        echo -e "\r${RED}✗ Failed to download ${name}${NC}"
+        echo -e "${YELLOW}  URL: ${url}${NC}"
+        return 1
+    fi
+}
 
-progress_bar 3 3
+# Download main scripts
+echo -e "\n${BLUE}=== Downloading Main Scripts ===${NC}\n"
 
-# Create quick start scripts
-echo -e "${BLUE}Creating launch scripts...${NC}"
+download_file "${BASE_URL}/scripts/DJProducerTools_MultiScript_EN.sh" \
+    "${INSTALL_DIR}/scripts/DJProducerTools_MultiScript_EN.sh" \
+    "DJProducerTools_MultiScript_EN.sh"
+
+download_file "${BASE_URL}/scripts/DJProducerTools_MultiScript_ES.sh" \
+    "${INSTALL_DIR}/scripts/DJProducerTools_MultiScript_ES.sh" \
+    "DJProducerTools_MultiScript_ES.sh"
+
+# Make scripts executable
+chmod +x "${INSTALL_DIR}/scripts"/*.sh
+
+# Create convenience launchers
+echo -e "\n${BLUE}=== Creating Launch Scripts ===${NC}\n"
 
 cat > "${INSTALL_DIR}/bin/dj-en" << 'ENEOF'
 #!/bin/bash
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
-./scripts/DJProducerTools_MultiScript_EN.sh "$@"
+cd "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)")"
+exec ./scripts/DJProducerTools_MultiScript_EN.sh "$@"
 ENEOF
 
 cat > "${INSTALL_DIR}/bin/dj-es" << 'ESEOF'
 #!/bin/bash
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
-./scripts/DJProducerTools_MultiScript_ES.sh "$@"
+cd "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)")"
+exec ./scripts/DJProducerTools_MultiScript_ES.sh "$@"
 ESEOF
 
-chmod +x "${INSTALL_DIR}/bin/dj-en"
-chmod +x "${INSTALL_DIR}/bin/dj-es"
+cat > "${INSTALL_DIR}/bin/dj" << 'DEFAULTEOF'
+#!/bin/bash
+# Auto-detect system language
+if [[ $LANG =~ es ]]; then
+    exec "$(dirname "$0")/dj-es" "$@"
+else
+    exec "$(dirname "$0")/dj-en" "$@"
+fi
+DEFAULTEOF
+
+chmod +x "${INSTALL_DIR}/bin"/*
+
+# Create symlinks (optional)
+echo -e "\n${BLUE}=== Setting up PATH shortcuts ===${NC}\n"
+
+for script in dj dj-en dj-es; do
+    if [ -w "/usr/local/bin" ]; then
+        ln -sf "${INSTALL_DIR}/bin/${script}" /usr/local/bin/${script} 2>/dev/null && \
+        echo -e "${GREEN}✓${NC} ${script} available globally" || echo -e "${YELLOW}⚠${NC} Could not create global link for ${script}"
+    else
+        echo -e "${YELLOW}⚠${NC} /usr/local/bin not writable. To use shortcuts, add to PATH:"
+        echo -e "  ${BLUE}export PATH=\"${INSTALL_DIR}/bin:\$PATH\"${NC}"
+        break
+    fi
+done
 
 # Summary
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║         Installation Complete!                           ║${NC}"
-echo -e "${GREEN}║         ¡Instalación Completada!                         ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
+echo -e "${GREEN}"
+cat << "SUMMARY"
+╔════════════════════════════════════════════════════════════════╗
+║              ✓ Installation Complete!                         ║
+║              ✓ ¡Instalación Completada!                       ║
+╚════════════════════════════════════════════════════════════════╝
+SUMMARY
+echo -e "${NC}"
+
+echo -e "${BLUE}Location / Ubicación:${NC}"
+echo "  ${INSTALL_DIR}"
 echo ""
-echo -e "${BLUE}Location: ${INSTALL_DIR}${NC}"
+echo -e "${BLUE}Quick Start / Inicio Rápido:${NC}"
+echo "  ${GREEN}dj${NC}           Auto-detect language"
+echo "  ${GREEN}dj-en${NC}       Run English version"
+echo "  ${GREEN}dj-es${NC}       Run Spanish version"
 echo ""
-echo "To run the tools:"
-echo "  dj-en      # English version"
-echo "  dj-es      # Spanish version"
+echo -e "${BLUE}Or run directly / O ejecutar directamente:${NC}"
+echo "  ${GREEN}${INSTALL_DIR}/scripts/DJProducerTools_MultiScript_EN.sh${NC}"
+echo "  ${GREEN}${INSTALL_DIR}/scripts/DJProducerTools_MultiScript_ES.sh${NC}"
+echo ""
+echo -e "${YELLOW}Note: Add to ~/.zprofile or ~/.bash_profile if symlinks didn't work:${NC}"
+echo "  ${BLUE}export PATH=\"${INSTALL_DIR}/bin:\$PATH\"${NC}"
 echo ""
