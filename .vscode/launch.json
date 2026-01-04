@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project ",
+      "program": "/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project /build/Release/outRelease"
+    }
+  ]
+}

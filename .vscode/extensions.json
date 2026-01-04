@@ -1,5 +1,11 @@
 {
     "recommendations": [
-        "ms-pyright.pyright"
+        "ms-pyright.pyright",
+        "google.geminicodeassist",
+        "bini.vscode-gemini-assistant",
+        "google.gemini-cli-vscode-ide-companion",
+        "codexpilot.codexpilot",
+        "shaneyang.api-key-aggregetor",
+        "d3j.gemini-cli-on-vscode"
     ]
 }

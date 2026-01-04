@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"vscode-corda.isCordaProject": false,
+		"codium.codeCompletion.enable": false,
+		"geminiAggregator.serverlessInstances": [],
+		"gemini-cli-vscode.migration.v3.notified": true
+	},
+	"extensions": {
+		"recommendations": [
+			"shaneyang.api-key-aggregetor",
+			"d3j.gemini-cli-on-vscode"
+		]
+	}
+}
