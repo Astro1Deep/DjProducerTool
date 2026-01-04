@@ -1,0 +1,40 @@
+# Generated & Temporary
+_DJProducerTools/
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.pkg
+*.dmg
+dist/
+build/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+
+# Personal scripts (developer only)
+build_macos_pkg.sh
+build_release_pack.sh
+aplicar_correcciones_premium.py
+generate_html_report.sh
+
+# Temporary test files
+test_clone/
+*.m3u8
+test_base/
