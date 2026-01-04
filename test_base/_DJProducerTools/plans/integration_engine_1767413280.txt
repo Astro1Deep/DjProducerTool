@@ -1,8 +1,0 @@
-MOTOR DE INTEGRACIÓN INTELIGENTE:
-- 9 + 10: Hash + plan duplicados.
-- 34 + 39: Normalizar nombres + limpiar URLs.
-- 8 + 27: Backup + snapshot de integridad.
-- 40 + 41 + 42: Análisis + predictor + optimizador.
-
-Flujo sugerido:
-40 (Análisis) -> 41 (Predictor) -> 10 (Dupes) -> 39 (Metadata) -> 8 (Backup)

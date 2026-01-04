@@ -1,9 +1,0 @@
-BACKUP PREDICTIVO - ESTRATEGIA INTELIGENTE:
-
-1) Análisis de riesgo: metadatos Serato/Traktor/Rekordbox/Ableton = críticos.
-2) Frecuencia sugerida: semanal (diaria si hay shows).
-3) Flujo recomendado:
-   - Opción 8: Backup incremental
-   - Opción 27: Snapshot rápido de integridad
-   - Opción 7: Copia de _Serato_ y _Serato_Backup
-4) Próxima ventana: madrugada (03:00–05:00) para evitar locks.
