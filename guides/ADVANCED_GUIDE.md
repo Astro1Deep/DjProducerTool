@@ -145,3 +145,11 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
 - **pyloudnorm**: planes de normalización LUFS sin aplicar ganancia. Beneficio: preparar lotes homogéneos antes de masterizar.
 - **pyserial/python-osc/fastapi**: DMX/OSC/API locales. Beneficio: controlar luces/estado sin exponer servicios externos.
 - **Seguridad**: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`, `DRYRUN_FORCE` y `DJPT_OFFLINE` mantienen todo en simulación/heurísticos por defecto; cualquier dependencia faltante genera warning y fallback, nunca aborta la sesión.
+
+## Uso detallado y ajustes por módulo
+- **Video 32/33:** Plan de transcode H.264 1080p ahora permite códec `auto/videotoolbox/nvenc/libx264`; auto detecta hw accel. Tras generar el plan, puedes ejecutar ffmpeg (pregunta y respeta `DRYRUN_FORCE`) y se indica el códec usado. Útil para Apple Silicon (videotoolbox) y PCs con NVIDIA (nvenc).
+- **API/OSC (50):** HTTP `/status,/reports,/dupes/summary,/logs/tail` con Bearer token opcional; OSC `/djpt/ping` y `/djpt/status` devuelven “unauthorized” si el token no coincide. Mantiene compatibilidad sin token en local.
+- **BPM/segmentation (49/67):** Flags `--tempo-min/--tempo-max` y `--max-duration`; salida incluye `beat_count` y `first_beat_sec` para cues. Ajusta rangos si tu música tiene BPM atípicos o hardware limitado.
+- **TF Lab (65):** Elige modelo según recursos: TF (`yamnet/musicnn/musictag`) si tienes TF; ONNX (`clap_onnx/clip_vitb16_onnx/sentence_t5_tflite`) si solo hay onnxruntime; `DJPT_OFFLINE=1` fuerza heurísticos si no quieres descargas. Ventaja: mismo flujo sirve offline/online y CPU/GPU.
+- **DMX (V3):** Dry-run automático si Safe/Lock/DRY activos; logs en `logs/dmx_*.log`. Usa pyserial si hay hardware; si no, sigue en simulación sin fallar.
+- **Auto-tagging vídeo (8) y music tags (9):** Heurísticos ligeros (no mutan archivos); sirven como pre-etiquetado y para pruebas en entornos sin modelos pesados.
