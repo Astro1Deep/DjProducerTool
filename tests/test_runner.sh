@@ -259,6 +259,41 @@ test_ml_autotag_mock() {
     assert_true "[ -s \"$tags\" ]" "Tags TSV generated"
 }
 
+test_ml_tf_enhanced_mock() {
+    echo -e "\n--- Testing ml_tf enhanced mock ---"
+    local reports_dir="$SCRIPT_DIR/tests/_DJProducerTools/reports"
+    mkdir -p "$reports_dir"
+    local base_audio="$SCRIPT_DIR/tests/fixtures/audio"
+    local base_video="$SCRIPT_DIR/tests/fixtures/videos"
+    local emb="$reports_dir/audio_embeddings.tsv"
+    local tags="$reports_dir/audio_tags.tsv"
+    local garb="$reports_dir/audio_garbage.tsv"
+    local lufs="$reports_dir/audio_loudness.tsv"
+    local seg="$reports_dir/audio_segments.tsv"
+    local match="$reports_dir/audio_matching.tsv"
+    local vtags="$reports_dir/video_tags.tsv"
+    local mtags="$reports_dir/music_tags.tsv"
+    rm -f "$emb" "$tags" "$garb" "$lufs" "$seg" "$match" "$vtags" "$mtags"
+
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" embeddings --offline --base "$base_audio" --out "$emb" --limit 10
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" tags --offline --base "$base_audio" --out "$tags" --limit 10
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" anomalies --base "$base_audio" --out "$garb" --limit 10
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" segments --base "$base_audio" --out "$seg" --limit 5
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" loudness --base "$base_audio" --out "$lufs" --limit 5 --target -14
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" matching --base "$base_audio" --out "$match" --limit 10 --embeddings "$emb" --tags "$tags"
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" video_tags --base "$base_video" --out "$vtags" --limit 2
+    DJPT_TF_MOCK=1 python3 "$SCRIPT_DIR/lib/ml_tf.py" music_tags --base "$base_audio" --out "$mtags" --limit 10
+
+    assert_true "[ -s \"$emb\" ]" "TF embeddings TSV generated"
+    assert_true "[ -s \"$tags\" ]" "TF tags TSV generated"
+    assert_true "[ -s \"$garb\" ]" "Garbage report generated"
+    assert_true "head -1 \"$lufs\" | grep -q 'gain_db_to_target'" "Loudness report has gain/crest columns"
+    assert_true "head -1 \"$seg\" | grep -q 'beats_sec'" "Segments report includes beats"
+    assert_true "[ -s \"$match\" ]" "Matching report generated"
+    assert_true "[ -s \"$vtags\" ]" "Video tags TSV generated"
+    assert_true "[ -s \"$mtags\" ]" "Music tags TSV generated"
+}
+
 test_osc_api_http() {
     echo -e "\n--- Testing OSC/API HTTP endpoints ---"
     local state="$SCRIPT_DIR/tests/_DJProducerTools"
@@ -328,6 +363,7 @@ run_tests() {
     test_playlist_bridge
     test_dmx_send
     test_ml_autotag_mock
+    test_ml_tf_enhanced_mock
     test_osc_api_http
 
     echo -e "\n--- Summary ---"

@@ -2019,8 +2019,14 @@ submenu_T_tensorflow_lab() {
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_match="$REPORTS_DIR/audio_matching.tsv"
-        printf "%s[INFO]%s Cross-platform matching (normalized names) -> %s\n" "$C_CYN" "$C_RESET" "$out_match"
-        if "$PYTHON_BIN" "lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit 200; then
+        emb_file="$REPORTS_DIR/audio_embeddings.tsv"
+        tags_file="$REPORTS_DIR/audio_tags.tsv"
+        emb_args=()
+        tag_args=()
+        [ -s "$emb_file" ] && emb_args=(--embeddings "$emb_file")
+        [ -s "$tags_file" ] && tag_args=(--tags "$tags_file")
+        printf "%s[INFO]%s Cross-platform matching (normalized names + tags/embeddings if present) -> %s\n" "$C_CYN" "$C_RESET" "$out_match"
+        if "$PYTHON_BIN" "lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit 200 "${emb_args[@]}" "${tag_args[@]}"; then
           printf "%s[OK]%s Matching report generated.\n" "$C_GRN" "$C_RESET"
         else
           printf "%s[ERR]%s Matching generation failed.\n" "$C_RED" "$C_RESET"
