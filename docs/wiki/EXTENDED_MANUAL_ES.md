@@ -40,7 +40,7 @@ Guía completa de opciones/acciones del multiscript (versión 1.0.0). Úsala com
 - **29 Toggle DRYRUN_FORCE:** Activa/Desactiva simulación global.
 - **30 Plan organizar por tags / 31 Reporte de tags:** Placeholders (GENRE_UNKNOWN).
 - **32 Serato Video REPORT:** ffprobe inventario -> `reports/serato_video_report.tsv/json`.
-- **33 Serato Video PREP:** Plan de transcode H.264 1080p -> `plans/serato_video_transcode_plan.tsv/json`; pregunta si ejecutar ffmpeg (respeta DRY y confirmación).
+- **33 Serato Video PREP:** Plan de transcode H.264 1080p con selección de códec (auto/videotoolbox/nvenc/libx264) -> `plans/serato_video_transcode_plan.tsv/json`; pregunta si ejecutar ffmpeg (respeta DRY y confirmación).
 - **34 Normalizar nombres (plan):** TSV de renombrado.
 - **35 Samples por tipo (plan):** Clasifica kicks/snares/hats/bass.
 - **36–39 Web clean:** Limpieza de URLs en playlists/tags y whitelist de dominios.

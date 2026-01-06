@@ -75,6 +75,10 @@ dj-es    # force Spanish
 - **Colaboradores:** planes/roadmap/API/seguridad (incluye FEATURES/DEBUG/API/VERSION) en `docs/internal/` (no necesario para usuarios).
 - **Wiki (manual extendido):** `docs/wiki/EXTENDED_MANUAL_ES.md` con todas las opciones/acciones en detalle.
 
+### Novedades (1.0.0)
+- Plan de transcode: permite elegir códec (auto/videotoolbox/nvenc/libx264) y ejecutar ffmpeg con confirmación; respeta `DRYRUN_FORCE`.
+- API/OSC: soporta Bearer token; `/djpt/ping` y `/djpt/status` responden “unauthorized” sin token.
+
 ## Safety & Packaging (recordatorios rápidos)
 - No ejecutes el script como root ni apuntes `BASE_PATH` al disco del sistema. Usa `confirm_heavy_action` para operaciones grandes y revisa exclusiones por defecto antes de escanear discos con mucho media.
 - Dependencias mínimas: `bash`, `python3`, `ffprobe`, `sox`, `jq`. Ejemplo macOS: `brew install ffmpeg sox jq`.

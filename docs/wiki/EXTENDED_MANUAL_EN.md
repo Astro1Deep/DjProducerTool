@@ -40,7 +40,7 @@ Full guide of menu actions/options (version 1.0.0). Use as detailed reference fo
 - **29 Toggle DRYRUN_FORCE:** Enable/disable global simulation.
 - **30 Organize-by-tags plan / 31 Tags report:** Placeholders (GENRE_UNKNOWN).
 - **32 Serato Video REPORT:** ffprobe inventory -> `reports/serato_video_report.tsv/json`.
-- **33 Serato Video PREP:** Transcode plan H.264 1080p -> `plans/serato_video_transcode_plan.tsv/json`; asks to run ffmpeg (respects DRY and confirmation).
+- **33 Serato Video PREP:** Transcode plan H.264 1080p with codec selection (auto/videotoolbox/nvenc/libx264) -> `plans/serato_video_transcode_plan.tsv/json`; asks to run ffmpeg (respects DRY and confirmation).
 - **34 Normalize names (plan):** TSV rename plan.
 - **35 Samples by type (plan):** Classifies kicks/snares/hats/bass.
 - **36–39 Web clean:** Clean URLs in playlists/tags and manage whitelist.
