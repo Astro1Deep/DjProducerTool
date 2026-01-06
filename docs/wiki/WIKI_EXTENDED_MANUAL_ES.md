@@ -181,5 +181,18 @@
   - TF Lab mock: `DJPT_TF_MOCK=1 ./scripts/DJProducerTools_MultiScript_ES.sh` y usar opción 65.
   - Plan de video rápido: `BASE_PATH=/tu/base ./scripts/DJProducerTools_MultiScript_ES.sh --dry-run` y en menú 33 responde N a ejecutar ffmpeg.
 
+### Ajustes avanzados y afinado (por sección)
+- **Seguridad y estado:** mantén Safe/Lock=1 salvo para aplicar un plan revisado; DRYRUN_FORCE=1 en pruebas de ffmpeg/rsync. Usa `HOME_OVERRIDE` para aislar el estado y no mezclar con `~/.DJProducerTools` legacy.
+- **Exclusiones:** edita `config/djpt.conf` o menú 57 para saltar cachés (`*/Cache/*`, `*.asd`, temporales). Acelera scans y reduce falsos duplicados.
+- **Hashes/dupes:** en árboles grandes usa profundidad/tamaño máximo en D5; define exclusiones si no quieres videos/stems pesados. Siempre revisa `plans/dupes_plan.tsv` antes de la opción 11.
+- **Consolidación (D4/D10):** fija tamaño de lote según tu espacio libre (20–50 GB recomendable). Activa el guard de GB libres (20 por defecto). Se preservan espacios finales en rutas, ejecuta helpers desde terminal para respetar el quoting. Logs en `_DJProducerTools/logs/*.log`. Usa `--remove-source-files` sólo si confirmaste la copia y quieres limpiar origen.
+- **Video prep (33/V5):** códec `auto` prioriza hardware (`videotoolbox`); fallback `libx264`. DRYRUN_FORCE imprime los ffmpeg. El plan incluye el códec; audio AAC 160 kbps por defecto salvo que lo cambies en el script.
+- **BPM (49):** acota `--tempo-min/--tempo-max` para más precisión; `--max-duration` evita archivos larguísimos. Salida con beats/first beat para cues; no escribe tags.
+- **API/OSC (50):** pon token en redes compartidas; HTTP es local por defecto. OSC responde unauthorized sin token. PID guardado; usa el menú para parar.
+- **TF Lab (65):** elige modelo según recursos (ONNX/TFLite para CPU ligero, TF si lo tienes). Usa `DJPT_OFFLINE=1` para evitar descargas; `DJPT_TF_MOCK=1` para forzar mock. Salidas TSV en `reports/`: embeddings/tags/similarity/anomalies/segments/loudness/matching/video_tags/music_tags/mastering.
+- **DMX/OSC envío (V3/V10/V11):** Safe/Lock/DRY bloquean envío live; logs de frames. Revisa presets (V12) y ajusta canales antes de usar.
+- **Automatizaciones (A/68):** cada cadena respeta Safe/Lock/DRY. Para operaciones grandes, lánzalas con DRYRUN_FORCE=1 y revisa.
+- **Espacio en disco:** usa la opción 59 (salud) y el guard de D10. Para staging en disco externo, regenera plan o edita los batch scripts al nuevo destino.
+
 ### Licencia
 - DJProducerTools License (Atribución + 20% revenue share en derivados/comercial). Mantén el crédito; ver `LICENSE`.
