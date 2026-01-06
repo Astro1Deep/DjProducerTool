@@ -155,8 +155,10 @@ echo -e "Score:  ${C_BLU}${PERCENTAGE}%${C_RESET} (${PASS}/${TOTAL})"
 
 if [ $FAIL -eq 0 ]; then
     echo -e "\n${C_GRN}✓ ALL STABILITY TESTS PASSED${C_RESET}\n"
-    exit 0
+    rc=0
 else
     echo -e "\n${C_YLW}⚠ Review failures above${C_RESET}\n"
-    exit 0  # Don't fail - warnings only
+    rc=0  # No hard fail; warnings only
 fi
+[ "${DJPT_PAUSE_AT_END:-0}" -eq 1 ] && read -rp "Press Enter to exit..."
+exit $rc

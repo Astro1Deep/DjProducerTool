@@ -389,11 +389,15 @@ run_tests() {
     echo -e "\n--- Summary ---"
     if [ "$FAIL_COUNT" -eq 0 ]; then
         echo -e "${C_GRN}All $TEST_COUNT tests passed! ✅${C_RESET}"
-        return 0
+        rc=0
     else
         echo -e "${C_RED}$FAIL_COUNT of $TEST_COUNT tests failed! ❌${C_RESET}"
-        return 1
+        rc=1
     fi
+    if [ "${DJPT_PAUSE_AT_END:-0}" -eq 1 ]; then
+        read -rp "Press Enter to exit..."
+    fi
+    return $rc
 }
 
 # Execute
