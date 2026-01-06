@@ -137,6 +137,7 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
   - `reports/audio_segments.tsv` (onsets/segmentos)
 - Consejos: limita a ~150 archivos, `DJPT_TF_MOCK=1` para CI/offline; borra/recachea venv desde opción 64 si hay problemas.
 - Modelos ONNX/TFLite reales: activa venv (`source _DJProducerTools/venv/bin/activate`), pon `DJPT_OFFLINE=0` y elige `clap_onnx/clip_vitb16_onnx/sentence_t5_tflite` en 65. Se intentará instalar `onnxruntime`; si no está, se usa fallback con aviso. En macOS ARM no hay wheel `tflite-runtime`; usa TensorFlow (64) o un entorno con wheel compatible; MusicGen_tflite cae a fallback seguro.
+- Rendimiento: puedes forzar hilos antes de entrar al menú: `export TF_NUM_INTRAOP_THREADS=8 TF_NUM_INTEROP_THREADS=8 OMP_NUM_THREADS=8` (por defecto se auto-ajustan al nº de cores). Útil para Apple Silicon/CPU-only.
 
 ## Why these deps and what you gain
 - **ffprobe/ffmpeg**: media integrity, video inventory, keyframes for tagging. Beneficio: detección temprana de archivos corruptos y planes de transcode sin modificar nada.
@@ -163,3 +164,10 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
 - **ML/TF/ONNX:** modelos locales (yamnet/musicnn/musictag/CLAP/CLIP) dan similitud/tagging sin subir audio a la nube; `DJPT_OFFLINE` garantiza fallback seguro. ONNX/TFLite sirven en máquinas sin TF pesado o sin GPU.
 - **DMX/OSC dry-run:** siempre puedes simular (Safe/Lock/DRY); logs permiten verificar sin hardware, evitando riesgos en shows.
 - **Empaquetado/estado:** todo vive en `BASE_PATH/_DJProducerTools`; `--dry-run` y `export-ignore` en `docs/internal` evitan filtrar o escribir fuera de lo previsto.
+
+## Corpus compartido (opción 69)
+- Objetivo: reutilizar `reports/*.tsv/.json/.txt` y `plans/*.tsv/.json` entre discos sin reescanear ni rehash.  
+- Cómo usar: define `DJPT_SHARED_CORPUS=/ruta/compartida` antes de lanzar, o escribe la ruta al entrar en 69.  
+- Exportar: copia reports/plans actuales → corpus compartido (no mueve nada).  
+- Importar: copia desde el corpus → estado actual solo si existen en origen (lectura segura).  
+- Seguridad: solo copia archivos; respeta Safe/Lock; no ejecuta rsync destructivo.  

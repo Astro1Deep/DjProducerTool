@@ -439,6 +439,7 @@ QUAR_DIR=""
 VENV_DIR=""
 BANNER_FILE=""
 CONF_FILE=""
+SHARED_CORPUS_DIR=""
 VENV_ACTIVE=0
 PYTHON_BIN="python3"
 ML_ENV_DISABLED=0
@@ -468,6 +469,15 @@ action_install_all_python_deps() {
   pause_enter
 }
 
+setup_tf_perf_env() {
+  local cores
+  cores=$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
+  : "${TF_NUM_INTRAOP_THREADS:=$cores}"
+  : "${TF_NUM_INTEROP_THREADS:=$cores}"
+  : "${OMP_NUM_THREADS:=$cores}"
+  export TF_NUM_INTRAOP_THREADS TF_NUM_INTEROP_THREADS OMP_NUM_THREADS
+}
+
 ensure_dirs() {
   local existed=0
   if [ -d "$STATE_DIR" ]; then
@@ -475,7 +485,7 @@ ensure_dirs() {
   else
     printf "%s[INFO]%s Creando estado en %s\n" "$C_CYN" "$C_RESET" "$STATE_DIR"
   fi
-  mkdir -p "$STATE_DIR" "$CONFIG_DIR" "$REPORTS_DIR" "$PLANS_DIR" "$LOGS_DIR" "$QUAR_DIR" "$VENV_DIR"
+  mkdir -p "$STATE_DIR" "$CONFIG_DIR" "$REPORTS_DIR" "$PLANS_DIR" "$LOGS_DIR" "$QUAR_DIR" "$VENV_DIR" "$SHARED_CORPUS_DIR" "$SHARED_CORPUS_DIR/reports" "$SHARED_CORPUS_DIR/plans"
   if [ "$existed" -eq 1 ] && [ -d "$REPORTS_DIR" ]; then
     local repc planc logc
     repc=$(find "$REPORTS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
@@ -492,17 +502,18 @@ init_paths() {
   fi
   STATE_DIR="$BASE_PATH/_DJProducerTools"
   CONFIG_DIR="$STATE_DIR/config"
+  REPORTS_DIR="$STATE_DIR/reports"
+  PLANS_DIR="$STATE_DIR/plans"
+  LOGS_DIR="$STATE_DIR/logs"
+  QUAR_DIR="$STATE_DIR/quarantine"
+  VENV_DIR="$STATE_DIR/venv"
+  SHARED_CORPUS_DIR="${DJPT_SHARED_CORPUS:-${SHARED_CORPUS_DIR:-$STATE_DIR/shared}}"
   PROFILES_DIR="$CONFIG_DIR/profiles"
   BASE_HISTORY_FILE="$CONFIG_DIR/base_history.txt"
   GENERAL_HISTORY_FILE="$CONFIG_DIR/general_history.txt"
   AUDIO_HISTORY_FILE="$CONFIG_DIR/audio_history.txt"
   EXCLUDES_PROFILES_FILE="$CONFIG_DIR/exclude_profiles.tsv"
   STATE_HEALTH_REPORT="$REPORTS_DIR/state_health.txt"
-  REPORTS_DIR="$STATE_DIR/reports"
-  PLANS_DIR="$STATE_DIR/plans"
-  LOGS_DIR="$STATE_DIR/logs"
-  QUAR_DIR="$STATE_DIR/quarantine"
-  VENV_DIR="$STATE_DIR/venv"
   BANNER_FILE="$STATE_DIR/banner.txt"
   CONF_FILE="$CONFIG_DIR/djpt.conf"
   ML_MODEL_PATH="$STATE_DIR/ml_model.pkl"
@@ -539,6 +550,7 @@ save_conf() {
     printf 'DJ_SAFE_LOCK=%q\n' "$DJ_SAFE_LOCK"
     printf 'DRYRUN_FORCE=%q\n' "$DRYRUN_FORCE"
     printf 'ML_ENV_DISABLED=%q\n' "$ML_ENV_DISABLED"
+    printf 'SHARED_CORPUS_DIR=%q\n' "$SHARED_CORPUS_DIR"
   } >"$CONF_FILE"
 }
 
@@ -856,6 +868,7 @@ print_menu() {
   printf "  %s66)%s Plan LUFS (análisis, sin normalizar)\n" "$C_GRN" "$C_RESET"
   printf "  %s67)%s Auto-cues por onsets (librosa)\n" "$C_GRN" "$C_RESET"
   printf "  %s68)%s Instalar deps Python en venv (pyserial, python-osc, librosa, soundfile)\n" "$C_GRN" "$C_RESET"
+  printf "  %s69)%s Sincronizar corpus compartido (hashes/ML entre discos)\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
   printf "%sL)%s Librerías DJ & Cues (submenú)\n" "$C_GRN" "$C_RESET"
@@ -879,6 +892,7 @@ action_1_status() {
   printf "  PLANS_DIR: %s\n" "$PLANS_DIR"
   printf "  QUAR_DIR: %s\n" "$QUAR_DIR"
   printf "  VENV_DIR: %s (opcional ML)\n" "$VENV_DIR"
+  printf "  SHARED_CORPUS_DIR: %s (compartir hashes/ML entre discos)\n" "$SHARED_CORPUS_DIR"
   if [ -n "${EXTRA_SOURCE_ROOTS:-}" ]; then
     printf "  EXTRA_SOURCE_ROOTS (auto-detectadas al arrancar): %s\n" "$EXTRA_SOURCE_ROOTS"
   fi
@@ -1614,6 +1628,56 @@ action_export_import_config() {
   pause_enter
 }
 
+shared_corpus_copy() {
+  # $1: origen, $2: destino
+  local src="$1" dest="$2"
+  mkdir -p "$dest"
+  rsync -av --include='*.tsv' --include='*.json' --include='*.txt' --exclude='*' "$src"/ "$dest"/ >/dev/null 2>&1 || true
+}
+
+action_69_shared_corpus() {
+  print_header
+  printf "%s[INFO]%s Sincronizar corpus compartido (hashes/ML/planes) entre discos.\n" "$C_CYN" "$C_RESET"
+  printf "Ruta actual del corpus compartido: %s\n" "$SHARED_CORPUS_DIR"
+  printf "Nueva ruta (ENTER para mantener): "
+  read -e -r new_shared
+  new_shared=$(strip_quotes "$new_shared")
+  if [ -n "$new_shared" ]; then
+    SHARED_CORPUS_DIR="$new_shared"
+    mkdir -p "$SHARED_CORPUS_DIR" "$SHARED_CORPUS_DIR/reports" "$SHARED_CORPUS_DIR/plans"
+    save_conf
+  fi
+  mkdir -p "$SHARED_CORPUS_DIR/reports" "$SHARED_CORPUS_DIR/plans"
+  printf "1) Exportar reports/planes actuales al corpus compartido\n"
+  printf "2) Importar desde el corpus compartido (solo si faltan)\n"
+  printf "3) Solo mostrar contenido\n"
+  printf "Opción: "
+  read -e -r sc_opt
+  case "$sc_opt" in
+    1)
+      shared_corpus_copy "$REPORTS_DIR" "$SHARED_CORPUS_DIR/reports"
+      shared_corpus_copy "$PLANS_DIR" "$SHARED_CORPUS_DIR/plans"
+      printf "%s[OK]%s Exportado a %s (reports/plans).\n" "$C_GRN" "$C_RESET" "$SHARED_CORPUS_DIR"
+      ;;
+    2)
+      shared_corpus_copy "$SHARED_CORPUS_DIR/reports" "$REPORTS_DIR"
+      shared_corpus_copy "$SHARED_CORPUS_DIR/plans" "$PLANS_DIR"
+      printf "%s[OK]%s Importado desde %s hacia el estado actual (solo copia lectura).\n" "$C_GRN" "$C_RESET" "$SHARED_CORPUS_DIR"
+      ;;
+    3)
+      printf "%s[INFO]%s Contenido compartido:\n" "$C_CYN" "$C_RESET"
+      printf "Reports:\n"
+      ls -1 "$SHARED_CORPUS_DIR/reports" 2>/dev/null | head || true
+      printf "Plans:\n"
+      ls -1 "$SHARED_CORPUS_DIR/plans" 2>/dev/null | head || true
+      ;;
+    *)
+      printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"
+      ;;
+  esac
+  pause_enter
+}
+
 action_toggle_ml() {
   print_header
   if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
@@ -1922,6 +1986,7 @@ PY
 }
 
 submenu_T_tensorflow_lab() {
+  setup_tf_perf_env
   while true; do
     clear
     print_header
@@ -4624,6 +4689,7 @@ main_loop() {
       66) action_audio_lufs_plan ;;
       67) action_audio_cues_onsets ;;
       68) action_install_all_python_deps ;;
+      69) action_69_shared_corpus ;;
       L|l) submenu_L_libraries ;;
       D|d) submenu_D_dupes_general ;;
       V|v) submenu_V_visuals ;;

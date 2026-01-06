@@ -23,6 +23,7 @@ Bilingual CLI for safe DJ library management on macOS. Spanish version: [README_
 - 🔌 **Local API/OSC**: lightweight HTTP (/status,/reports) + OSC (/djpt/ping) start/stop from menu.
 - 🧭 **Progress & state**: spinners/bars, route history, log viewer, exclusion/profile manager.
 - 🌐 **Bilingual**: menus and messages in EN/ES.
+- 🔄 **Shared corpus**: sync reports/plans (hash, ML, playlists) across disks via menu 69 to reuse analyses.
 
 ## 🚧 Roadmap / Placeholders
 
