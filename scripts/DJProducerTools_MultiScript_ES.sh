@@ -733,6 +733,7 @@ EOF
 
   printf "%sWAX SPACESHIP  DJProducerTools%s\n" "$C_CYN" "$C_RESET"
   printf "%sBase:%s %s\n" "$C_YLW" "$C_RESET" "$BASE_PATH"
+  printf "%sOffline ML:%s %s (export DJPT_OFFLINE=1 para forzar heurísticos)\n" "$C_YLW" "$C_RESET" "${DJPT_OFFLINE:-0}"
 
   local safemode_str
   local lock_str
