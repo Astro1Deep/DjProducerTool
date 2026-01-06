@@ -69,3 +69,20 @@
 - ML local: privacy (no cloud); `DJPT_OFFLINE` guarantees fallback; ONNX/TFLite for lighter setups.
 - DMX/OSC dry-run: simulation always possible; logs help validate without hardware.
 - Packaging: `git archive -o ../DJProducerTools_WAX.zip HEAD` (include `djpt_icon.icns`); `docs/internal` export-ignore keeps collaborator material out.
+
+---
+## Legacy wiki summary (merged)
+- What/for whom: Clean/organize Serato/Rekordbox/Traktor/Ableton libs (audio/video/DMX), safe backups, exact dupes + advanced plans, optional local ML.
+- Main files: `DJProducerTools_MultiScript_ES.sh` / `_EN.sh`; `install_djpt.sh` for quick download.
+- Quick install: `install_djpt.sh` snippet with `curl` (downloads EN/ES and chmod +x).
+- Requirements: macOS + bash; `python3`; space in `_DJProducerTools/`; optional ML (300–600 MB depending on stack).
+- Basic use: run EN/ES script (double-click keeps window); creates `_DJProducerTools/` in BASE_PATH.
+- Disk layout: config/reports/plans/quarantine/logs/venv under `_DJProducerTools/` (detailed above).
+- Safety/modes: Safe/Lock/DRY; confirmations; no destructive actions without prompt.
+- Grouped menus: Core, Media/Org, Processes/Cleanup, Deep/ML, Extras, Automations (21 chains A/68), submenus L/D/V/H.
+- Automated chains: 21 predefined flows (backup+snapshot, dedupe/quarantine, cleanup, show prep, integrity, efficiency, ML, sync, visuals, etc.).
+- Outputs/plans: `reports/` (hashes, corrupt, catalogs, playlists, ML), `plans/` (dupes, workflows, sync, integration), `quarantine/`, `logs/`.
+- ML notes: optional installs; TF only if chosen; ML can be disabled (63). Venv isolated in `_DJProducerTools/venv`.
+- Best practices: hash+plan before moves; backup/snapshot first; exclude caches/heavy dirs; mirror check (61) for multi-disk.
+- Visual assets: menu SVG/PNG, banners; can be linked in README/wiki.
+- License: DJProducerTools License (Attribution + Revenue Share 20%); see `LICENSE`.

@@ -52,3 +52,21 @@
 - ML/TF/ONNX: modelos locales (yamnet/musicnn/musictag/CLAP/CLIP) para similitud/tagging sin subir audio; `DJPT_OFFLINE` asegura fallback; ONNX/TFLite útil en máquinas sin TF/GPU.
 - DMX/OSC dry-run: siempre se puede simular; logs permiten validar sin hardware, evitando riesgos en vivo.
 - Empaquetado/estado: todo en `BASE_PATH/_DJProducerTools`; `export-ignore` en `docs/internal` evita filtrar material interno; `git archive -o ../DJProducerTools_WAX.zip HEAD` + `djpt_icon.icns`.
+
+---
+## Resumen “Wiki Completa” (contenido heredado)
+- **Qué es y para quién:** Limpieza/organización de bibliotecas Serato/Rekordbox/Traktor/Ableton (audio/video/DMX), backups seguros, dedupe exacto y planes avanzados, ML opcional local.
+- **Archivos principales:** `DJProducerTools_MultiScript_ES.sh` / `_EN.sh`; `install_djpt.sh` para descarga rápida.
+- **Instalación rápida:** snippet `install_djpt.sh` con `curl` (descarga EN/ES y pone +x).
+- **Requisitos:** macOS + bash; `python3`; espacio en `_DJProducerTools/`; ML opcional (300–600 MB según paquete).
+- **Uso básico:** ejecutar script EN/ES (doble clic mantiene ventana); crea `_DJProducerTools/` en BASE_PATH.
+- **Estructura en disco:** config, reports, plans, quarantine, logs, venv dentro de `_DJProducerTools/` (detallado arriba).
+- **Seguridad y modos:** Safe/Lock/DRY; confirmaciones; ninguna acción destructiva sin aviso.
+- **Menús agrupados:** Core, Media/Org, Procesos/Limpieza, Deep/ML, Extras, Automatizaciones (21 cadenas A/68), submenús L/D/V/H.
+- **Cadenas automatizadas:** 21 flujos predefinidos (backup+snapshot, dedup/quarantine, limpieza, show prep, integridad, eficiencia, ML, sync, visuales, etc.).
+- **Salidas/planes:** `reports/` (hashes, corruptos, catálogos, playlists, ML), `plans/` (dupes, workflows, sync, integración), `quarantine/`, `logs/`.
+- **Notas ML:** instalación opcional; TF sólo si se elige; se puede desactivar ML (63). Venv aislado en `_DJProducerTools/venv`.
+- **Buenas prácticas:** hash+plan antes de mover; backup/snapshot previo; excluye cachés/pesados; mirror check (61) para multi-disco.
+- **Recursos visuales:** menús SVG/PNG, banners; se pueden enlazar en README/wiki.
+- **Licencia:** DJProducerTools License (Atribución + Revenue Share 20%); ver `LICENSE`.
+- **Soporte:** Astro One Deep — onedeep1@gmail.com; abrir issues en GitHub.
