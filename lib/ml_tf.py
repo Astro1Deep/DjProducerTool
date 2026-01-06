@@ -39,6 +39,14 @@ MODEL_URLS = {
     "musicgen": None,
 }
 
+# Modelos onnx/tflite opcionales (descarga manual vía subcomando download_model)
+MODEL_WEIGHTS = {
+    "clap_onnx": "https://huggingface.co/lukewys/laion_clap/resolve/main/CLAP.onnx",  # grande; descarga opcional
+    "clip_vitb16_onnx": "https://huggingface.co/onnx-community/clip-vit-base-patch16/resolve/main/model.onnx",
+    "musicgen_tflite": "https://huggingface.co/adarob/musicgen_tflite/resolve/main/musicgen-small.tflite",
+    "sentence_t5_tflite": "https://huggingface.co/onnx-community/t5-small/resolve/main/model.onnx",  # placeholder texto
+}
+
 
 def tf_available() -> bool:
     return (
@@ -118,6 +126,28 @@ def load_tf_model(model_name: str) -> Optional[Any]:
         return None
     try:
         return hub.load(url)
+    except Exception:
+        return None
+
+
+def ensure_model_cached(name: str) -> Optional[Path]:
+    """
+    Descarga un modelo opcional (onnx/tflite) a _DJProducerTools/venv/models.
+    No se usa en los flujos por defecto, sólo cuando se llame al subcomando download_model.
+    """
+    if name not in MODEL_WEIGHTS:
+        return None
+    base = Path(os.environ.get("DJPT_MODELS_DIR") or "_DJProducerTools/venv/models").expanduser().resolve()
+    base.mkdir(parents=True, exist_ok=True)
+    target = base / f"{name}"
+    if target.exists() and target.stat().st_size > 0:
+        return target
+    url = MODEL_WEIGHTS[name]
+    try:
+        import urllib.request
+
+        urllib.request.urlretrieve(url, target)
+        return target
     except Exception:
         return None
 
@@ -426,6 +456,59 @@ def write_loudness(base: Path, out_tsv: Path, limit: int, target_lufs: float = -
             w.writerow([path, f"{lufs:.2f}", f"{gain:.2f}", f"{crest:.2f}", f"{dyn_range:.2f}", f"{lra:.2f}", method, action])
 
 
+def write_mastering(base: Path, out_tsv: Path, limit: int, target_lufs: float = -14.0, crest_min: float = 6.0, dr_min: float = 5.0) -> None:
+    """
+    Análisis estilo mastering: LUFS, true-peak aprox, crest, rango dinámico, sugerencias.
+    """
+    files = list_audio(base, limit)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    rows: List[Tuple[str, float, float, float, float, str]] = []
+    for p in files:
+        lufs = -120.0
+        peak_db = -120.0
+        crest = 0.0
+        dyn_range = 0.0
+        note = "OK"
+        try:
+            import soundfile as _sf
+            import numpy as _np
+            data, sr = _sf.read(str(p))
+            if data.ndim > 1:
+                data = data.mean(axis=1)
+            peak = float(_np.max(_np.abs(data))) if len(data) else 0.0
+            peak_db = 20 * float(_np.log10(peak + 1e-9)) if peak > 0 else -120.0
+            rms = float(_np.sqrt(_np.mean(_np.square(data)))) if len(data) else 0.0
+            lufs = 20 * float(_np.log10(rms)) if rms > 0 else -120.0
+            crest = peak_db - lufs if peak_db > -120 and lufs > -120 else 0.0
+            if len(data):
+                p95 = float(_np.percentile(_np.abs(data), 95))
+                p10 = float(_np.percentile(_np.abs(data), 10))
+                dyn_range = 20 * float(_np.log10((p95 + 1e-9) / (p10 + 1e-9)))
+            try:
+                import pyloudnorm as pyln  # type: ignore
+                meter = pyln.Meter(sr)
+                lufs = float(meter.integrated_loudness(data))
+                peak_db = 20 * float(_np.log10(peak + 1e-9)) if peak > 0 else -120.0
+            except Exception:
+                pass
+            if lufs < target_lufs - 2:
+                note = "LOW"
+            elif lufs > target_lufs + 2:
+                note = "LOUD"
+            if crest < crest_min:
+                note = note + "|CREST_LOW"
+            if dyn_range < dr_min:
+                note = note + "|DR_LOW"
+        except Exception:
+            note = "ERROR"
+        rows.append((str(p), lufs, peak_db, crest, dyn_range, note))
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "lufs", "peak_db", "crest_db", "dyn_range_db", "note"])
+        for path, lufs, peak_db, crest, dyn_range, note in rows:
+            w.writerow([path, f"{lufs:.2f}", f"{peak_db:.2f}", f"{crest:.2f}", f"{dyn_range:.2f}", note])
+
+
 def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path] = None, tags_tsv: Optional[Path] = None) -> None:
     """
     Matching simple multi-modal: nombre normalizado + tags heurísticos + opcional similitud de embeddings.
@@ -663,6 +746,14 @@ def main():
     p_lufs.add_argument("--limit", type=int, default=200)
     p_lufs.add_argument("--target", type=float, default=-14.0, help="Objetivo LUFS para sugerir ganancia (default -14).")
 
+    p_master = sub.add_parser("mastering")
+    p_master.add_argument("--base", default=".")
+    p_master.add_argument("--out", required=True)
+    p_master.add_argument("--limit", type=int, default=200)
+    p_master.add_argument("--target", type=float, default=-14.0, help="Objetivo LUFS (default -14).")
+    p_master.add_argument("--crest-min", type=float, default=6.0, help="Crest factor mínimo recomendado.")
+    p_master.add_argument("--dr-min", type=float, default=5.0, help="Rango dinámico mínimo recomendado.")
+
     p_match = sub.add_parser("matching")
     p_match.add_argument("--base", default=".")
     p_match.add_argument("--out", required=True)
@@ -679,6 +770,9 @@ def main():
     p_mtags.add_argument("--base", default=".")
     p_mtags.add_argument("--out", required=True)
     p_mtags.add_argument("--limit", type=int, default=200)
+
+    p_dl = sub.add_parser("download_model")
+    p_dl.add_argument("--name", required=True, choices=list(MODEL_WEIGHTS.keys()))
 
     args = ap.parse_args()
 
@@ -708,6 +802,15 @@ def main():
         write_garbage(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
     elif args.mode == "loudness":
         write_loudness(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit, args.target)
+    elif args.mode == "mastering":
+        write_mastering(
+            Path(args.base).expanduser().resolve(),
+            Path(args.out).expanduser().resolve(),
+            args.limit,
+            args.target,
+            args.crest_min,
+            args.dr_min,
+        )
     elif args.mode == "matching":
         emb = Path(args.embeddings).expanduser().resolve() if getattr(args, "embeddings", None) else None
         tags = Path(args.tags).expanduser().resolve() if getattr(args, "tags", None) else None
@@ -716,6 +819,12 @@ def main():
         write_video_tags(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
     elif args.mode == "music_tags":
         write_music_tags(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
+    elif args.mode == "download_model":
+        dest = ensure_model_cached(args.name)
+        if dest:
+            print(f"[OK] Modelo {args.name} descargado en {dest}")
+        else:
+            print(f"[ERR] No se pudo descargar {args.name} (revisa red/URL).")
 
 
 if __name__ == "__main__":

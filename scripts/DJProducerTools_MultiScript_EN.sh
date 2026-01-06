@@ -450,7 +450,20 @@ pause_enter() {
 }
 
 ensure_dirs() {
+  local existed=0
+  if [ -d "$STATE_DIR" ]; then
+    existed=1
+  else
+    printf "%s[INFO]%s Creando estado en %s\n" "$C_CYN" "$C_RESET" "$STATE_DIR"
+  fi
   mkdir -p "$STATE_DIR" "$CONFIG_DIR" "$REPORTS_DIR" "$PLANS_DIR" "$LOGS_DIR" "$QUAR_DIR" "$VENV_DIR"
+  if [ "$existed" -eq 1 ] && [ -d "$REPORTS_DIR" ]; then
+    local repc planc logc
+    repc=$(find "$REPORTS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+    planc=$(find "$PLANS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+    logc=$(find "$LOGS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+    printf "%s[INFO]%s Reutilizando _DJProducerTools existente (%s reports, %s plans, %s logs).\n" "$C_CYN" "$C_RESET" "$repc" "$planc" "$logc"
+  fi
 }
 
 init_paths() {
@@ -1914,6 +1927,10 @@ submenu_T_tensorflow_lab() {
 " "$C_YLW" "$C_RESET"
     printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)
 " "$C_YLW" "$C_RESET"
+    printf "%s10)%s Mastering check (LUFS/crest/DR plan)
+" "$C_YLW" "$C_RESET"
+    printf "%s11)%s Download optional model (onnx/tflite cache)
+" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r top
@@ -2049,6 +2066,35 @@ submenu_T_tensorflow_lab() {
           printf "%s[OK]%s Music tagging generated.\n" "$C_GRN" "$C_RESET"
         else
           printf "%s[ERR]%s Music tagging failed.\n" "$C_RED" "$C_RESET"
+        fi
+        pause_enter
+        ;;
+      10)
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_master="$REPORTS_DIR/audio_mastering.tsv"
+        printf "%s[INFO]%s Mastering check (LUFS/crest/DR) -> %s\n" "$C_CYN" "$C_RESET" "$out_master"
+        if "$PYTHON_BIN" "lib/ml_tf.py" mastering --base "$BASE_PATH" --out "$out_master" --limit 200 --target -14.0 --crest-min 6.0 --dr-min 5.0; then
+          printf "%s[OK]%s Mastering plan generated.\n" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Mastering check failed.\n" "$C_RED" "$C_RESET"
+        fi
+        pause_enter
+        ;;
+      11)
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        printf "%s[INFO]%s Descargar modelo opcional (onnx/tflite) a _DJProducerTools/venv/models\n" "$C_CYN" "$C_RESET"
+        printf "Opciones: clap_onnx, clip_vitb16_onnx, musicgen_tflite, sentence_t5_tflite\nNombre: "
+        read -r mdl
+        if [ -z "$mdl" ]; then
+          printf "%s[WARN]%s Sin nombre, cancelado.\n" "$C_YLW" "$C_RESET"
+        else
+          if "$PYTHON_BIN" "lib/ml_tf.py" download_model --name "$mdl"; then
+            printf "%s[OK]%s Modelo %s cacheado.\n" "$C_GRN" "$C_RESET" "$mdl"
+          else
+            printf "%s[ERR]%s Descarga falló (revisa red/URL).\n" "$C_RED" "$C_RESET"
+          fi
         fi
         pause_enter
         ;;
