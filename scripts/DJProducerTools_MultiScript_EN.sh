@@ -1917,7 +1917,7 @@ submenu_T_tensorflow_lab() {
 " "$C_YLW" "$C_RESET"
     printf "%s4)%s Clasificador de sospechosos (basura/silencio)
 " "$C_YLW" "$C_RESET"
-    printf "%s5)%s Estimar loudness (plan de normalización)
+    printf "%s5)%s Estimar loudness (plan de normalización) [target env DJPT_LUFS_TARGET]
 " "$C_YLW" "$C_RESET"
     printf "%s6)%s Auto-segmentación (cues preliminares)
 " "$C_YLW" "$C_RESET"
