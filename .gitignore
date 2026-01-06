@@ -38,3 +38,4 @@ generate_html_report.sh
 test_clone/
 *.m3u8
 test_base/
+docs/internal/
