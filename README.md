@@ -1,4 +1,6 @@
-<img width="1536" height="1024" alt="20260103_1357_Futuristic DJ Tool Banner_remix_01ke22aqhxe2r9n8vcsd71a4a3" src="https://github.com/user-attachments/assets/4fa57953-682f-4209-a5db-612c7b8fb812" />
+
+<img width="1536" height="1024" alt="20260103_1349_Futuristic DJ Tool Banner_remix_01ke21v79eftjthpaj6515pbbt" src="https://github.com/user-attachments/assets/0fed1bb5-a36f-41d7-8021-5596bbc69004" />
+ 
 
 
 
