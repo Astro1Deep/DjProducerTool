@@ -52,6 +52,7 @@ chmod +x scripts/*.sh
 - [docs/ADVANCED_MODULES_PLAN.md](docs/ADVANCED_MODULES_PLAN.md) - Plan/estado de módulos avanzados
 - [API_ES.md](API_ES.md) - Borrador API/OSC (placeholder)
 - [DEBUG_GUIDE_ES.md](DEBUG_GUIDE_ES.md) - Guía de depuración
+- **Colaboradores:** material histórico/planes en `docs/internal/` (no necesario para usuarios).
 
 ### ML/TF Lab desde cero (modelos reales onnx/tflite)
 
