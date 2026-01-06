@@ -424,6 +424,9 @@ final_summary() {
     echo -e "  2. Push to GitHub: ${CYAN}git push origin main${RESET}"
     echo -e "  3. Test installation: ${CYAN}./INSTALL.sh${RESET}"
     echo ""
+    if [ "${DJPT_PAUSE_AT_END:-0}" -eq 1 ]; then
+        read -rp "Press Enter to exit..."
+    fi
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
