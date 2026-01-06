@@ -50,6 +50,7 @@ chmod +x scripts/*.sh
 - [guides/GUIDE_es.md](guides/GUIDE_es.md) / [guides/GUIDE.md](guides/GUIDE.md) - Guía rápida
 - [guides/ADVANCED_GUIDE_es.md](guides/ADVANCED_GUIDE_es.md) / [guides/ADVANCED_GUIDE.md](guides/ADVANCED_GUIDE.md) - Guía avanzada por acción/opción
 - **Colaboradores:** planes/roadmap/API/seguridad (incluye FEATURES/DEBUG/API/VERSION) en `docs/internal/` (no necesario para usuarios).
+- **Wiki (manual extendido):** `docs/wiki/EXTENDED_MANUAL_ES.md` con todas las opciones/acciones en detalle.
 
 ## Seguridad y empaquetado (recordatorios rápidos)
 - No ejecutes el script como root ni apuntes `BASE_PATH` al disco del sistema. Usa `confirm_heavy_action` para operaciones grandes y revisa exclusiones por defecto antes de escanear discos con mucho media.
