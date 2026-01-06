@@ -1,193 +1,128 @@
-# Documentación de API de DJProducerTools
+# Documentación API - DJProducerTools
 
-## Descripción General
-Este documento describe las funciones internas e interfaces de DJProducerTools.
+## Índice
 
-## Funciones Principales
+- [Introducción](#introducción)
+- [Autenticación](#autenticación)
+- [Endpoints Principales](#endpoints-principales)
+- [Formatos de Datos](#formatos-de-datos)
+- [Códigos de Error](#códigos-de-error)
 
-### Gestión de Rutas
+---
 
-#### `init_paths()`
-Inicializa directorios de trabajo y rutas de configuración.
-```bash
-init_paths
-# Establece: CONFIG_DIR, REPORTS_DIR, PLANS_DIR, QUAR_DIR, VENV_DIR
+## Introducción
+
+API RESTful y OSC para integrarse con DJProducerTools.
+
+### Puertos por Defecto
+
+```
+HTTP API: 8000
+OSC Input: 9000
+OSC Output: 9001
 ```
 
-#### `ensure_base_path_valid()`
-Valida que BASE_PATH existe y contiene la estructura esperada.
-```bash
-ensure_base_path_valid
-# Estado de salida: 0 si válido, 1 si inválido
-```
+---
 
-### Funciones de Análisis
+## Autenticación
 
-#### `scan_workspace()`
-Escanea la biblioteca de música y genera catálogo.
-```bash
-scan_workspace [--dry-run] [--verbose]
-# Produce: catalog.tsv en REPORTS_DIR
-```
+No se requiere autenticación para uso local.
 
-#### `generate_hash_index()`
-Genera hashes SHA-256 para todos los archivos de audio.
-```bash
-generate_hash_index [--force] [--pattern "*.mp3"]
-# Produce: hash_index.json
-```
-
-#### `find_exact_duplicates()`
-Encuentra archivos de audio idénticos bit a bit.
-```bash
-find_exact_duplicates [--output FORMAT]
-# Formatos: json, tsv, txt
-# Produce: dupes_plan.json
-```
-
-### Funciones de Backup
-
-#### `backup_serato()`
-Realiza backup de metadatos específicos de Serato.
-```bash
-backup_serato [--destination PATH]
-# Crea backup con marca de tiempo en _DJProducerTools/backups/
-```
-
-#### `backup_metadata()`
-Realiza backup de metadatos de software DJ (Serato, Traktor, Rekordbox, Ableton).
-```bash
-backup_metadata [--format FORMAT]
-```
-
-### Funciones de Seguridad
-
-#### `quarantine_files()`
-Mueve archivos a cuarentena de forma segura para revisión.
-```bash
-quarantine_files FILE1 FILE2 [--reason "duplicate"]
-# Archivos preservados en _DJProducerTools/quarantine/ con capacidad de recuperación
-```
-
-#### `restore_quarantine()`
-Restaura archivos de cuarentena.
-```bash
-restore_quarantine FILE_ID [--destination PATH]
-```
-
-## Configuración
-
-### Formato del Archivo de Configuración
-Ubicado en `_DJProducerTools/config/djpt.conf`
+Para uso remoto:
 
 ```bash
-BASE_PATH="/ruta/a/musica"
-AUDIO_ROOT="/ruta/a/musica/audio"
-SERATO_ROOT="/Users/usuario/Music/_Serato_"
-SAFE_MODE=1
-DEBUG_MODE=0
+export DJPT_API_TOKEN=tu_token_aqui
+curl -H "Authorization: Bearer $DJPT_API_TOKEN" http://localhost:8000/api/status
 ```
 
-### Configuración de Perfil
-Perfiles de análisis personalizados en `_DJProducerTools/config/profiles/`
+---
 
-## Variables de Entorno
+## Endpoints Principales
 
-| Variable | Propósito | Ejemplo |
-|----------|-----------|---------|
-| `DJ_SAFE_LOCK` | Habilitar protecciones de seguridad | `1` o `0` |
-| `DEBUG_MODE` | Habilitar salida detallada | `0` (default), `1` |
-| `DRYRUN_FORCE` | Forzar modo dry-run | `0` (default), `1` |
-| `ML_ENV_DISABLED` | Desabilitar características ML | `0` (default), `1` |
+### Análisis de Audio
 
-## Códigos de Retorno
+**POST** `/api/analyze`
 
-| Código | Significado |
-|--------|-------------|
-| 0 | Éxito |
-| 1 | Error general |
-| 2 | Argumentos inválidos |
-| 3 | Permiso denegado |
-| 4 | Archivo no encontrado |
-| 5 | Directorio no encontrado |
-
-## Códigos de Salida
-
-```bash
-exit 0   # Ejecución exitosa
-exit 1   # Error general
-exit 2   # Ruta inválida
-exit 3   # Dependencias faltantes
-```
-
-## Formatos de Archivo
-
-### Índice de Hash (JSON)
 ```json
 {
-  "generated": "2024-01-04T08:30:00Z",
-  "hashes": {
-    "hash_sha256": {
-      "path": "/ruta/a/archivo.mp3",
-      "size": 5242880,
-      "modified": "2024-01-04"
-    }
+  "file": "/ruta/a/audio.mp3",
+  "options": {
+    "precision": "high",
+    "include_spectrum": true
   }
 }
 ```
 
-### Plan de Duplicados (JSON)
+**Respuesta**:
+
 ```json
 {
-  "timestamp": "2024-01-04T08:30:00Z",
-  "duplicates": [
-    {
-      "hash": "abc123...",
-      "count": 2,
-      "files": [
-        {"path": "/ruta/a/archivo1.mp3", "size": 5242880},
-        {"path": "/ruta/a/archivo2.mp3", "size": 5242880}
-      ]
-    }
-  ]
+  "bpm": 120.5,
+  "key": "Am",
+  "energy": 7.5,
+  "spectrum": [...]
 }
 ```
 
-## Manejo de Errores
+### Control DMX
 
-Todas las funciones siguen el manejo estándar de errores:
-```bash
-nombre_funcion() {
-    if [ ! -d "$1" ]; then
-        printf "%s[ERROR] Directorio no encontrado: %s%s\n" "$C_RED" "$1" "$C_RESET" >&2
-        return 1
-    fi
-    # ... lógica de la función ...
-    return 0
+**POST** `/api/dmx/set`
+
+```json
+{
+  "universe": 1,
+  "channel": 1,
+  "value": 255
 }
 ```
 
-## Pruebas
+### OSC
 
-Suite de pruebas: `tests/test_runner_fixed.sh`
+**Mensajes disponibles**:
 
-Ejecutar todas las pruebas:
-```bash
-bash tests/test_runner_fixed.sh
+```
+/djpt/bpm → Obtiene BPM actual
+/djpt/spectrum → Espectro en tiempo real
+/djpt/key → Tonalidad detectada
+/djpt/energy → Energía (0-10)
+/djpt/dmx/strobe → Activa estroboscopio
+/djpt/dmx/color r g b → Establece color RGB
+/djpt/sync/serato → Sincroniza con Serato
 ```
 
-## Depuración
+---
 
-Habilitar salida de depuración:
-```bash
-DEBUG_MODE=1 ./DJProducerTools_MultiScript_ES.sh
+## Formatos de Datos
+
+### Audio
+
+Formatos soportados:
+- MP3, WAV, AIFF
+- FLAC, OGG, M4A
+- Mono y estéreo
+- 8-48 kHz (recomendado 44.1/48 kHz)
+
+### Espectro
+
+```json
+{
+  "bins": 2048,
+  "frequencies": [20, 50, 100, ...],
+  "magnitudes": [0.1, 0.5, 0.8, ...]
+}
 ```
 
-## Versión
+---
 
-Versión actual: 1.0.0
-Ver archivo `VERSION` para más detalles.
+## Códigos de Error
 
-## Contribuyendo
+| Código | Significado | Solución |
+| --- | --- | --- |
+| 200 | OK | Éxito |
+| 400 | Bad Request | Verifica parámetros |
+| 404 | Not Found | Archivo no existe |
+| 500 | Server Error | Reinicia servicio |
 
-Ver `CONTRIBUTING_ES.md` para guías de desarrollo.
+---
+
+**Versión API**: 2.0

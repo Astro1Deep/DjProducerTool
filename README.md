@@ -66,14 +66,13 @@ dj-es    # force Spanish
 ## 📚 Documentation
 
 - **[FEATURES.md](./FEATURES.md)** — Scope and status (EN)
-- **[FEATURES_ES.md](./FEATURES_ES.md)** — Alcance y estado (ES)
+- **Características:** ver README_ES para resumen en español.
 - **[guides/GUIDE.md](./guides/GUIDE.md)** — Quick guide (EN)
 - **[guides/GUIDE_es.md](./guides/GUIDE_es.md)** — Quick guide (ES)
 - **[guides/ADVANCED_GUIDE.md](./guides/ADVANCED_GUIDE.md)** — Advanced action/menu guide (EN)
 - **[guides/ADVANCED_GUIDE_es.md](./guides/ADVANCED_GUIDE_es.md)** — Advanced guide (ES)
-- **[DEBUG_GUIDE_ES.md](./DEBUG_GUIDE_ES.md)** — Debug guide (ES)
 - **TF Lab (65):** Instala TF con opción 64 (venv aislado). `DJPT_TF_MOCK=1` evita descargas y usa modo offline. Salidas: `reports/audio_embeddings.tsv`, `reports/audio_tags.tsv`, `reports/audio_similarity.tsv`, `reports/audio_anomalies.tsv`, `reports/audio_segments.tsv`.
-- **Colaboradores:** planes/roadmap/API/seguridad en `docs/internal/` (no necesario para usuarios).
+- **Colaboradores:** planes/roadmap/API/seguridad (incluye FEATURES/DEBUG/API/VERSION) en `docs/internal/` (no necesario para usuarios).
 
 ## Safety & Packaging (recordatorios rápidos)
 - No ejecutes el script como root ni apuntes `BASE_PATH` al disco del sistema. Usa `confirm_heavy_action` para operaciones grandes y revisa exclusiones por defecto antes de escanear discos con mucho media.

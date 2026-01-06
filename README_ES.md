@@ -46,11 +46,10 @@ chmod +x scripts/*.sh
 
 ## Documentación
 
-- [FEATURES_ES.md](FEATURES_ES.md) / [FEATURES.md](FEATURES.md) - Estado y alcance
+- Características: ver README.md/README_ES para resumen bilingüe.
 - [guides/GUIDE_es.md](guides/GUIDE_es.md) / [guides/GUIDE.md](guides/GUIDE.md) - Guía rápida
 - [guides/ADVANCED_GUIDE_es.md](guides/ADVANCED_GUIDE_es.md) / [guides/ADVANCED_GUIDE.md](guides/ADVANCED_GUIDE.md) - Guía avanzada por acción/opción
-- [DEBUG_GUIDE_ES.md](DEBUG_GUIDE_ES.md) - Guía de depuración
-- **Colaboradores:** planes/roadmap/API/seguridad en `docs/internal/` (no necesario para usuarios).
+- **Colaboradores:** planes/roadmap/API/seguridad (incluye FEATURES/DEBUG/API/VERSION) en `docs/internal/` (no necesario para usuarios).
 
 ## Seguridad y empaquetado (recordatorios rápidos)
 - No ejecutes el script como root ni apuntes `BASE_PATH` al disco del sistema. Usa `confirm_heavy_action` para operaciones grandes y revisa exclusiones por defecto antes de escanear discos con mucho media.
