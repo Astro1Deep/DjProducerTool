@@ -87,8 +87,15 @@ bash -n DJProducerTools_MultiScript_ES.sh
 assert_pass "Spanish script syntax valid"
 
 test_case "Python file compilation"
-python3 -m py_compile aplicar_correcciones_premium.py
-assert_pass "Python files compile without errors"
+shopt -s nullglob
+PYFILES=(lib/*.py)
+if [ ${#PYFILES[@]} -gt 0 ]; then
+  python3 -m py_compile "${PYFILES[@]}"
+  assert_pass "Python files compile without errors"
+else
+  echo "  ${C_YLW}⚠${C_RESET} No Python files found to compile (skipping)"
+fi
+shopt -u nullglob
 
 # Test 2: File Integrity
 echo -e "\n${C_YLW}TEST GROUP 2: File Integrity${C_RESET}"

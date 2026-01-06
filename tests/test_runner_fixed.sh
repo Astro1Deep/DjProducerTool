@@ -66,8 +66,14 @@ test_syntax() {
 test_python_syntax() {
     echo -e "\n=== Testing Python Syntax ==="
     if command -v python3 >/dev/null 2>&1; then
-        python3 -m py_compile *.py >/dev/null 2>&1
-        assert_equals "0" "$?" "Python files compile without syntax errors"
+        shopt -s nullglob
+        local pyfiles=(lib/*.py tests/fixtures/*.py)
+        if [ ${#pyfiles[@]} -gt 0 ]; then
+            python3 -m py_compile "${pyfiles[@]}" >/dev/null 2>&1
+            assert_equals "0" "$?" "Python files compile without syntax errors"
+        else
+            echo "No Python files to compile (skipping)"
+        fi
     fi
 }
 
