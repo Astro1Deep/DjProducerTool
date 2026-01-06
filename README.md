@@ -77,6 +77,7 @@ dj-es    # force Spanish
 - **[docs/ADVANCED_MODULES_PLAN.md](./docs/ADVANCED_MODULES_PLAN.md)** — Advanced modules plan/status
 - **[API_ES.md](./API_ES.md)** — API/OSC draft (ES, placeholder)
 - **[DEBUG_GUIDE_ES.md](./DEBUG_GUIDE_ES.md)** — Debug guide (ES)
+- **TF Lab (65):** Instala TF con opción 64 (venv aislado). `DJPT_TF_MOCK=1` evita descargas y usa modo offline. Salidas: `reports/audio_embeddings.tsv`, `reports/audio_tags.tsv`, `reports/audio_similarity.tsv`, `reports/audio_anomalies.tsv`, `reports/audio_segments.tsv`.
 
 ## ⚙️ System Requirements
 

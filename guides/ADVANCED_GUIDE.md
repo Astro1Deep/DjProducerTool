@@ -66,7 +66,7 @@ Status: Heuristic/plan generators; venv optional at `state/venv`.
 - **62 ML evolutive**: Optional scikit-learn install; train/predict from your dupes plans.  
 - **63 Toggle ML**: Disable/enable ML usage globally.  
 - **64 TensorFlow manager**: Optional TF install (downloads).  
-- **65 TensorFlow Lab**: Auto-tag/similarity/loops placeholders (requires TF if enabled).  
+- **65 TensorFlow Lab**: Auto-tag/similarity/anomalies/segments (TF si disponible; fallback offline).  
 - **66 LUFS plan**: Loudness analysis plan (requires python3+pyloudnorm+soundfile).  
 - **67 Auto-cues**: Onset-based cue plan (requires python3+librosa).
 
@@ -126,3 +126,13 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
 - **Backup + integrity**: 7 → 8 → 27 (snapshot) → 3 to verify.  
 - **General dupes (multi-disk)**: D1 → D2 → D3 (review) → D4/D6 plans → 10/11 if exact hash needed.  
 - **Visuals prep**: V2 → V6 → V7/V9 plans; transcode manually based on plan.
+
+## TensorFlow Lab (opción 65)
+- Requiere TF+tf_hub+soundfile (instalar con opción 64). Si no quieres descargar, usa `DJPT_TF_MOCK=1` para modo offline (fallback hash).
+- Modelos soportados: `yamnet` (default), `musicnn`, `musictag` (nnfp). Selecciona en opción 65.1/65.2.
+- Salidas:
+  - `reports/audio_embeddings.tsv` / `reports/audio_tags.tsv`
+  - `reports/audio_similarity.tsv` (umbral 0.60, top 200)
+  - `reports/audio_anomalies.tsv` (silencio/clipping)
+  - `reports/audio_segments.tsv` (onsets/segmentos)
+- Consejos: limita a ~150 archivos, `DJPT_TF_MOCK=1` para CI/offline; borra/recachea venv desde opción 64 si hay problemas.

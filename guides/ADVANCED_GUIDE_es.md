@@ -66,7 +66,7 @@ Estado: planes/heurísticas; venv opcional en `state/venv`.
 - **62 ML evolutivo**: Opción de instalar scikit-learn; entrena con tus planes y predice sospechosos.  
 - **63 Toggle ML**: Desactiva/activa ML global.  
 - **64 TensorFlow**: Instala TF opcional (descarga).  
-- **65 TensorFlow Lab**: Auto-tagging/similitud/loops (placeholders; requiere TF si activado).  
+- **65 TensorFlow Lab**: Auto-tagging/similitud/anomalías/segmentos (TF si disponible; fallback offline).  
 - **66 Plan LUFS**: Análisis de loudness (requiere python3+pyloudnorm+soundfile).  
 - **67 Auto-cues**: Plan de cues por onsets (requiere python3+librosa).
 
@@ -126,3 +126,13 @@ Estado: planes con tiempos y envío DMX opcional (dry-run por defecto).
 - **Backup + integridad**: 7 → 8 → 27 → 3 para validar.  
 - **Duplicados multi-disco**: D1 → D2 → D3 (revisar) → D4/D6 planes → 10/11 si se requiere hash exacto.  
 - **Visuales**: V2 → V6 → V7/V9 (planes); transcodifica manualmente según el plan.
+
+## TensorFlow Lab (opción 65)
+- Requiere TF+tf_hub+soundfile (instala con opción 64). Si no quieres descargas, usa `DJPT_TF_MOCK=1` para modo offline (hash fallback).
+- Modelos soportados: `yamnet` (por defecto), `musicnn`, `musictag` (nnfp). Selecciona en 65.1/65.2.
+- Salidas:
+  - `reports/audio_embeddings.tsv` / `reports/audio_tags.tsv`
+  - `reports/audio_similarity.tsv` (umbral 0.60, top 200)
+  - `reports/audio_anomalies.tsv` (silencio/clipping)
+  - `reports/audio_segments.tsv` (onsets/segmentos)
+- Tips: limita ~150 archivos; usa `DJPT_TF_MOCK=1` en CI/offline; limpia/recachea venv desde 64 si falla.
