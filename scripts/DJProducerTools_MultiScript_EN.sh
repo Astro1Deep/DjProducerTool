@@ -1957,8 +1957,11 @@ submenu_T_tensorflow_lab() {
         out_emb="$REPORTS_DIR/audio_embeddings.tsv"
         out_tags="$REPORTS_DIR/audio_tags.tsv"
         printf "%s[INFO]%s Auto-tagging/embeddings (offline/TF si disponible) -> %s / %s\n" "$C_CYN" "$C_RESET" "$out_emb" "$out_tags"
-        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 "${offline_args[@]}" && \
-           "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150 "${offline_args[@]}"; then
+        printf "Modelo (yamnet/musicnn/musictag/clap_onnx/clip_vitb16_onnx/musicgen_tflite/sentence_t5_tflite) [por defecto %s]: " "${DJPT_ML_MODEL:-yamnet}"
+        read -r mdl_choice
+        mdl_choice=${mdl_choice:-${DJPT_ML_MODEL:-yamnet}}
+        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 --model "$mdl_choice" "${offline_args[@]}" && \
+           "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150 --model "$mdl_choice" "${offline_args[@]}"; then
           printf "%s[OK]%s Reportes generados. Usa DJPT_TF_MOCK=1 para evitar descargas; instala TF (opción 64) para usar modelos reales.\n" "$C_GRN" "$C_RESET"
         else
           printf "%s[ERR]%s Falló generación de embeddings/tags.\n" "$C_RED" "$C_RESET"

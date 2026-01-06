@@ -171,6 +171,42 @@ def run_onnx_text(sess: Any, input_name: str, text: str) -> List[float]:
     return []
 
 
+def load_tflite_interpreter(model_name: str) -> Optional[Any]:
+    if tflite is None:
+        return None
+    model_path = local_model_path(model_name)
+    if not model_path or not model_path.exists():
+        return None
+    try:
+        interpreter = tflite.Interpreter(model_path=str(model_path))
+        interpreter.allocate_tensors()
+        return interpreter
+    except Exception:
+        return None
+
+
+def run_tflite_audio(interpreter: Any, path: Path) -> List[float]:
+    try:
+        import soundfile as _sf
+        import numpy as _np
+
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+        if not input_details:
+            return []
+        data, sr = _sf.read(str(path))
+        if data.ndim > 1:
+            data = data.mean(axis=1)
+        arr = _np.asarray(data, dtype=_np.float32)
+        arr = _np.expand_dims(arr, axis=0)
+        interpreter.set_tensor(input_details[0]["index"], arr)
+        interpreter.invoke()
+        out = interpreter.get_tensor(output_details[0]["index"])
+        return _np.asarray(out).flatten().tolist()
+    except Exception:
+        return []
+
+
 # --- TF helpers ---
 
 def load_audio_16k(path: Path) -> Optional[Any]:
@@ -272,6 +308,9 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offli
     onnx_sess, onnx_input = (None, None)
     if not use_tf and not offline and model_choice in ONNX_MODELS:
         onnx_sess, onnx_input = load_onnx_session(model_choice)
+    tflite_interp = None
+    if not use_tf and not offline and model_choice == "musicgen_tflite":
+        tflite_interp = load_tflite_interpreter(model_choice)
     for p in files:
         if use_tf and model is not None:
             audio = load_audio_16k(p)
@@ -289,6 +328,11 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offli
                 emb = hash_embedding(p)
                 model_path = local_model_path(model_choice)
                 method = f"onnx_{model_choice}_missing" if not model_path else f"onnx_{model_choice}_fallback"
+        elif tflite_interp is not None:
+            emb = run_tflite_audio(tflite_interp, p)
+            method = "tflite_musicgen" if emb else "tflite_musicgen_fallback"
+            if not emb:
+                emb = hash_embedding(p)
         else:
             emb = hash_embedding(p)
             method = f"{model_choice}_mock"
@@ -309,6 +353,9 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
     onnx_sess, onnx_input = (None, None)
     if not use_tf and not offline and model_choice in ONNX_MODELS:
         onnx_sess, onnx_input = load_onnx_session(model_choice)
+    tflite_interp = None
+    if not use_tf and not offline and model_choice == "musicgen_tflite":
+        tflite_interp = load_tflite_interpreter(model_choice)
     for p in files:
         tags: List[str] = []
         method = f"{model_choice}_mock"
@@ -320,9 +367,7 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
             if onnx_sess and onnx_input:
                 emb = run_onnx_audio(onnx_sess, onnx_input, p)
                 if emb:
-                    # Simple heuristic: tag by max component bucket
                     import numpy as _np
-
                     idx = int(_np.argmax(_np.asarray(emb)))
                     tags = [f"class_{idx}"]
                     method = f"onnx_{model_choice}"
@@ -331,6 +376,15 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
             else:
                 model_path = local_model_path(model_choice)
                 method = f"onnx_{model_choice}_missing" if not model_path else f"onnx_{model_choice}_fallback"
+        elif tflite_interp is not None:
+            emb = run_tflite_audio(tflite_interp, p)
+            if emb:
+                import numpy as _np
+                idx = int(_np.argmax(_np.asarray(emb)))
+                tags = [f"class_{idx}"]
+                method = "tflite_musicgen"
+            else:
+                method = "tflite_musicgen_fallback"
         if not tags:
             tags = heuristic_tags(p)
         rows.append((str(p), method, json.dumps(tags)))
