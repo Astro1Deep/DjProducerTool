@@ -152,7 +152,7 @@ test_video_tools_inventory_and_plan() {
 
     python3 "$SCRIPT_DIR/lib/video_tools.py" inventory "$base" "$inv_tsv"
     assert_true "[ -s \"$inv_tsv\" ]" "Inventory TSV generated"
-    assert_true "grep -q \"20251024_1522_New Video_simple_compose_01k8b9j835fjgae84kcr5wx5k9.mp4\" \"$inv_tsv\"" "Inventory contains artist clip"
+    assert_true "grep -q \"artist_loop_compose.mp4\" \"$inv_tsv\"" "Inventory contains artist clip"
     local inv_json="${inv_tsv%.tsv}.json"
     assert_true "[ -s \"$inv_json\" ]" "Inventory JSON generated"
 
