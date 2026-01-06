@@ -80,6 +80,11 @@ dj-es    # force Spanish
 - **TF Lab (65):** Instala TF con opción 64 (venv aislado). `DJPT_TF_MOCK=1` evita descargas y usa modo offline. Salidas: `reports/audio_embeddings.tsv`, `reports/audio_tags.tsv`, `reports/audio_similarity.tsv`, `reports/audio_anomalies.tsv`, `reports/audio_segments.tsv`.
 - **Internal docs (colaboradores):** material histórico/planes en `docs/internal/` (no necesario para usuarios).
 
+## Safety & Packaging (recordatorios rápidos)
+- No ejecutes el script como root ni apuntes `BASE_PATH` al disco del sistema. Usa `confirm_heavy_action` para operaciones grandes y revisa exclusiones por defecto antes de escanear discos con mucho media.
+- Dependencias mínimas: `bash`, `python3`, `ffprobe`, `sox`, `jq`. Ejemplo macOS: `brew install ffmpeg sox jq`.
+- Paquete limpio: `git archive -o ../DJProducerTools_WAX.zip HEAD` e incluye `djpt_icon.icns` para el icono del Dock.
+
 ### ML/TF Lab desde cero (modelos reales onnx/tflite)
 
 1. Activa el venv local o deja que el menú lo cree: `source _DJProducerTools/venv/bin/activate` (se aloja en la carpeta donde arrancas el script, nunca en el sistema).
