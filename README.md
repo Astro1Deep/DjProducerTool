@@ -1,10 +1,5 @@
 
-<img width="1536" height="1024" alt="20260103_1349_Futuristic DJ Tool Banner_remix_01ke21v79eftjthpaj6515pbbt" src="https://github.com/user-attachments/assets/0fed1bb5-a36f-41d7-8021-5596bbc69004" />
- 
-
-
-
-
+<img src="https://github.com/user-attachments/assets/0fed1bb5-a36f-41d7-8021-5596bbc69004" alt="DJProducerTools banner" style="max-width: 100%; height: auto;" />
 
 
 # DJProducerTool 🎵
