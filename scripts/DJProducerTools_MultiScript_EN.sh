@@ -1977,13 +1977,27 @@ submenu_T_tensorflow_lab() {
         pause_enter
         ;;
       4)
-        printf "%s[WARN]%s Placeholder: clasificador basura/silencio no implementado.
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_gb="$REPORTS_DIR/audio_garbage.tsv"
+        printf "%s[INFO]%s Garbage/silence/clipping classifier -> %s\n" "$C_CYN" "$C_RESET" "$out_gb"
+        if "$PYTHON_BIN" "lib/ml_tf.py" garbage --base "$BASE_PATH" --out "$out_gb" --limit 200; then
+          printf "%s[OK]%s Garbage report generated.\n" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Garbage classifier failed.\n" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       5)
-        printf "%s[WARN]%s Placeholder: loudness TF no implementado (usa opción 66).
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_lufs="$REPORTS_DIR/audio_loudness.tsv"
+        printf "%s[INFO]%s Loudness estimate (LUFS; pyloudnorm if available) -> %s\n" "$C_CYN" "$C_RESET" "$out_lufs"
+        if "$PYTHON_BIN" "lib/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit 200; then
+          printf "%s[OK]%s Loudness report generated.\n" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Loudness estimation failed.\n" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       6)
@@ -2002,18 +2016,39 @@ submenu_T_tensorflow_lab() {
         pause_enter
         ;;
       7)
-        printf "%s[WARN]%s Placeholder: matching cross-platform no implementado.
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_match="$REPORTS_DIR/audio_matching.tsv"
+        printf "%s[INFO]%s Cross-platform matching (normalized names) -> %s\n" "$C_CYN" "$C_RESET" "$out_match"
+        if "$PYTHON_BIN" "lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit 200; then
+          printf "%s[OK]%s Matching report generated.\n" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Matching generation failed.\n" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       8)
-        printf "%s[WARN]%s Placeholder: video tagging no implementado.
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_vtags="$REPORTS_DIR/video_tags.tsv"
+        printf "%s[INFO]%s Video tagging (heuristic filename cues) -> %s\n" "$C_CYN" "$C_RESET" "$out_vtags"
+        if "$PYTHON_BIN" "lib/ml_tf.py" video_tags --base "$BASE_PATH" --out "$out_vtags" --limit 200; then
+          printf "%s[OK]%s Video tags generated.\n" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Video tagging failed.\n" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       9)
-        printf "%s[WARN]%s Placeholder: music tagging multi-label no implementado.
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_mtags="$REPORTS_DIR/music_tags.tsv"
+        printf "%s[INFO]%s Music tagging multi-label (TF Hub or heuristics) -> %s\n" "$C_CYN" "$C_RESET" "$out_mtags"
+        if "$PYTHON_BIN" "lib/ml_tf.py" music_tags --base "$BASE_PATH" --out "$out_mtags" --limit 200; then
+          printf "%s[OK]%s Music tagging generated.\n" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Music tagging failed.\n" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       B|b)

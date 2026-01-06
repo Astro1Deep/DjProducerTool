@@ -1926,8 +1926,7 @@ submenu_T_tensorflow_lab() {
         out_tags="$REPORTS_DIR/audio_tags.tsv"
         printf "%s[INFO]%s Auto-tagging/embeddings (offline/TF si disponible) -> %s / %s
 " "$C_CYN" "$C_RESET" "$out_emb" "$out_tags"
-        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 && \
-           "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 &&            "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150; then
           printf "%s[OK]%s Reportes generados. Usa DJPT_TF_MOCK=1 para evitar descargas; instala TF (opción 64) para usar modelos reales.
 " "$C_GRN" "$C_RESET"
         else
@@ -1977,13 +1976,33 @@ submenu_T_tensorflow_lab() {
         pause_enter
         ;;
       4)
-        printf "%s[WARN]%s Placeholder: clasificador basura/silencio no implementado.
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_gb="$REPORTS_DIR/audio_garbage.tsv"
+        printf "%s[INFO]%s Clasificador basura/silencio/clipping -> %s
+" "$C_CYN" "$C_RESET" "$out_gb"
+        if "$PYTHON_BIN" "lib/ml_tf.py" garbage --base "$BASE_PATH" --out "$out_gb" --limit 200; then
+          printf "%s[OK]%s Reporte de sospechosos generado.
+" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Falló el clasificador de sospechosos.
+" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       5)
-        printf "%s[WARN]%s Placeholder: loudness TF no implementado (usa opción 66).
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_lufs="$REPORTS_DIR/audio_loudness.tsv"
+        printf "%s[INFO]%s Estimación de loudness (LUFS; usa pyloudnorm si está) -> %s
+" "$C_CYN" "$C_RESET" "$out_lufs"
+        if "$PYTHON_BIN" "lib/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit 200; then
+          printf "%s[OK]%s Reporte de loudness generado.
+" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Falló la estimación de loudness.
+" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       6)
@@ -2002,527 +2021,53 @@ submenu_T_tensorflow_lab() {
         pause_enter
         ;;
       7)
-        printf "%s[WARN]%s Placeholder: matching cross-platform no implementado.
-" "$C_YLW" "$C_RESET"
-        pause_enter
-        ;;
-      8)
-        printf "%s[WARN]%s Placeholder: video tagging no implementado.
-" "$C_YLW" "$C_RESET"
-        pause_enter
-        ;;
-      9)
-        printf "%s[WARN]%s Placeholder: music tagging multi-label no implementado.
-" "$C_YLW" "$C_RESET"
-        pause_enter
-        ;;
-      B|b)
-        break
-        ;;
-      *)
-        invalid_option
-        ;;
-    esac
-  done
-}
-model_choice = os.environ.get("MODEL_SEL", "1")
-model_url = MODEL_CHOICES.get(model_choice, MODEL_CHOICES["1"])
-
-base = pathlib.Path(os.environ.get("BASE") or ".")
-report_path = pathlib.Path(os.environ["REPORT"])
-plan_path = pathlib.Path(os.environ["PLAN"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-files = []
-for p in base.rglob("*"):
-    if p.suffix.lower() in audio_exts and p.is_file():
-        files.append(p)
-    if len(files) >= 150:
-        break
-if len(files) < 2:
-    print("[ERR] Muy pocos archivos para similitud.")
-    sys.exit(2)
-
-model = hub.load(model_url)
-class_names = []
-if hasattr(model, "class_map_path"):
-    try:
-        class_map_path = model.class_map_path().numpy()
-        class_names = [ln.strip() for ln in pathlib.Path(class_map_path).read_text().splitlines()]
-    except Exception:
-        class_names = []
-
-def load_mono_16k(path):
-    data, sr = sf.read(path)
-    if data.ndim > 1:
-        data = data.mean(axis=1)
-    if sr != 16000:
-        target_len = int(len(data) * 16000 / sr)
-        data = tf.signal.resample(tf.convert_to_tensor(data, dtype=tf.float32), target_len).numpy()
-    return data
-
-def get_embedding(wav):
-    outp = model(wav)
-    if isinstance(outp, dict):
-        # try first value
-        outp = list(outp.values())[0]
-    arr = tf.convert_to_tensor(outp)
-    if arr.ndim >= 2:
-        return tf.reduce_mean(arr, axis=0).numpy()
-    elif arr.ndim == 1:
-        return arr.numpy()
-    return None
-
-embeddings = []
-for f in files:
-    try:
-        wav = load_mono_16k(str(f))
-        emb = get_embedding(tf.convert_to_tensor(wav, dtype=tf.float32))
-        if emb is None:
-            continue
-        tag = "unknown"
-        if class_names:
-            # try simple tag: top class if available
-            scores = None
-            if hasattr(model, "signatures") and "serving_default" in model.signatures:
-                sig = model.signatures["serving_default"]
-                outputs = sig(tf.convert_to_tensor(wav, dtype=tf.float32))
-                logits = None
-                for v in outputs.values():
-                    logits = v
-                    break
-                if logits is not None:
-                    scores = tf.nn.softmax(logits[0]).numpy()
-            if scores is not None:
-                top_idx = int(np.argmax(scores))
-                if 0 <= top_idx < len(class_names):
-                    tag = class_names[top_idx]
-        embeddings.append((f, emb, tag))
-    except Exception:
-        pass
-
-if len(embeddings) < 2:
-    print("[ERR] Falló generar embeddings (revisa dependencias).")
-    sys.exit(3)
-
-pairs = []
-for (f1, e1, t1), (f2, e2, t2) in itertools.combinations(embeddings, 2):
-    sim = float(np.dot(e1, e2) / (np.linalg.norm(e1) * np.linalg.norm(e2) + 1e-9))
-    if sim >= 0.6:
-        pairs.append((sim, f1, f2, t1, t2))
-top_pairs = heapq.nlargest(200, pairs, key=lambda x: x[0])
-
-with report_path.open("w", encoding="utf-8") as rf, plan_path.open("w", encoding="utf-8") as pf:
-    rf.write("file_a\tfile_b\tsimilarity\ttag_a\ttag_b\n")
-    pf.write("file_a\tfile_b\taction\n")
-    for sim, f1, f2, t1, t2 in top_pairs:
-        rf.write(f"{f1}\t{f2}\t{sim:.3f}\t{t1}\t{t2}\n")
-        pf.write(f"{f1}\t{f2}\tREVIEW\n")
-
-print(f\"[OK] Reporte: {report_path}\")
-print(f\"[OK] Plan: {plan_path}\")
-PY
-        rc=$?
-        if [ "$rc" -ne 0 ]; then
-          printf "%s[ERR]%s No se pudo generar similitud (revise TF/tf_hub/soundfile). RC=%s\n" "$C_RED" "$C_RESET" "$rc"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_match="$REPORTS_DIR/audio_matching.tsv"
+        printf "%s[INFO]%s Matching cross-platform (nombres normalizados) -> %s
+" "$C_CYN" "$C_RESET" "$out_match"
+        if "$PYTHON_BIN" "lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit 200; then
+          printf "%s[OK]%s Matching generado.
+" "$C_GRN" "$C_RESET"
         else
-          printf "%s[OK]%s Reporte similitud TF: %s\n" "$C_GRN" "$C_RESET" "$out"
-          printf "%s[OK]%s Plan similitud TF: %s\n" "$C_GRN" "$C_RESET" "$plan"
+          printf "%s[ERR]%s Falló el matching.
+" "$C_RED" "$C_RESET"
         fi
-        pause_enter
-        ;;
-      3)
-        clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
-        fi
-        maybe_activate_ml_env "TF Loops/Fragmentos" 1 1
-        out="$REPORTS_DIR/tf_loops_report.tsv"
-        printf "%s[INFO]%s Detección de loops placeholder (requiere TF + modelo futuro).\n" "$C_CYN" "$C_RESET"
-        find "$BASE_PATH" -type f -iname "*.wav" 2>/dev/null | head -50 >"$STATE_DIR/tf_loops_list.tmp"
-        >"$out"
-        while IFS= read -r f; do
-          printf "%s\t%s\n" "$f" "loop_check_pending" >>"$out"
-        done <"$STATE_DIR/tf_loops_list.tmp"
-        rm -f "$STATE_DIR/tf_loops_list.tmp"
-        printf "%s[OK]%s Reporte placeholder: %s\n" "$C_GRN" "$C_RESET" "$out"
-        pause_enter
-        ;;
-      4)
-        clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
-        fi
-        maybe_activate_ml_env "TF Sospechosos" 1 1
-        out="$REPORTS_DIR/tf_suspect_audio.tsv"
-        printf "%s[INFO]%s Clasificador de sospechosos placeholder (requiere TF modelo futuro).\n" "$C_CYN" "$C_RESET"
-        find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" \) 2>/dev/null | head -100 >"$STATE_DIR/tf_suspect_list.tmp"
-        >"$out"
-        while IFS= read -r f; do
-          printf "%s\t%s\n" "$f" "score_pending" >>"$out"
-        done <"$STATE_DIR/tf_suspect_list.tmp"
-        rm -f "$STATE_DIR/tf_suspect_list.tmp"
-        printf "%s[OK]%s Reporte placeholder: %s\n" "$C_GRN" "$C_RESET" "$out"
-        pause_enter
-        ;;
-      5)
-        clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
-        fi
-        maybe_activate_ml_env "TF Loudness" 1 1
-        out="$REPORTS_DIR/tf_loudness_plan.tsv"
-        printf "%s[INFO]%s Estimación de loudness placeholder (LUFS) para plan de normalización.\n" "$C_CYN" "$C_RESET"
-        find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" \) 2>/dev/null | head -100 >"$STATE_DIR/tf_loud_list.tmp"
-        >"$out"
-        while IFS= read -r f; do
-          printf "%s\t%s\t%s\n" "$f" "lufs_pending" "gain_pending" >>"$out"
-        done <"$STATE_DIR/tf_loud_list.tmp"
-        rm -f "$STATE_DIR/tf_loud_list.tmp"
-        printf "%s[OK]%s Plan placeholder: %s\n" "$C_GRN" "$C_RESET" "$out"
-        pause_enter
-        ;;
-      6)
-        clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
-        fi
-        maybe_activate_ml_env "TF Auto-cues" 1 1
-        out="$REPORTS_DIR/tf_autocues.tsv"
-        printf "%s[INFO]%s Auto-segmentación placeholder (onsets/beat) para cues preliminares.\n" "$C_CYN" "$C_RESET"
-        find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.wav" \) 2>/dev/null | head -50 >"$STATE_DIR/tf_cues_list.tmp"
-        >"$out"
-        while IFS= read -r f; do
-          printf "%s\t%s\t%s\n" "$f" "00:00:00" "cue_pending" >>"$out"
-        done <"$STATE_DIR/tf_cues_list.tmp"
-        rm -f "$STATE_DIR/tf_cues_list.tmp"
-        printf "%s[OK]%s Plan cues placeholder: %s\n" "$C_GRN" "$C_RESET" "$out"
-        pause_enter
-        ;;
-      7)
-        clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
-        fi
-        maybe_activate_ml_env "TF Cross-platform matching" 1 1
-        out="$REPORTS_DIR/tf_crossplatform_matching.tsv"
-        printf "%s[INFO]%s Matching cross-platform placeholder (embeddings para relink inteligente).\n" "$C_CYN" "$C_RESET"
-        printf "%s\t%s\t%s\n" "track_a" "track_b" "score_pending" >"$out"
-        printf "%s[OK]%s Reporte placeholder: %s\n" "$C_GRN" "$C_RESET" "$out"
         pause_enter
         ;;
       8)
         clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
+        ensure_python_bin || { pause_enter; continue; }
+        out_vtags="$REPORTS_DIR/video_tags.tsv"
+        printf "%s[INFO]%s Auto-tagging de vídeo (heurístico por nombre) -> %s
+" "$C_CYN" "$C_RESET" "$out_vtags"
+        if "$PYTHON_BIN" "lib/ml_tf.py" video_tags --base "$BASE_PATH" --out "$out_vtags" --limit 200; then
+          printf "%s[OK]%s Tags de vídeo generados.
+" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Falló el tagging de vídeo.
+" "$C_RED" "$C_RESET"
         fi
-        maybe_activate_ml_env "TF Video tagging" 1 1
-        out="$REPORTS_DIR/tf_video_autotag.tsv"
-        printf "%s[INFO]%s Auto-tagging de vídeo placeholder (keyframes/clasificación futura).\n" "$C_CYN" "$C_RESET"
-        find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" \) 2>/dev/null | head -50 >"$STATE_DIR/tf_video_list.tmp"
-        >"$out"
-        while IFS= read -r f; do
-          printf "%s\t%s\n" "$f" "tags_pending" >>"$out"
-        done <"$STATE_DIR/tf_video_list.tmp"
-        rm -f "$STATE_DIR/tf_video_list.tmp"
-        printf "%s[OK]%s Reporte placeholder: %s\n" "$C_GRN" "$C_RESET" "$out"
         pause_enter
         ;;
       9)
         clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
-        fi
-        maybe_activate_ml_env "TF Music Tagging" 1 1
-        out="$REPORTS_DIR/tf_music_tagging.tsv"
-        printf "%s[INFO]%s Music tagging multi-label (intenta modelo TF Hub; etiquetas top3 por archivo, máx 150).\n" "$C_CYN" "$C_RESET"
-        BASE="$BASE_PATH" OUT="$out" python3 - <<'PY'
-import os, sys, pathlib, heapq
-try:
-    import tensorflow as tf
-    import tensorflow_hub as hub
-    import soundfile as sf
-    import numpy as np
-except Exception:
-    sys.exit(1)
-
-MODEL_URLS = [
-    "https://tfhub.dev/google/music_tagging/nnfp/1",
-    "https://tfhub.dev/google/vggish/1"
-]
-
-base = pathlib.Path(os.environ.get("BASE") or ".")
-out = pathlib.Path(os.environ["OUT"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-files = []
-for p in base.rglob("*"):
-    if p.suffix.lower() in audio_exts and p.is_file():
-        files.append(p)
-    if len(files) >= 150:
-        break
-if not files:
-    print("[ERR] Sin archivos de audio.")
-    sys.exit(2)
-
-model = None
-labels = []
-for url in MODEL_URLS:
-    try:
-        model = hub.load(url)
-        if hasattr(model, "labels"):
-            labels = model.labels
-        break
-    except Exception:
-        continue
-if model is None:
-    print("[ERR] No se pudo cargar modelo TF Hub (music tagging/vggish).")
-    sys.exit(3)
-
-def load_mono_16k(path):
-    data, sr = sf.read(path)
-    if data.ndim > 1:
-        data = data.mean(axis=1)
-    if sr != 16000:
-        target_len = int(len(data) * 16000 / sr)
-        data = tf.signal.resample(tf.convert_to_tensor(data, dtype=tf.float32), target_len).numpy()
-    return data
-
-with out.open("w", encoding="utf-8") as f:
-    f.write("path\ttop1\tp1\ttop2\tp2\ttop3\tp3\n")
-    for p in files:
-        try:
-            wav = load_mono_16k(str(p))
-            if hasattr(model, "signatures") and "serving_default" in model.signatures:
-                sig = model.signatures["serving_default"]
-                outputs = sig(tf.convert_to_tensor(wav, dtype=tf.float32))
-                logits = None
-                for v in outputs.values():
-                    logits = v
-                    break
-                if logits is None:
-                    continue
-                scores = tf.nn.softmax(logits[0]).numpy()
-            else:
-                # fallback: try model(wav) directly
-                outputs = model(wav)
-                if isinstance(outputs, (list, tuple)):
-                    logits = outputs[0]
-                else:
-                    logits = outputs
-                scores = tf.nn.softmax(logits).numpy()[0]
-            top3 = heapq.nlargest(3, enumerate(scores), key=lambda x: x[1])
-            names_scores = []
-            for idx, sc in top3:
-                if labels and idx < len(labels):
-                    name = labels[idx]
-                else:
-                    name = f"class_{idx}"
-                names_scores.append((name, sc))
-            while len(names_scores) < 3:
-                names_scores.append(("unknown", 0.0))
-            (n1, s1), (n2, s2), (n3, s3) = names_scores
-            f.write(f"{p}\t{n1}\t{s1:.3f}\t{n2}\t{s2:.3f}\t{n3}\t{s3:.3f}\n")
-        except Exception:
-            continue
-print(f"[OK] Music tagging: {out}")
-PY
-        rc=$?
-        if [ "$rc" -ne 0 ]; then
-          printf "%s[ERR]%s No se pudo generar music tagging (revisa TF/tf_hub/soundfile). RC=%s\n" "$C_RED" "$C_RESET" "$rc"
+        ensure_python_bin || { pause_enter; continue; }
+        out_mtags="$REPORTS_DIR/music_tags.tsv"
+        printf "%s[INFO]%s Music tagging multi-label (TF Hub o heurístico) -> %s
+" "$C_CYN" "$C_RESET" "$out_mtags"
+        if "$PYTHON_BIN" "lib/ml_tf.py" music_tags --base "$BASE_PATH" --out "$out_mtags" --limit 200; then
+          printf "%s[OK]%s Music tagging generado.
+" "$C_GRN" "$C_RESET"
         else
-          printf "%s[OK]%s Music tagging TSV: %s\n" "$C_GRN" "$C_RESET" "$out"
+          printf "%s[ERR]%s Falló music tagging.
+" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
       B|b)
-        break ;;
-      *)
-        invalid_option ;;
-    esac
-  done
-}
-
-action_audio_lufs_plan() {
-  print_header
-  printf "%s[INFO]%s Plan LUFS/normalización (solo análisis, no modifica audio).\n" "$C_CYN" "$C_RESET"
-  out="$REPORTS_DIR/audio_lufs_plan.tsv"
-  printf "Escaneando (mp3/wav/flac/m4a)...\n"
-  BASE="$BASE_PATH" OUT="$out" python3 - <<'PY'
-import os, sys, pathlib
-try:
-    import pyloudnorm as pyln
-    import soundfile as sf
-except Exception:
-    sys.exit(1)
-
-base = pathlib.Path(os.environ.get("BASE") or ".")
-out = pathlib.Path(os.environ["OUT"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-meter = pyln.Meter(44100)
-rows = []
-for p in base.rglob("*"):
-    if p.suffix.lower() in audio_exts and p.is_file():
-        try:
-            data, sr = sf.read(p)
-            if data.ndim > 1:
-                data = data.mean(axis=1)
-            loud = meter.integrated_loudness(data)
-            rows.append((str(p), loud))
-        except Exception:
-            continue
-    if len(rows) >= 200:
         break
-
-with out.open("w", encoding="utf-8") as f:
-    f.write("path\tlufs\tsugerencia_gain_db\n")
-    for path, lufs in rows:
-        target = -14.0
-        gain = target - lufs
-        f.write(f"{path}\t{lufs:.2f}\t{gain:.2f}\n")
-
-print(f"[OK] Plan LUFS: {out}")
-PY
-  rc=$?
-  if [ "$rc" -ne 0 ]; then
-    printf "%s[ERR]%s Requiere python3 + pyloudnorm + soundfile.\n" "$C_RED" "$C_RESET"
-  else
-    printf "%s[OK]%s Plan LUFS generado: %s\n" "$C_GRN" "$C_RESET" "$out"
-  fi
-  pause_enter
-}
-
-action_audio_cues_onsets() {
-  print_header
-  printf "%s[INFO]%s Auto-cues por onsets (librosa; plan TSV).\n" "$C_CYN" "$C_RESET"
-  if ! ensure_python_deps "Auto-cues" "librosa" "soundfile"; then
-    pause_enter; return
-  fi
-  out="$REPORTS_DIR/auto_cues_onsets.tsv"
-  BASE="$BASE_PATH" OUT="$out" "$PYTHON_BIN" - <<'PY'
-import os, sys, pathlib
-try:
-    import librosa
-    import soundfile as sf  # noqa: F401
-except Exception:
-    sys.exit(1)
-
-base = pathlib.Path(os.environ.get("BASE") or ".")
-out = pathlib.Path(os.environ["OUT"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-rows = []
-for p in base.rglob("*"):
-    if p.suffix.lower() in audio_exts and p.is_file():
-        try:
-            y, sr = librosa.load(p, sr=44100, mono=True, duration=180)
-            onsets = librosa.onset.onset_detect(y=y, sr=sr, units="time")
-            if onsets.size == 0:
-                continue
-            rows.append((str(p), float(onsets[0])))
-        except Exception:
-            continue
-    if len(rows) >= 200:
-        break
-
-with out.open("w", encoding="utf-8") as f:
-    f.write("path\tcue_sec\n")
-    for path, t in rows:
-        f.write(f"{path}\t{t:.2f}\n")
-
-print(f"[OK] Auto-cues: {out}")
-PY
-  rc=$?
-  if [ "$rc" -ne 0 ]; then
-    printf "%s[ERR]%s Requiere python3 + librosa + soundfile.\n" "$C_RED" "$C_RESET"
-  else
-    printf "%s[OK]%s Auto-cues generado: %s\n" "$C_GRN" "$C_RESET" "$out"
-  fi
-  pause_enter
-}
-
-action_install_all_python_deps() {
-  print_header
-  printf "%s[INFO]%s Instalar deps Python en venv (pyserial, python-osc, librosa, soundfile).\n" "$C_CYN" "$C_RESET"
-  if ensure_python_deps "Instalación completa" "pyserial" "python-osc" "librosa" "soundfile"; then
-    printf "%s[OK]%s Deps instaladas en venv (%s).\n" "$C_GRN" "$C_RESET" "$VENV_DIR"
-  else
-    printf "%s[WARN]%s No se completó la instalación (revísalo manualmente).\n" "$C_YLW" "$C_RESET"
-  fi
-  pause_enter
-}
-
-submenu_profiles_manager() {
-  while true; do
-    clear
-    print_header
-    printf "%s=== Gestor de perfiles ===%s\n" "$C_CYN" "$C_RESET"
-    printf "%s1)%s Guardar perfil actual\n" "$C_YLW" "$C_RESET"
-    printf "%s2)%s Cargar perfil\n" "$C_YLW" "$C_RESET"
-    printf "%s3)%s Listar perfiles\n" "$C_YLW" "$C_RESET"
-    printf "%s4)%s Eliminar perfil\n" "$C_YLW" "$C_RESET"
-    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
-    printf "%sOpción:%s " "$C_BLU" "$C_RESET"
-    read -r pop
-    case "$pop" in
-      1)
-        printf "Nombre de perfil (ej: principal, disco_ext): "
-        read -r pname
-        [ -z "$pname" ] && { printf "%s[WARN]%s Nombre vacío.\n" "$C_YLW" "$C_RESET"; pause_enter; continue; }
-        mkdir -p "$PROFILES_DIR"
-        pfile="$PROFILES_DIR/${pname}.conf"
-        {
-          printf 'BASE_PATH=%q\n' "$BASE_PATH"
-          printf 'AUDIO_ROOT=%q\n' "${AUDIO_ROOT:-}"
-          printf 'GENERAL_ROOT=%q\n' "${GENERAL_ROOT:-}"
-          printf 'SERATO_ROOT=%q\n' "${SERATO_ROOT:-}"
-          printf 'REKORDBOX_XML=%q\n' "${REKORDBOX_XML:-}"
-          printf 'ABLETON_ROOT=%q\n' "${ABLETON_ROOT:-}"
-          printf 'EXTRA_SOURCE_ROOTS=%q\n' "${EXTRA_SOURCE_ROOTS:-}"
-        } >"$pfile"
-        printf "%s[OK]%s Perfil guardado: %s\n" "$C_GRN" "$C_RESET" "$pfile"
-        pause_enter
         ;;
-      2)
-        printf "Nombre de perfil a cargar: "
-        read -r pname
-        pfile="$PROFILES_DIR/${pname}.conf"
-        if [ ! -f "$pfile" ]; then
-          printf "%s[ERR]%s No existe: %s\n" "$C_RED" "$C_RESET" "$pfile"
-          pause_enter
-          continue
-        fi
-        # shellcheck disable=SC1090
-        . "$pfile"
-        init_paths
-        save_conf
-        printf "%s[OK]%s Perfil cargado: %s\n" "$C_GRN" "$C_RESET" "$pfile"
-        pause_enter
-        ;;
-      3)
-        printf "%s[INFO]%s Perfiles en %s:\n" "$C_CYN" "$C_RESET" "$PROFILES_DIR"
-        ls -1 "$PROFILES_DIR" 2>/dev/null || printf "(vacío)\n"
-        pause_enter
-        ;;
-      4)
-        printf "Nombre de perfil a eliminar: "
-        read -r pname
-        pfile="$PROFILES_DIR/${pname}.conf"
-        if [ ! -f "$pfile" ]; then
-          printf "%s[ERR]%s No existe: %s\n" "$C_RED" "$C_RESET" "$pfile"
-          pause_enter
-          continue
-        fi
-        rm -f "$pfile" 2>/dev/null || true
-        printf "%s[OK]%s Eliminado: %s\n" "$C_GRN" "$C_RESET" "$pfile"
-        pause_enter
-        ;;
-      B|b)
-        break ;;
       *)
         invalid_option
         ;;
