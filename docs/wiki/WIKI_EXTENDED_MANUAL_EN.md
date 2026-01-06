@@ -92,3 +92,90 @@
 - Best practices: hash+plan before moves; backup/snapshot first; exclude caches/heavy dirs; mirror check (61) for multi-disk.
 - Visual assets: menu SVG/PNG, banners; can be linked in README/wiki.
 - License: DJProducerTools License (Attribution + Revenue Share 20%); see `LICENSE`.
+
+---
+## Option-by-option details (extended)
+
+### Core (1–12)
+- 1 Status: shows BASE_PATH, SAFE/LOCK/DRY, recent reports/logs (read-only).
+- 2 Change Base: re-init `_DJProducerTools` under new BASE_PATH (creates if missing). Does not move media.
+- 3 Volume summary: `du -sh` on BASE_PATH/state; lists recent plans/reports.
+- 4/5 Top dirs/files: size ranking; read-only.
+- 6 Workspace scan: full listing -> `reports/workspace_scan.tsv`; use exclusions in `config/djpt.conf` to skip caches.
+- 7/8 Backups: rsync `_Serato_` and DJ metadata. Safe/Lock respected; `confirm_heavy` on large runs; DRY prints commands.
+- 9 Hash index: SHA-256 under BASE_PATH -> `reports/hash_index.tsv`; can be slow.
+- 10 Exact dupes plan: consumes hash_index -> `plans/dupes_plan.tsv/json` with KEEP/QUARANTINE.
+- 11 Apply quarantine: moves to `_DJProducerTools/quarantine/<hash>/file`; blocked if Safe/Lock=1; asks confirmation.
+- 12 Quarantine manager: list/restore/delete; Safe/Lock gates destructive actions.
+
+### Media / Organization (13–24)
+- 13 ffprobe corrupt -> `media_corrupt.tsv` (path|error); needs ffprobe.
+- 14 Playlists per folder -> `playlist.m3u8` per audio dir.
+- 15 Relink helper: relative/full paths TSV for DAWs.
+- 16 Mirror-by-genre plan: placeholder TSV (no writes).
+- 17 Find DJ libs: detect Serato/Traktor/Rekordbox/Ableton roots.
+- 18 Smart rescan: TSV with size/mtime/type; progress bar.
+- 19 Tools diag: ffprobe/shasum/rsync/find/ls/du presence.
+- 20 Ownership/flags plan: chown/chmod TSV (does not apply).
+- 21/22 Symlink cmd install/remove `dj`/`dj-en`/`dj-es`; blocked by Safe/Lock.
+- 23/24 Toggle SAFE_MODE / DJ_SAFE_LOCK with confirmation.
+
+### Processes / Cleanup (25–39)
+- 26 Export/Import state bundle `DJPT_state_bundle.tar.gz` (config/reports/plans/logs/quarantine).
+- 27 Fast hash snapshot -> `reports/hash_snapshot.tsv`.
+- 28 Logs viewer: tails `_DJProducerTools/logs/*`.
+- 29 Toggle DRYRUN_FORCE (forces dry-run when supported).
+- 30/31 Tags plan/report: placeholders (TSV only).
+- 32 Video report: ffprobe inventory -> TSV/JSON (codec, resolution, duration, bitrate).
+- 33 Video prep: choose codec `auto/videotoolbox/nvenc/libx264`; writes plan TSV/JSON, asks to run ffmpeg; honours DRYRUN_FORCE.
+- 34 Normalize names plan; 35 Samples by type; 36–39 Web clean/whitelist TSVs.
+
+### Duplicates / Consolidation (D)
+- D1 Catalog general (uses `GENERAL_ROOT`).
+- D2 Duplicates by basename+size -> `general_dupes_plan.tsv/json`.
+- D3 Smart report with ML hints (text + TSV).
+- D4 Multi-disk consolidation: destination vs sources, outputs `consolidation_plan.tsv` + `consolidation_rsync.sh` (plan only).
+- D5 Exact dupes by hash (multi-root, optional max depth/size + excludes).
+- D6 Inverse consolidation: mark leftovers in sources already present in destination (size threshold optional).
+- D7 Matrioshka folders (structure duplicates) -> TSV KEEP/REMOVE suggestions.
+- D8 Mirror folders by content (hash listings) -> TSV.
+- D9 Audio similarity (YAMNet TF) with presets (fast/balanced/strict).
+- D10 Batch rsync helpers: input `consolidation_plan.tsv`, batch size GB (default 50). Creates `consolidation_rsync_batchXX.sh` with mkdir+rsync; skips missing with warning; shows per-batch files/GB and totals. Safe/Lock informative; generation does not move files.
+
+### ML / Deep (40–52, 62–67)
+- 40 Smart analysis JSON; 41 heuristic predictor; 42 efficiency checklist TSV; 43 smart workflow TSV; 44 integrated dedup placeholder.
+- 45 Org plan; 46 Metadata harmonizer; 47 Predictive backup; 48 Cross-platform sync (TSV/JSON).
+- 49 BPM/onsets: `--tempo-min/--tempo-max --max-duration`; outputs bpm/conf/key/energy/beat_count/first_beat_sec (librosa).
+- 50 API/OSC: start/stop server; set port/token. HTTP `/status,/reports,/dupes/summary,/logs/tail`; OSC `/djpt/ping,/djpt/status`; unauthorized if token missing; PID stored.
+- 62 ML evolutive (scikit-learn opt-in); 63 toggle ML; 64 install TF.
+- 65 TF Lab: models yamnet/musicnn/musictag/clap_onnx/clip_vitb16_onnx/musicgen_tflite/sentence_t5_tflite; respects `DJPT_OFFLINE`/`DJPT_TF_MOCK`; outputs embeddings/tags/similarity/anomalies/segments/loudness/matching/video_tags/music_tags/mastering TSV. Warns and falls back if runtime missing.
+- 66 LUFS plan (pyloudnorm+soundfile optional); 67 Auto-cues (librosa onsets/segments).
+
+### Visuals / OSC / DMX (V)
+- V1 Ableton .als quick report; V2 Visuals inventory; V3 DMX send plan (ENTTEC dry-run by default, logs frames); V4/V5 video report/plan; V6 resolution/duration; V7 visuals by resolution; V8 visuals dupes; V9 optimize plan; V10 playlist→OSC; V11 playlist→DMX timed; V12 DMX presets template (edit channels/values for your rig).
+
+### Automation (A/68)
+- 21 predefined chains (backup+snapshot, dedupe/quarantine, cleanup, show prep, integrity, efficiency, ML, sync, visuals, etc.). Safe/Lock/DRY are respected. Option 68 installs Python deps in venv.
+
+### Safety and modes
+- Defaults: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`, `DRYRUN_FORCE=0`. Do not disable without reviewing plans.
+- Offline: `DJPT_OFFLINE=1` forces heuristics; `DJPT_TF_MOCK=1` avoids TF downloads; applies across TF Lab flows.
+- Avoid root/system disk; heavy actions prompt via `confirm_heavy_action`.
+
+### Install / venv / deps
+- Minimal deps: bash, python3, ffprobe, sox, jq. Optional: ffmpeg, librosa, python-osc, pyserial, onnxruntime/tflite-runtime, tensorflow.
+- Venv path: `_DJProducerTools/venv` (BASE_PATH-local). To rebuild: `python3 -m venv _DJProducerTools/venv && source _DJProducerTools/venv/bin/activate && pip install --upgrade pip`.
+- Fresh install: use `install_djpt.sh` snippet (downloads EN/ES, chmod +x).
+
+### Outputs and logs
+- Plans: `_DJProducerTools/plans/*.tsv/json`; reports: `_DJProducerTools/reports/*`; logs: `_DJProducerTools/logs/*`; quarantine: `_DJProducerTools/quarantine/`; batch helpers: `_DJProducerTools/plans/consolidation_rsync_batchXX.sh`.
+
+### Practical recipes
+- Safe dedupe: 6 → 9 → 10 (review) → disable Safe/Lock if applying → 11 quarantine.
+- Multi-disk merge: D4 plan → D10 batches (50 GB chunks) → run helpers manually.
+- Video prep: 32 report → 33 codec auto → confirm ffmpeg (or DRY print).
+- BPM cues (no tag writes): 49 with `--tempo-min 70 --tempo-max 180 --max-duration 600`; use beat_count/first_beat_sec.
+- API with token: menu 50 set token; curl `-H "Authorization: Bearer TOKEN" http://127.0.0.1:9000/status`.
+
+### License
+- DJProducerTools License (Attribution + 20% revenue share on derivatives/commercial). Keep credit; see `LICENSE`.
