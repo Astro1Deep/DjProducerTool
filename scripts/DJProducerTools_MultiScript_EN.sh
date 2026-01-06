@@ -2188,7 +2188,10 @@ action_33_serato_video_prep() {
     printf "%s[ERR]%s ffprobe no disponible.\n" "$C_RED" "$C_RESET"; pause_enter; return
   fi
   ensure_python_bin || { pause_enter; return; }
-  "$PYTHON_BIN" "lib/video_tools.py" transcode_plan "$BASE_PATH" "$out" "h264_1080p" 2>/dev/null || {
+  printf "Codec (auto/videotoolbox/nvenc/libx264) [auto]: "
+  read -r vid_codec
+  vid_codec=${vid_codec:-auto}
+  "$PYTHON_BIN" "lib/video_tools.py" transcode_plan "$BASE_PATH" "$out" "h264_1080p" "$vid_codec" 2>/dev/null || {
     printf "%s[ERR]%s Falló generación de plan (revisa lib/video_tools.py).\n" "$C_RED" "$C_RESET"
     pause_enter; return
   }
