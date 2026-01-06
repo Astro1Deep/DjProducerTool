@@ -23,7 +23,7 @@ echo "🎨 Generando SVG para el menú en Español..."
 (
   # Ejecutamos en un subshell para evitar que las funciones/variables
   # interfieran con la siguiente ejecución.
-  source ./DJProducerTools_MultiScript_ES.sh
+  source ./scripts/DJProducerTools_MultiScript_ES.sh
   print_header
   print_menu
 ) | termtosvg -o docs/menu_es_full.svg
@@ -32,7 +32,7 @@ echo "   -> Creado en docs/menu_es_full.svg"
 # --- Generar SVG para el script en Inglés ---
 echo "🎨 Generando SVG para el menú en Inglés..."
 (
-  source ./DJProducerTools_MultiScript_EN.sh
+  source ./scripts/DJProducerTools_MultiScript_EN.sh
   print_header
   print_menu
 ) | termtosvg -o docs/menu_en_full.svg
