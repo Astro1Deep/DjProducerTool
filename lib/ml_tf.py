@@ -14,6 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
+import importlib
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif", ".ogg"}
 
@@ -28,6 +29,15 @@ except Exception:  # pragma: no cover - optional path
     hub = None
     sf = None
     np = None
+
+try:  # optional onnx/tflite
+    import onnxruntime as ort  # type: ignore
+except Exception:  # pragma: no cover
+    ort = None
+try:
+    import tflite_runtime.interpreter as tflite  # type: ignore
+except Exception:  # pragma: no cover
+    tflite = None
 
 
 MODEL_URLS = {
@@ -108,6 +118,52 @@ def heuristic_tags(path: Path) -> List[str]:
     if not tags:
         tags.append("unknown")
     return tags
+
+
+def load_onnx_session(model_name: str) -> Tuple[Optional[Any], Optional[str]]:
+    if ort is None:
+        return None, None
+    model_path = local_model_path(model_name)
+    if not model_path or not model_path.exists():
+        return None, None
+    try:
+        sess = ort.InferenceSession(str(model_path))
+        input_name = sess.get_inputs()[0].name
+        return sess, input_name
+    except Exception:
+        return None, None
+
+
+def run_onnx_audio(sess: Any, input_name: str, path: Path) -> List[float]:
+    try:
+        import soundfile as _sf
+        import numpy as _np
+
+        data, sr = _sf.read(str(path))
+        if data.ndim > 1:
+            data = data.mean(axis=1)
+        data = _np.asarray(data, dtype=_np.float32)
+        out = sess.run(None, {input_name: data})
+        if isinstance(out, list) and len(out) > 0:
+            arr = _np.asarray(out[0]).flatten()
+            return arr.tolist()
+    except Exception:
+        return []
+    return []
+
+
+def run_onnx_text(sess: Any, input_name: str, text: str) -> List[float]:
+    try:
+        import numpy as _np
+
+        tokens = [ord(c) % 255 for c in text][:512]
+        arr = _np.array(tokens, dtype=_np.float32)
+        out = sess.run(None, {input_name: arr})
+        if isinstance(out, list) and len(out) > 0:
+            return _np.asarray(out[0]).flatten().tolist()
+    except Exception:
+        return []
+    return []
 
 
 # --- TF helpers ---
@@ -208,6 +264,9 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offli
     offline = offline or os.environ.get("DJPT_OFFLINE") == "1"
     use_tf = tf_available() and model_choice in MODEL_URLS and not offline
     model = load_tf_model(model_choice) if use_tf else None
+    onnx_sess, onnx_input = (None, None)
+    if not use_tf and not offline and model_choice in ONNX_MODELS:
+        onnx_sess, onnx_input = load_onnx_session(model_choice)
     for p in files:
         if use_tf and model is not None:
             audio = load_audio_16k(p)
@@ -216,10 +275,15 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offli
             if not emb:
                 emb = hash_embedding(p)
         elif model_choice in ONNX_MODELS:
-            # placeholder: usa hash pero marca método onnx si el modelo está cacheado
-            model_path = local_model_path(model_choice)
-            method = f"onnx_{model_choice}" if model_path else f"onnx_{model_choice}_missing"
-            emb = hash_embedding(p)
+            if onnx_sess and onnx_input:
+                emb = run_onnx_audio(onnx_sess, onnx_input, p)
+                method = f"onnx_{model_choice}" if emb else f"onnx_{model_choice}_fallback"
+                if not emb:
+                    emb = hash_embedding(p)
+            else:
+                emb = hash_embedding(p)
+                model_path = local_model_path(model_choice)
+                method = f"onnx_{model_choice}_missing" if not model_path else f"onnx_{model_choice}_fallback"
         else:
             emb = hash_embedding(p)
             method = f"{model_choice}_mock"
@@ -237,6 +301,9 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
     offline = offline or os.environ.get("DJPT_OFFLINE") == "1"
     use_tf = tf_available() and model_choice in MODEL_URLS and not offline
     model = load_tf_model(model_choice) if use_tf else None
+    onnx_sess, onnx_input = (None, None)
+    if not use_tf and not offline and model_choice in ONNX_MODELS:
+        onnx_sess, onnx_input = load_onnx_session(model_choice)
     for p in files:
         tags: List[str] = []
         method = f"{model_choice}_mock"
@@ -245,8 +312,20 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
             _, tags = model_embed_and_tag(model, audio)
             method = f"tf_{model_choice}" if tags else f"tf_{model_choice}_fallback"
         elif model_choice in ONNX_MODELS:
-            model_path = local_model_path(model_choice)
-            method = f"onnx_{model_choice}" if model_path else f"onnx_{model_choice}_missing"
+            if onnx_sess and onnx_input:
+                emb = run_onnx_audio(onnx_sess, onnx_input, p)
+                if emb:
+                    # Simple heuristic: tag by max component bucket
+                    import numpy as _np
+
+                    idx = int(_np.argmax(_np.asarray(emb)))
+                    tags = [f"class_{idx}"]
+                    method = f"onnx_{model_choice}"
+                else:
+                    method = f"onnx_{model_choice}_fallback"
+            else:
+                model_path = local_model_path(model_choice)
+                method = f"onnx_{model_choice}_missing" if not model_path else f"onnx_{model_choice}_fallback"
         if not tags:
             tags = heuristic_tags(p)
         rows.append((str(p), method, json.dumps(tags)))

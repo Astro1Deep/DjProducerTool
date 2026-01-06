@@ -2004,8 +2004,9 @@ submenu_T_tensorflow_lab() {
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_lufs="$REPORTS_DIR/audio_loudness.tsv"
-        printf "%s[INFO]%s Loudness estimate (LUFS; pyloudnorm if available) -> %s\n" "$C_CYN" "$C_RESET" "$out_lufs"
-        if "$PYTHON_BIN" "lib/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit 200; then
+        target="${DJPT_LUFS_TARGET:- -14.0}"
+        printf "%s[INFO]%s Loudness estimate (target %s LUFS; pyloudnorm if available) -> %s\n" "$C_CYN" "$C_RESET" "$target" "$out_lufs"
+        if "$PYTHON_BIN" "lib/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit 200 --target "$target"; then
           printf "%s[OK]%s Loudness report generated.\n" "$C_GRN" "$C_RESET"
         else
           printf "%s[ERR]%s Loudness estimation failed.\n" "$C_RED" "$C_RESET"
