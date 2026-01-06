@@ -6,6 +6,21 @@
 - Mínimos: bash, python3, ffprobe, sox, jq. Opcionales: ffmpeg (transcode/keyframes), librosa (BPM/onsets), python-osc, pyserial, onnxruntime, tensorflow.
 - Offline: `DJPT_OFFLINE=1` fuerza heurísticos; `DJPT_TF_MOCK=1` evita descargas TF.
 
+## Uso rápido por CLI y flags globales
+- Ejecutar: `./scripts/DJProducerTools_MultiScript_ES.sh` (o `_EN.sh`). Flags: `--help`, `--version`, `--test`.
+- Cambiar base aislada: `HOME_OVERRIDE=/ruta ./scripts/DJProducerTools_MultiScript_ES.sh` (estado en esa carpeta).
+- Forzar offline ML: `DJPT_OFFLINE=1 ./scripts/DJProducerTools_MultiScript_ES.sh` (afecta TF Lab).
+- Forzar mock TF: `DJPT_TF_MOCK=1` para evitar descargas de TF.
+- Seguridad por defecto: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`; DRY global: `DRYRUN_FORCE=1` (cuando el flujo soporta dry-run).
+- Raíces generales: `GENERAL_ROOT=/ruta`; fuentes extra para consolidación: `EXTRA_SOURCE_ROOTS=/Vol/A,/Vol/B`.
+
+## Flujo de seguridad (paso a paso)
+1) Verifica `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`, `DRYRUN_FORCE=0` (el menú ofrece restaurar 1/1 si estaban en 0).
+2) Escanea y cataloga (6, 9, 10) antes de mover nada. Revisa los TSV.
+3) Haz backup 7/8 y snapshot 27 antes de cuarentenas o envíos.
+4) Sólo aplica movimientos con Safe/Lock desactivados y tras confirmar (11, envíos DMX, etc.).
+5) Usa `DJPT_OFFLINE=1` cuando no quieras descargas; `--dry-run` cuando esté disponible.
+
 ## Core (1–12)
 - 1 Estado, 2 Cambiar Base, 3 Resumen volumen, 4/5 Top dirs/files.
 - 6 Scan workspace -> `reports/workspace_scan.tsv`.
@@ -160,6 +175,11 @@
 - Prep video: 32 reporte → 33 códec auto → confirmar ffmpeg (o DRY solo imprime).
 - BPM sin escribir tags: 49 con `--tempo-min 70 --tempo-max 180 --max-duration 600`; usa beat_count/first_beat_sec.
 - API con token: menú 50 define token; curl `-H "Authorization: Bearer TOKEN" http://127.0.0.1:9000/status`.
+- CLI rápido:
+  - Dry-run mínimo (ML offline): `DJPT_OFFLINE=1 DRYRUN_FORCE=1 ./scripts/DJProducerTools_MultiScript_ES.sh --test`
+  - Base aislada: `HOME_OVERRIDE=/tmp/djpt_sandbox ./scripts/DJProducerTools_MultiScript_ES.sh`
+  - TF Lab mock: `DJPT_TF_MOCK=1 ./scripts/DJProducerTools_MultiScript_ES.sh` y usar opción 65.
+  - Plan de video rápido: `BASE_PATH=/tu/base ./scripts/DJProducerTools_MultiScript_ES.sh --dry-run` y en menú 33 responde N a ejecutar ffmpeg.
 
 ### Licencia
 - DJProducerTools License (Atribución + 20% revenue share en derivados/comercial). Mantén el crédito; ver `LICENSE`.

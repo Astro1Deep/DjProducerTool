@@ -6,6 +6,21 @@
 - Minimal deps: bash, python3, ffprobe, sox, jq. Optional: ffmpeg (transcode/keyframes), librosa (BPM/onsets), python-osc, pyserial, onnxruntime/tensorflow (ML).
 - Offline: `DJPT_OFFLINE=1` forces heuristics/mocks; `DJPT_TF_MOCK=1` avoids TF downloads.
 
+## Quick CLI usage & global flags
+- Run: `./scripts/DJProducerTools_MultiScript_EN.sh` (or `_ES.sh`). Use `--help`, `--version`, `--test` for quick checks.
+- Override base: `HOME_OVERRIDE=/path ./scripts/DJProducerTools_MultiScript_EN.sh` to keep `_DJProducerTools` away from system disk.
+- Force offline ML: `DJPT_OFFLINE=1 ./scripts/DJProducerTools_MultiScript_EN.sh` (applies across TF Lab flows).
+- Force mock TF: `DJPT_TF_MOCK=1` to skip TF downloads.
+- Safe toggles (default on): `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`; DRY global: `DRYRUN_FORCE=1` for commands that support dry-run (ffmpeg/rsync helpers).
+- General roots: `GENERAL_ROOT=/path` for duplicate submenus; `EXTRA_SOURCE_ROOTS=/pathA,/pathB` for consolidation.
+
+## Safety workflow (step by step)
+1) Ensure `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`, `DRYRUN_FORCE=0` (default). Menu re-prompts to restore if set to 0.
+2) Scan/catalog (6, 9, 10) before moving anything. Review TSVs.
+3) Backups: 7/8 (rsync) and snapshot 27. Do this before quarantine/moves.
+4) Apply moves only with Safe/Lock off and after manual confirmation (11, DMX send, etc.).
+5) Use `DJPT_OFFLINE=1` for labs when you cannot download models. Use `--dry-run` flags when offered.
+
 ## Core (1–12)
 - 1 Status: base/state, flags, recent reports/logs (read-only).
 - 2 Change Base: reinit state; no file moves.
@@ -176,6 +191,11 @@
 - Video prep: 32 report → 33 codec auto → confirm ffmpeg (or DRY print).
 - BPM cues (no tag writes): 49 with `--tempo-min 70 --tempo-max 180 --max-duration 600`; use beat_count/first_beat_sec.
 - API with token: menu 50 set token; curl `-H "Authorization: Bearer TOKEN" http://127.0.0.1:9000/status`.
+- CLI one-liners:
+  - Minimal dry run (offline ML): `DJPT_OFFLINE=1 DRYRUN_FORCE=1 ./scripts/DJProducerTools_MultiScript_EN.sh --test`
+  - Base override sandbox: `HOME_OVERRIDE=/tmp/djpt_sandbox ./scripts/DJProducerTools_MultiScript_EN.sh`
+  - TF Lab mock: `DJPT_TF_MOCK=1 ./scripts/DJProducerTools_MultiScript_EN.sh` then go to 65.
+  - Fast video plan from terminal (no menu): `BASE_PATH=/your/base ./scripts/DJProducerTools_MultiScript_EN.sh --dry-run` then pick 33 and answer N to run.
 
 ### License
 - DJProducerTools License (Attribution + 20% revenue share on derivatives/commercial). Keep credit; see `LICENSE`.
