@@ -1892,18 +1892,30 @@ submenu_T_tensorflow_lab() {
   while true; do
     clear
     print_header
-    printf "%s=== TensorFlow Lab (requiere TF instalado) ===%s\n" "$C_CYN" "$C_RESET"
-    printf "%s[INFO]%s Dependencias: python3 + tensorflow + tensorflow_hub + soundfile + numpy. Límite: ~150 archivos; similitud usa umbral >=0.60 (top 200 pares).\n" "$C_CYN" "$C_RESET"
-    printf "%s1)%s Auto-tagging de audio (embeddings)\n" "$C_YLW" "$C_RESET"
-    printf "%s2)%s Similitud por contenido (audio)\n" "$C_YLW" "$C_RESET"
-    printf "%s3)%s Detección de fragmentos repetidos/loops\n" "$C_YLW" "$C_RESET"
-    printf "%s4)%s Clasificador de sospechosos (basura/silencio)\n" "$C_YLW" "$C_RESET"
-    printf "%s5)%s Estimar loudness (plan de normalización)\n" "$C_YLW" "$C_RESET"
-    printf "%s6)%s Auto-segmentación (cues preliminares)\n" "$C_YLW" "$C_RESET"
-    printf "%s7)%s Matching cross-platform (relink inteligente)\n" "$C_YLW" "$C_RESET"
-    printf "%s8)%s Auto-tagging de vídeo (keyframes)\n" "$C_YLW" "$C_RESET"
-    printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)\n" "$C_YLW" "$C_RESET"
-    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
+    printf "%s=== TensorFlow Lab (requiere TF instalado) ===%s
+" "$C_CYN" "$C_RESET"
+    printf "%s[INFO]%s Dependencias: python3 + tensorflow + tensorflow_hub + soundfile + numpy. Límite: ~150 archivos; similitud usa umbral >=0.60 (top 200 pares).
+" "$C_CYN" "$C_RESET"
+    printf "%s1)%s Auto-tagging de audio (embeddings/tags)
+" "$C_YLW" "$C_RESET"
+    printf "%s2)%s Similitud por contenido (audio) desde embeddings
+" "$C_YLW" "$C_RESET"
+    printf "%s3)%s Detección de fragmentos repetidos/loops
+" "$C_YLW" "$C_RESET"
+    printf "%s4)%s Clasificador de sospechosos (basura/silencio)
+" "$C_YLW" "$C_RESET"
+    printf "%s5)%s Estimar loudness (plan de normalización)
+" "$C_YLW" "$C_RESET"
+    printf "%s6)%s Auto-segmentación (cues preliminares)
+" "$C_YLW" "$C_RESET"
+    printf "%s7)%s Matching cross-platform (relink inteligente)
+" "$C_YLW" "$C_RESET"
+    printf "%s8)%s Auto-tagging de vídeo (keyframes)
+" "$C_YLW" "$C_RESET"
+    printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)
+" "$C_YLW" "$C_RESET"
+    printf "%sB)%s Volver
+" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r top
     case "$top" in
@@ -1926,45 +1938,72 @@ submenu_T_tensorflow_lab() {
         ;;
       2)
         clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
+        ensure_python_bin || { pause_enter; continue; }
+        emb_in="$REPORTS_DIR/audio_embeddings.tsv"
+        sim_out="$REPORTS_DIR/audio_similarity.tsv"
+        printf "%s[INFO]%s Similitud por contenido desde embeddings -> %s
+" "$C_CYN" "$C_RESET" "$sim_out"
+        if [ ! -s "$emb_in" ]; then
+          printf "%s[WARN]%s No hay embeddings previos; generando primero.
+" "$C_YLW" "$C_RESET"
+          "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit 150 || {
+            printf "%s[ERR]%s No se pudieron generar embeddings.
+" "$C_RED" "$C_RESET"
+            pause_enter; continue
+          }
         fi
-        maybe_activate_ml_env "TF Similitud audio" 1 1
-        out="$REPORTS_DIR/tf_audio_similarity.tsv"
-        if ! python3 - <<'PY' 2>/dev/null
-import sys
-try:
-    import tensorflow as tf  # noqa
-except Exception:
-    sys.exit(1)
-sys.exit(0)
-PY
-        then
-          printf "%s[ERR]%s TensorFlow no disponible. Instala con opción 64.\n" "$C_RED" "$C_RESET"
-          pause_enter; continue
+        if "$PYTHON_BIN" "lib/ml_tf.py" similarity --embeddings "$emb_in" --out "$sim_out" --threshold 0.60 --top 200; then
+          printf "%s[OK]%s Similitud generada: %s
+" "$C_GRN" "$C_RESET" "$sim_out"
+        else
+          printf "%s[ERR]%s Falló cálculo de similitud.
+" "$C_RED" "$C_RESET"
         fi
-        printf "Modelo (1=YAMNet, 2=MusicTag NNFP, 3=VGGish, 4=Musicnn) [1]: "
-        read -r model_sel
-        [ -z "$model_sel" ] && model_sel=1
-        printf "%s[INFO]%s Similitud audio (modelo %s, máx 150 archivos, umbral 0.60, top 200 pares).\n" "$C_CYN" "$C_RESET" "$model_sel"
-        out="$REPORTS_DIR/tf_audio_similarity.tsv"
-        plan="$PLANS_DIR/tf_audio_similarity_plan.tsv"
-        BASE="$BASE_PATH" REPORT="$out" PLAN="$plan" MODEL_SEL="$model_sel" python3 - <<'PY'
-import os, sys, pathlib, itertools, heapq
-try:
-    import tensorflow as tf
-    import tensorflow_hub as hub
-    import soundfile as sf
-    import numpy as np
-except Exception:
-    sys.exit(1)
-
-MODEL_CHOICES = {
-    "1": "https://tfhub.dev/google/yamnet/1",
-    "2": "https://tfhub.dev/google/music_tagging/nnfp/1",
-    "3": "https://tfhub.dev/google/vggish/1",
-    "4": "https://tfhub.dev/google/musicnn/1",
+        pause_enter
+        ;;
+      3)
+        printf "%s[WARN]%s Placeholder: loops no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      4)
+        printf "%s[WARN]%s Placeholder: clasificador basura/silencio no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      5)
+        printf "%s[WARN]%s Placeholder: loudness TF no implementado (usa opción 66).
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      6)
+        printf "%s[WARN]%s Placeholder: auto-segmentación TF no implementada.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      7)
+        printf "%s[WARN]%s Placeholder: matching cross-platform no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      8)
+        printf "%s[WARN]%s Placeholder: video tagging no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      9)
+        printf "%s[WARN]%s Placeholder: music tagging multi-label no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      B|b)
+        break
+        ;;
+      *)
+        invalid_option
+        ;;
+    esac
+  done
 }
 model_choice = os.environ.get("MODEL_SEL", "1")
 model_url = MODEL_CHOICES.get(model_choice, MODEL_CHOICES["1"])

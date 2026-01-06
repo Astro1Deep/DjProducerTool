@@ -1892,18 +1892,30 @@ submenu_T_tensorflow_lab() {
   while true; do
     clear
     print_header
-    printf "%s=== TensorFlow Lab (requiere TF instalado) ===%s\n" "$C_CYN" "$C_RESET"
-    printf "%s[INFO]%s Dependencias: python3 + tensorflow + tensorflow_hub + soundfile + numpy. Límite: ~150 archivos; similitud usa umbral >=0.60 (top 200 pares).\n" "$C_CYN" "$C_RESET"
-    printf "%s1)%s Auto-tagging de audio (embeddings)\n" "$C_YLW" "$C_RESET"
-    printf "%s2)%s Similitud por contenido (audio)\n" "$C_YLW" "$C_RESET"
-    printf "%s3)%s Detección de fragmentos repetidos/loops\n" "$C_YLW" "$C_RESET"
-    printf "%s4)%s Clasificador de sospechosos (basura/silencio)\n" "$C_YLW" "$C_RESET"
-    printf "%s5)%s Estimar loudness (plan de normalización)\n" "$C_YLW" "$C_RESET"
-    printf "%s6)%s Auto-segmentación (cues preliminares)\n" "$C_YLW" "$C_RESET"
-    printf "%s7)%s Matching cross-platform (relink inteligente)\n" "$C_YLW" "$C_RESET"
-    printf "%s8)%s Auto-tagging de vídeo (keyframes)\n" "$C_YLW" "$C_RESET"
-    printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)\n" "$C_YLW" "$C_RESET"
-    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
+    printf "%s=== TensorFlow Lab (requiere TF instalado) ===%s
+" "$C_CYN" "$C_RESET"
+    printf "%s[INFO]%s Dependencias: python3 + tensorflow + tensorflow_hub + soundfile + numpy. Límite: ~150 archivos; similitud usa umbral >=0.60 (top 200 pares).
+" "$C_CYN" "$C_RESET"
+    printf "%s1)%s Auto-tagging de audio (embeddings/tags)
+" "$C_YLW" "$C_RESET"
+    printf "%s2)%s Similitud por contenido (audio) desde embeddings
+" "$C_YLW" "$C_RESET"
+    printf "%s3)%s Detección de fragmentos repetidos/loops
+" "$C_YLW" "$C_RESET"
+    printf "%s4)%s Clasificador de sospechosos (basura/silencio)
+" "$C_YLW" "$C_RESET"
+    printf "%s5)%s Estimar loudness (plan de normalización)
+" "$C_YLW" "$C_RESET"
+    printf "%s6)%s Auto-segmentación (cues preliminares)
+" "$C_YLW" "$C_RESET"
+    printf "%s7)%s Matching cross-platform (relink inteligente)
+" "$C_YLW" "$C_RESET"
+    printf "%s8)%s Auto-tagging de vídeo (keyframes)
+" "$C_YLW" "$C_RESET"
+    printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)
+" "$C_YLW" "$C_RESET"
+    printf "%sB)%s Volver
+" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r top
     case "$top" in
@@ -1925,41 +1937,68 @@ submenu_T_tensorflow_lab() {
         pause_enter
         ;;
       2)
-        printf "Nombre de perfil a cargar: "
-        read -r pname
-        pfile="$PROFILES_DIR/${pname}.conf"
-        if [ ! -f "$pfile" ]; then
-          printf "%s[ERR]%s No existe: %s\n" "$C_RED" "$C_RESET" "$pfile"
-          pause_enter
-          continue
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        emb_in="$REPORTS_DIR/audio_embeddings.tsv"
+        sim_out="$REPORTS_DIR/audio_similarity.tsv"
+        printf "%s[INFO]%s Similitud por contenido desde embeddings -> %s
+" "$C_CYN" "$C_RESET" "$sim_out"
+        if [ ! -s "$emb_in" ]; then
+          printf "%s[WARN]%s No hay embeddings previos; generando primero.
+" "$C_YLW" "$C_RESET"
+          "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit 150 || {
+            printf "%s[ERR]%s No se pudieron generar embeddings.
+" "$C_RED" "$C_RESET"
+            pause_enter; continue
+          }
         fi
-        # shellcheck disable=SC1090
-        . "$pfile"
-        init_paths
-        save_conf
-        printf "%s[OK]%s Perfil cargado: %s\n" "$C_GRN" "$C_RESET" "$pfile"
+        if "$PYTHON_BIN" "lib/ml_tf.py" similarity --embeddings "$emb_in" --out "$sim_out" --threshold 0.60 --top 200; then
+          printf "%s[OK]%s Similitud generada: %s
+" "$C_GRN" "$C_RESET" "$sim_out"
+        else
+          printf "%s[ERR]%s Falló cálculo de similitud.
+" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       3)
-        printf "%s[INFO]%s Perfiles en %s:\n" "$C_CYN" "$C_RESET" "$PROFILES_DIR"
-        ls -1 "$PROFILES_DIR" 2>/dev/null || printf "(vacío)\n"
+        printf "%s[WARN]%s Placeholder: loops no implementado.
+" "$C_YLW" "$C_RESET"
         pause_enter
         ;;
       4)
-        printf "Nombre de perfil a eliminar: "
-        read -r pname
-        pfile="$PROFILES_DIR/${pname}.conf"
-        if [ ! -f "$pfile" ]; then
-          printf "%s[ERR]%s No existe: %s\n" "$C_RED" "$C_RESET" "$pfile"
-          pause_enter
-          continue
-        fi
-        rm -f "$pfile" 2>/dev/null || true
-        printf "%s[OK]%s Eliminado: %s\n" "$C_GRN" "$C_RESET" "$pfile"
+        printf "%s[WARN]%s Placeholder: clasificador basura/silencio no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      5)
+        printf "%s[WARN]%s Placeholder: loudness TF no implementado (usa opción 66).
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      6)
+        printf "%s[WARN]%s Placeholder: auto-segmentación TF no implementada.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      7)
+        printf "%s[WARN]%s Placeholder: matching cross-platform no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      8)
+        printf "%s[WARN]%s Placeholder: video tagging no implementado.
+" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+      9)
+        printf "%s[WARN]%s Placeholder: music tagging multi-label no implementado.
+" "$C_YLW" "$C_RESET"
         pause_enter
         ;;
       B|b)
-        break ;;
+        break
+        ;;
       *)
         invalid_option
         ;;
