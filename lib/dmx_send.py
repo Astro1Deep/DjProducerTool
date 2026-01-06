@@ -8,7 +8,7 @@ import argparse
 import time
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 
 def parse_plan(path: Path) -> List[Tuple[float, Dict[int, int], str]]:
@@ -59,7 +59,15 @@ def build_dmx_packet(ch_map: Dict[int, int], universe_size: int = 512) -> bytes:
     return bytes(packet)
 
 
-def send_plan(plan_path: Path, device: str, baud: int, dry_run: bool) -> None:
+def _log(log_path: Optional[Path], line: str) -> None:
+    if not log_path:
+        return
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def send_plan(plan_path: Path, device: str, baud: int, dry_run: bool, log_path: Optional[Path] = None) -> None:
     entries = parse_plan(plan_path)
     if not entries:
         print("No entries to send", file=sys.stderr)
@@ -79,6 +87,7 @@ def send_plan(plan_path: Path, device: str, baud: int, dry_run: bool) -> None:
         if now < start:
             time.sleep(start - now)
         packet = build_dmx_packet(ch_map)
+        _log(log_path, f"{time.time():.3f}\t{start:.2f}\t{scene}\t{ch_map}")
         if dry_run or ser is None:
             print(f"[DRY] t={start:.2f}s scene={scene} channels={ch_map}")
         else:
@@ -93,8 +102,10 @@ def main():
     ap.add_argument("--device", default="/dev/tty.usbserial", help="DMX USB serial device")
     ap.add_argument("--baud", type=int, default=57600)
     ap.add_argument("--dry-run", action="store_true", help="Do not send, just print")
+    ap.add_argument("--log", default=None, help="Log file for sent frames")
     args = ap.parse_args()
-    send_plan(Path(args.plan), args.device, args.baud, args.dry_run)
+    log_path = Path(args.log).expanduser() if args.log else None
+    send_plan(Path(args.plan), args.device, args.baud, args.dry_run, log_path)
 
 
 if __name__ == "__main__":

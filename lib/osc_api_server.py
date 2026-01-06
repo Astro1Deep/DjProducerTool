@@ -10,15 +10,42 @@ import json
 import os
 import threading
 import time
+import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import sys
 
 try:
     from pythonosc import dispatcher, osc_server  # type: ignore
 except Exception:
     dispatcher = None
     osc_server = None
+
+
+def tail_file(path: Path, limit: int = 50) -> List[str]:
+    if not path.exists():
+        return []
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+        return [ln.rstrip("\n") for ln in lines[-limit:]]
+    except Exception:
+        return []
+
+
+def dupes_summary(state_dir: Path) -> Dict[str, Any]:
+    plan = state_dir / "plans" / "dupes_plan.tsv"
+    if not plan.exists():
+        return {"path": None, "entries": 0}
+    try:
+        with plan.open("r", encoding="utf-8", errors="replace") as f:
+            lines = [ln for ln in f.readlines() if ln.strip()]
+        # If there is a header, ignore the first row
+        entries = max(len(lines) - 1, 0)
+    except Exception:
+        entries = 0
+    return {"path": str(plan), "entries": entries}
 
 
 def list_reports(report_dir: Path, limit: int = 20) -> List[Dict[str, Any]]:
@@ -52,8 +79,16 @@ class StatusHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self) -> None:  # noqa: N802
+        token = getattr(self.server, "auth_token", None)  # type: ignore[attr-defined]
+        if token:
+            auth = self.headers.get("Authorization")
+            if auth != f"Bearer {token}":
+                self._write(401, {"error": "unauthorized"})
+                return
         try:
-            if self.path.startswith("/status"):
+            parsed = urllib.parse.urlparse(self.path)
+            query = urllib.parse.parse_qs(parsed.query)
+            if parsed.path.startswith("/status"):
                 self._write(
                     200,
                     {
@@ -62,25 +97,39 @@ class StatusHandler(BaseHTTPRequestHandler):
                         "ts": time.time(),
                     },
                 )
-            elif self.path.startswith("/reports"):
+            elif parsed.path.startswith("/reports"):
                 self._write(200, {"reports": list_reports(self.server.report_dir)})  # type: ignore[attr-defined]
+            elif parsed.path.startswith("/dupes/summary"):
+                self._write(200, dupes_summary(self.server.state_dir))  # type: ignore[attr-defined]
+            elif parsed.path.startswith("/logs/tail"):
+                limit = int(query.get("limit", ["50"])[0])
+                logs_dir: Path = self.server.state_dir / "logs"  # type: ignore[attr-defined]
+                latest: Optional[Path] = None
+                if logs_dir.exists():
+                    log_files = sorted(logs_dir.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+                    latest = log_files[0] if log_files else None
+                lines = tail_file(latest, limit) if latest else []
+                self._write(200, {"file": str(latest) if latest else None, "lines": lines})
             else:
                 self._write(404, {"error": "not found"})
         except Exception as e:  # pragma: no cover - defensive
             self._write(500, {"error": str(e)})
 
 
-def start_http_server(host: str, port: int, base: Path, state: Path, report: Path) -> HTTPServer:
+def start_http_server(
+    host: str, port: int, base: Path, state: Path, report: Path, auth_token: Optional[str] = None
+) -> HTTPServer:
     server = HTTPServer((host, port), StatusHandler)
     server.base_path = base  # type: ignore[attr-defined]
     server.state_dir = state  # type: ignore[attr-defined]
     server.report_dir = report  # type: ignore[attr-defined]
+    server.auth_token = auth_token  # type: ignore[attr-defined]
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
     return server
 
 
-def start_osc_server(host: str, port: int, base: Path, state: Path) -> Optional[osc_server.ThreadingOSCUDPServer]:
+def start_osc_server(host: str, port: int, base: Path, state: Path) -> Optional[Any]:
     if dispatcher is None or osc_server is None:
         return None
     disp = dispatcher.Dispatcher()
@@ -109,13 +158,14 @@ def main():
     ap.add_argument("--osc-host", default="127.0.0.1")
     ap.add_argument("--osc-port", type=int, default=9000)
     ap.add_argument("--no-osc", action="store_true", help="Disable OSC server")
+    ap.add_argument("--auth-token", default=None, help="Bearer token for HTTP/OSC (optional)")
     args = ap.parse_args()
 
     base = Path(args.base).expanduser().resolve()
     state = Path(args.state).expanduser().resolve() if args.state else base / "_DJProducerTools"
     report = Path(args.report).expanduser().resolve() if args.report else state / "reports"
 
-    http_srv = start_http_server(args.http_host, args.http_port, base, state, report)
+    http_srv = start_http_server(args.http_host, args.http_port, base, state, report, auth_token=args.auth_token)
     osc_srv = None
     if not args.no_osc:
         osc_srv = start_osc_server(args.osc_host, args.osc_port, base, state)

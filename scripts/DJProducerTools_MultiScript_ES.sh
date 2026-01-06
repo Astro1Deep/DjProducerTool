@@ -1909,133 +1909,18 @@ submenu_T_tensorflow_lab() {
     case "$top" in
       1)
         clear
-        if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-          printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
-          pause_enter; continue
-        fi
-        maybe_activate_ml_env "TF Auto-tagging" 1 1
-        out="$REPORTS_DIR/tf_audio_autotag.tsv"
-        if ! python3 - <<'PY' 2>/dev/null
-import sys
-try:
-    import tensorflow as tf  # noqa
-except Exception:
-    sys.exit(1)
-sys.exit(0)
-PY
-        then
-          printf "%s[ERR]%s TensorFlow no disponible. Instala con opción 64.\n" "$C_RED" "$C_RESET"
-          pause_enter; continue
-        fi
-        printf "Modelo (1=YAMNet, 2=MusicTag NNFP, 3=VGGish fallback) [1]: "
-        read -r model_sel
-        [ -z "$model_sel" ] && model_sel=1
-        printf "%s[INFO]%s Auto-tagging (modelo seleccionado: %s, máx 150 archivos).\n" "$C_CYN" "$C_RESET" "$model_sel"
-        BASE="$BASE_PATH" OUT="$out" MODEL_SEL="$model_sel" python3 - <<'PY'
-import os, sys, pathlib, heapq
-try:
-    import tensorflow as tf
-    import tensorflow_hub as hub
-    import soundfile as sf
-    import numpy as np
-except Exception:
-    sys.exit(1)
-
-MODEL_CHOICES = {
-    "1": "https://tfhub.dev/google/yamnet/1",
-    "2": "https://tfhub.dev/google/music_tagging/nnfp/1",
-    "3": "https://tfhub.dev/google/vggish/1",
-    "4": "https://tfhub.dev/google/musicnn/1",
-}
-model_choice = os.environ.get("MODEL_SEL", "1")
-model_url = MODEL_CHOICES.get(model_choice, MODEL_CHOICES["1"])
-
-base = pathlib.Path(os.environ.get("BASE") or ".")
-out = pathlib.Path(os.environ["OUT"])
-audio_exts = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif"}
-files = []
-for p in base.rglob("*"):
-    if p.suffix.lower() in audio_exts and p.is_file():
-        files.append(p)
-    if len(files) >= 150:
-        break
-if not files:
-    print("[ERR] Sin archivos de audio.")
-    sys.exit(2)
-
-model = hub.load(model_url)
-class_names = []
-if hasattr(model, "class_map_path"):
-    try:
-        class_map_path = model.class_map_path().numpy()
-        class_names = [ln.strip() for ln in pathlib.Path(class_map_path).read_text().splitlines()]
-    except Exception:
-        class_names = []
-
-def load_mono_16k(path):
-    data, sr = sf.read(path)
-    if data.ndim > 1:
-        data = data.mean(axis=1)
-    if sr != 16000:
-        target_len = int(len(data) * 16000 / sr)
-        data = tf.signal.resample(tf.convert_to_tensor(data, dtype=tf.float32), target_len).numpy()
-    return data
-
-def predict_scores(wav):
-    # Try model signatures
-    if hasattr(model, "signatures") and "serving_default" in model.signatures:
-        sig = model.signatures["serving_default"]
-        outputs = sig(tf.convert_to_tensor(wav, dtype=tf.float32))
-        logits = None
-        for v in outputs.values():
-            logits = v
-            break
-        if logits is None:
-            return None
-        return tf.nn.softmax(logits[0]).numpy()
-    else:
-        outp = model(wav)
-        if isinstance(outp, (list, tuple)):
-            logits = outp[0]
-        else:
-            logits = outp
-        arr = tf.convert_to_tensor(logits)
-        if arr.ndim == 2:
-            return tf.nn.softmax(arr)[0].numpy()
-        elif arr.ndim == 1:
-            return tf.nn.softmax(arr)[0].numpy()
-        else:
-            return None
-
-with out.open("w", encoding="utf-8") as f:
-    f.write("path\ttop1\tp1\ttop2\tp2\ttop3\tp3\n")
-    for p in files:
-        try:
-            wav = load_mono_16k(str(p))
-            scores = predict_scores(wav)
-            if scores is None:
-                continue
-            top3 = heapq.nlargest(3, enumerate(scores), key=lambda x: x[1])
-            names_scores = []
-            for idx, sc in top3:
-                if class_names and idx < len(class_names):
-                    name = class_names[idx]
-                else:
-                    name = f"class_{idx}"
-                names_scores.append((name, sc))
-            while len(names_scores) < 3:
-                names_scores.append(("unknown", 0.0))
-            (n1, s1), (n2, s2), (n3, s3) = names_scores
-            f.write(f"{p}\t{n1}\t{s1:.3f}\t{n2}\t{s2:.3f}\t{n3}\t{s3:.3f}\n")
-        except Exception:
-            continue
-print(f\"[OK] Auto-tagging {model_url}: {out}\")
-PY
-        rc=$?
-        if [ "$rc" -ne 0 ]; then
-          printf "%s[ERR]%s No se pudo generar auto-tagging (revisa TF/tf_hub/soundfile).\n" "$C_RED" "$C_RESET"
+        ensure_python_bin || { pause_enter; continue; }
+        out_emb="$REPORTS_DIR/audio_embeddings.tsv"
+        out_tags="$REPORTS_DIR/audio_tags.tsv"
+        printf "%s[INFO]%s Auto-tagging/embeddings (offline, sin TF) -> %s / %s
+" "$C_CYN" "$C_RESET" "$out_emb" "$out_tags"
+        if "$PYTHON_BIN" "lib/ml_autotag.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 && \
+           "$PYTHON_BIN" "lib/ml_autotag.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150; then
+          printf "%s[OK]%s Reportes generados (modo offline). Si instalas TF (opción 64), podemos añadir modelos reales.
+" "$C_GRN" "$C_RESET"
         else
-          printf "%s[OK]%s Reporte auto-tagging: %s\n" "$C_GRN" "$C_RESET" "$out"
+          printf "%s[ERR]%s Falló generación de embeddings/tags.
+" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -4856,6 +4741,10 @@ ensure_general_root_valid
 parse_args "$@"
 
 # Salidas rápidas
+if [ "${DJPT_SOURCED:-0}" = "1" ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
 if [ $SHOW_HELP -eq 1 ]; then
   usage
   exit 0
