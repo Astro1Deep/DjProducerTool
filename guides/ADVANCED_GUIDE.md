@@ -153,3 +153,13 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
 - **TF Lab (65):** Elige modelo según recursos: TF (`yamnet/musicnn/musictag`) si tienes TF; ONNX (`clap_onnx/clip_vitb16_onnx/sentence_t5_tflite`) si solo hay onnxruntime; `DJPT_OFFLINE=1` fuerza heurísticos si no quieres descargas. Ventaja: mismo flujo sirve offline/online y CPU/GPU.
 - **DMX (V3):** Dry-run automático si Safe/Lock/DRY activos; logs en `logs/dmx_*.log`. Usa pyserial si hay hardware; si no, sigue en simulación sin fallar.
 - **Auto-tagging vídeo (8) y music tags (9):** Heurísticos ligeros (no mutan archivos); sirven como pre-etiquetado y para pruebas en entornos sin modelos pesados.
+
+## Opciones ampliadas y por qué se usan (ventajas)
+- **Dedupe + cuarentena (9–12):** SHA-256 exacto evita falsos positivos; la cuarentena es reversible y protege tu librería. `confirm_heavy` evita lanzarlo en discos masivos sin intención.
+- **Backups (7–8):** rsync incremental de `_Serato_` y metadatos DJ permite rollback ante corrupción o errores de importación; no toca el original.
+- **Video transcode:** ffprobe inventario + plan H.264 1080p para compatibilidad; selector de códec (hw accel si existe) reduce tiempo/CPU. Ejecutar ffmpeg es opt-in y respeta DRY, así no hay mutaciones accidentales.
+- **API/OSC:** token ligero evita accesos accidentales en redes compartidas; endpoints mínimos para monitorear estado sin exponer datos sensibles. OSC responde “unauthorized” si falta token.
+- **BPM/librosa:** límites de tempo y duración equilibran precisión vs rendimiento; beats y primer beat ayudan a generar cues sin escribir tags.
+- **ML/TF/ONNX:** modelos locales (yamnet/musicnn/musictag/CLAP/CLIP) dan similitud/tagging sin subir audio a la nube; `DJPT_OFFLINE` garantiza fallback seguro. ONNX/TFLite sirven en máquinas sin TF pesado o sin GPU.
+- **DMX/OSC dry-run:** siempre puedes simular (Safe/Lock/DRY); logs permiten verificar sin hardware, evitando riesgos en shows.
+- **Empaquetado/estado:** todo vive en `BASE_PATH/_DJProducerTools`; `--dry-run` y `export-ignore` en `docs/internal` evitan filtrar o escribir fuera de lo previsto.
