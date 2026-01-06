@@ -1,36 +1,61 @@
-# 🎧 DJProducerTools v2.1.0
+# 🎧 DJProducerTools v2.0.0
 
 Suite Profesional de Producción DJ para macOS | [English Version](README.md)
 
-## Características Principales
+## Estado
+
+- **Versión actual:** 2.0.0 (2024-01-04)
+- **Implementado (CLI):** catálogo de archivos, índice SHA-256 y plan de duplicados, quarantine manager, backups de `_Serato_`/metadatos DJ, snapshot hash rápido, reportes TSV (ffprobe, relink helper, rescan), playlists por carpeta, toggles `SAFE_MODE`/`DJ_SAFE_LOCK`/`DRYRUN_FORCE`, inventario ffprobe + plan de transcode (H.264 1080p), planes playlists→OSC/DMX, envío DMX opcional (ENTTEC) en dry-run, servidor HTTP/OSC local, análisis BPM/librosa → TSV.
+- **Roadmap/placeholder:** auto-tagging ML avanzado y laboratorio TensorFlow (solo plan/documentado); exportes HTML/PDF avanzados.
+
+## Características principales (CLI)
 
 | Característica | Estado | Detalles |
 |---|---|---|
-| 🎨 **Control de Iluminación DMX** | ✅ Listo | Control DMX512 para luces, láseres y efectos |
-| 🎬 **Integración Serato Video** | ✅ Listo | Detección, importación, sincronización |
-| 🎛️ **OSC (Control de Sonido Abierto)** | ✅ Listo | Protocolo de control basado en red |
-| 🔊 **Detección y Sincronización BPM** | ✅ Listo | Precisión del 95%+ con procesamiento por lotes |
-| 📚 **Gestión de Biblioteca** | ✅ Listo | Organización, deduplicación, limpieza de metadatos |
-| ⚙️ **Diagnósticos del Sistema** | ✅ Listo | Monitoreo en tiempo real, informes detallados |
+| 📂 Catálogo + hash | ✅ Listo | Índice SHA-256, plan duplicados exactos, quarantine opcional |
+| 🛡️ Safety/Quarantine | ✅ Listo | `SAFE_MODE`/`DJ_SAFE_LOCK` activos, `DRYRUN_FORCE` disponible, gestor de quarantine |
+| 💾 Backups DJ | ✅ Listo | rsync de `_Serato_` y metadatos DJ (Serato/Traktor/Rekordbox/Ableton) en `_DJProducerTools/` |
+| 🔍 Reportes TSV | ✅ Listo | Snapshot hash, ffprobe corrupción, relink helper, rescan inteligente, playlists `.m3u8` por carpeta |
+| 🎥 Video / OSC / DMX | ✅ Parcial | Inventario ffprobe, plan transcode H.264 1080p, planes playlists→OSC/DMX, envío DMX opcional (ENTTEC) con Safe/Lock/dry-run |
+| 🔌 API/OSC local | ✅ Parcial | Servidor HTTP (/status,/reports) y OSC (/djpt/ping) con inicio/parada desde menú |
+| 🔊 BPM/librosa | ✅ Ligero | Reporte TSV de BPM/onsets con `librosa` (no modifica tags) |
+| 🤖 ML/TF | 🚧 Placeholder | Auto-tagging/TF Lab documentados como plan; sin mutar audio |
 
 ## Instalación Rápida
 
 ```bash
 git clone https://github.com/Astro1Deep/DjProducerTool.git
 cd DjProducerTool
-chmod +x DJProducerTools_MultiScript_ES.sh
-./DJProducerTools_MultiScript_ES.sh
+chmod +x scripts/*.sh
+./scripts/DJProducerTools_MultiScript_ES.sh
 ```
+
+## Requisitos
+
+- macOS 10.13+ (recomendado 10.15+)
+- bash 4.0+ o zsh
+- ffmpeg/ffprobe, jq, curl, python3
+- Opcional: `pyserial` para enviar DMX (`pip install pyserial`), `python-osc` para servidor OSC, `librosa`+`soundfile` para BPM auto
+
+### Flags y seguridad (menú WAX 1-72)
+
+- `./scripts/DJProducerTools_MultiScript_ES.sh --help|--version|--test|--dry-run`
+- `--test` ejecuta chequeo de dependencias (bash, find, awk, sed, xargs, python3, ffprobe, sox, jq); `--dry-run` activa `DRYRUN_FORCE=1` (respeta backups/quarantine).
+- Estado en `BASE_PATH/_DJProducerTools` (por defecto el cwd al lanzar); `HOME_OVERRIDE=/ruta` si quieres aislar estado. Existe estado legacy en `~/.DJProducerTools` (ya no se usa).
+- Variables por defecto: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`.
 
 ## Documentación
 
-- [GUIDE.md](GUIDE.md) - Guía rápida
-- [FEATURES.md](FEATURES.md) - Estado de características
-- [README.md](README.md) - Documentación completa en inglés
+- [FEATURES_ES.md](FEATURES_ES.md) / [FEATURES.md](FEATURES.md) - Estado y alcance
+- [guides/GUIDE_es.md](guides/GUIDE_es.md) / [guides/GUIDE.md](guides/GUIDE.md) - Guía rápida
+- [guides/ADVANCED_GUIDE_es.md](guides/ADVANCED_GUIDE_es.md) / [guides/ADVANCED_GUIDE.md](guides/ADVANCED_GUIDE.md) - Guía avanzada por acción/opción
+- [docs/ADVANCED_MODULES_PLAN.md](docs/ADVANCED_MODULES_PLAN.md) - Plan/estado de módulos avanzados
+- [API_ES.md](API_ES.md) - Borrador API/OSC (placeholder)
+- [DEBUG_GUIDE_ES.md](DEBUG_GUIDE_ES.md) - Guía de depuración
 
 ## Licencia
 
 MIT - Ver [LICENSE](LICENSE)
 
 ---
-**Versión:** 2.1.0 | **Estado:** ✅ Listo para producción
+**Versión:** 2.0.0 | **Estado:** ✅ CLI básica lista / 🚧 módulos avanzados pendientes

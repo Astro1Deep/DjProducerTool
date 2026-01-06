@@ -7,6 +7,11 @@
 
 set -e
 
+# Defaults & CLI flags
+DEFAULT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_PATH="$DEFAULT_ROOT"
+SKIP_NETWORK=0
+
 # ═══════════════════════════════════════════════════════════════════════════
 # COLOR & SPINNER DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════
@@ -30,6 +35,15 @@ SPINNER_ICONS=(
 # Progress symbols
 PROGRESS_FULL="█"
 PROGRESS_EMPTY="░"
+
+# Exclusion patterns for inventory (evita medios/backups pesados)
+EXCLUDE_PATTERNS=(
+    "*.mp3" "*.m4a" "*.wav" "*.flac" "*.aif" "*.aiff" "*.ogg"
+    "*.mp4" "*.mkv" "*.mov" "*.avi"
+    "*.m3u8" "*.m3u" "*.pls" "*.xspf"
+    "*.zip" "*.rar" "*.7z"
+    "*.DS_Store"
+)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # SPINNER FUNCTION WITH BILINGUAL SUPPORT
@@ -169,12 +183,12 @@ test_file_structure() {
     local required_files=(
         "README.md"
         "README_ES.md"
-        "INSTALL.sh"
         "scripts/DJProducerTools_MultiScript_EN.sh"
         "scripts/DJProducerTools_MultiScript_ES.sh"
     )
     
     local optional_files=(
+        "INSTALL.sh"
         "GUIDE.md"
         "GUIDE_ES.md"
         "FEATURES.md"
@@ -255,6 +269,11 @@ test_bilingual_parity() {
 
 test_github_connectivity() {
     section_header "GitHub Repository Connectivity / Conectividad del Repositorio"
+
+    if [ $SKIP_NETWORK -eq 1 ]; then
+        echo -e "${YELLOW}○ Omitido en modo rápido / skipped (fast mode)${RESET}"
+        return 0
+    fi
     
     # Check if git is configured
     if ! command -v git &> /dev/null; then
@@ -285,6 +304,11 @@ test_github_connectivity() {
 
 test_download_urls() {
     section_header "Download URL Verification / Verificación de URLs de Descarga"
+
+    if [ $SKIP_NETWORK -eq 1 ]; then
+        echo -e "${YELLOW}○ Omitido en modo rápido / skipped (fast mode)${RESET}"
+        return 0
+    fi
     
     local base_url="https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main"
     local files=(
@@ -345,6 +369,48 @@ test_emoji_support() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
+# INVENTORY & ARGUMENTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+usage() {
+    cat <<EOF
+Uso: $0 [--root PATH] [--fast|--skip-network] [--help]
+  --root PATH        Directorio a inventariar (default: ${DEFAULT_ROOT})
+  --fast             Omite pruebas de red/descarga (modo offline)
+  --skip-network     Alias de --fast
+  --help             Muestra esta ayuda
+EOF
+}
+
+inventory_summary() {
+    local root="$1"
+    section_header "Project Inventory / Inventario del Proyecto"
+
+    if [ ! -d "$root" ]; then
+        echo -e "${RED}✗ Root no existe:${RESET} $root"
+        return 1
+    fi
+
+    echo -e "${YELLOW}Root:${RESET} $root"
+
+    echo -e "\n${YELLOW}Directorios (profundidad 2):${RESET}"
+    find "$root" -maxdepth 2 -type d ! -path "$root/.git*" | sort | sed 's#^#  - #'
+
+    echo -e "\n${YELLOW}Top extensiones (sin media):${RESET}"
+    find "$root" -type f \
+        ! -path "$root/.git/*" \
+        $(printf ' ! -name "%s"' "${EXCLUDE_PATTERNS[@]}") \
+        -print | sed -n 's/.*\.//p' | tr '[:upper:]' '[:lower:]' | sort | uniq -c | sort -nr | head -20
+
+    echo -e "\n${YELLOW}Archivos grandes (+5M, sin media):${RESET}"
+    find "$root" -type f -size +5M \
+        ! -path "$root/.git/*" \
+        $(printf ' ! -name "%s"' "${EXCLUDE_PATTERNS[@]}") \
+        -print | head -20 | sed 's#^#  - #'
+    echo ""
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
 # FINAL SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -369,7 +435,35 @@ final_summary() {
 # ═══════════════════════════════════════════════════════════════════════════
 
 main() {
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --root)
+                ROOT_PATH="${2:-$ROOT_PATH}"
+                shift 2
+                ;;
+            --fast|--skip-network)
+                SKIP_NETWORK=1
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Opción desconocida: $1"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
     display_header
+    echo -e "${YELLOW}Root seleccionado:${RESET} $ROOT_PATH"
+    if [ $SKIP_NETWORK -eq 1 ]; then
+        echo -e "${YELLOW}Modo rápido:${RESET} se omiten pruebas de red/URLs."
+    fi
+    echo ""
     
     # Run all tests
     test_script_syntax
@@ -378,6 +472,7 @@ main() {
     test_bilingual_parity
     test_emoji_support
     test_spinner_feedback
+    inventory_summary "$ROOT_PATH"
     test_github_connectivity
     test_download_urls
     

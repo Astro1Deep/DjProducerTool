@@ -1,7 +1,7 @@
-# 🎯 DJProducerTools - Status Final v3.0
+# 🎯 DJProducerTools - Status Snapshot v2.0.0 (CLI)
 
-**Date:** January 4, 2026  
-**Status:** ✅ PRODUCTION READY  
+**Date:** January 4, 2024  
+**Status:** ⚠️ Core CLI ready (advanced modules pending)  
 **Repository:** https://github.com/Astro1Deep/DjProducerTool
 
 ---
@@ -43,17 +43,15 @@ DJProducerTools_Project/
 - API Reference (ES)
 - Debug Guide (ES)
 
-### Features Implemented
-✅ Library Catalog & Scanning  
-✅ SHA-256 Hash Indexing  
-✅ Duplicate Detection & Quarantine  
-✅ Snapshot Management  
-✅ Multi-format Backup (Serato, Traktor, Rekordbox, Ableton)  
-✅ Advanced Analysis (Bitrate, Duration, Metadata)  
-✅ Interactive Progress Bars with Spinners  
-✅ Bilingual UI (EN/ES)  
-✅ Safe Mode with DJ_SAFE_LOCK  
-✅ Error Recovery
+### Features Implemented (CLI)
+✅ Catalog + SHA-256 index (exact duplicate plan)  
+✅ Optional quarantine with `SAFE_MODE`/`DJ_SAFE_LOCK` and `--dry-run`  
+✅ Backups of `_Serato_` and DJ metadata (Serato/Traktor/Rekordbox/Ableton)  
+✅ Fast hash snapshot + TSV reports (ffprobe corruption, rescan, relink helper, playlists)  
+✅ Video: ffprobe inventory + suggested transcode plan (H.264 1080p)  
+✅ Playlists → OSC/DMX with timing; optional DMX send (ENTTEC) in safe/dry-run modes  
+✅ Interactive progress (spinners/bars) and bilingual UI (EN/ES)  
+✅ Persistent config in `_DJProducerTools` (paths, exclusions, profiles)
 
 ---
 
@@ -136,12 +134,12 @@ dj-es
 
 ## 📝 Recent Changes
 
-### Version 3.0 (Latest)
-- Enhanced spinners with dual-color animation
-- Improved error handling & recovery
-- Comprehensive bilingual documentation
-- Repository cleanup & optimization
-- Production-ready state verification
+### Version 2.0.0 (Actual)
+- Catalog/hash CLI + duplicate/quarantine plan
+- `_Serato_` and DJ metadata backups; fast hash snapshot
+- EN/ES menus with spinners/progress bars
+- `SAFE_MODE`/`DJ_SAFE_LOCK` on by default; `--dry-run` supported
+- DMX/Video/OSC/ML modules kept as roadmap (plans only)
 
 ---
 
@@ -149,19 +147,17 @@ dj-es
 
 - **GitHub:** https://github.com/Astro1Deep/DjProducerTool
 - **Author:** Astro1Deep
-- **License:** Commercial (See LICENSE file)
+- **License:** MIT (see LICENSE file)
 
 ---
 
 ## 📊 Project Stats
 
-- **Total Lines of Code:** ~7,100+ per script
-- **Supported Languages:** English, Spanish
-- **Target Platform:** macOS (Intel & Apple Silicon)
-- **Dependencies:** bash/zsh, standard macOS tools
-- **Documentation:** Complete bilingual
+- **Languages:** English, Spanish
+- **Platform:** macOS (Intel & Apple Silicon)
+- **Dependencies:** bash/zsh, python3, ffprobe (ffmpeg), sox, jq, rsync, find/awk/sed/xargs
+- **Status:** Core CLI operational; advanced modules in roadmap
 
 ---
 
-**Status:** ✅ Ready for Production | 🚀 Ready for Public Use | 📦 Ready for Distribution
-
+**Status:** ⚠️ Core CLI ready | 🚧 Advanced modules pending
