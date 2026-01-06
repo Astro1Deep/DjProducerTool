@@ -194,5 +194,17 @@
 - **Automatizaciones (A/68):** cada cadena respeta Safe/Lock/DRY. Para operaciones grandes, lánzalas con DRYRUN_FORCE=1 y revisa.
 - **Espacio en disco:** usa la opción 59 (salud) y el guard de D10. Para staging en disco externo, regenera plan o edita los batch scripts al nuevo destino.
 
+### Rendimiento, solución de problemas y buenas prácticas
+- **Compatibilidad rsync:** el rsync de macOS puede no soportar `--protect-args`; D10 lo detecta. Si usas rsync manual, `rsync -av --info=progress2 "src" "dst"` con rutas entre comillas.
+- **Poco espacio:** ejecuta D10 con lotes pequeños (10–20 GB) y umbral alto de espacio libre. Opción 59 muestra espacio; detén batches si quedan <15–20 GB.
+- **Rutas con espacios/finales:** no uses `xargs`; el helper preserva quoting. Ejecuta los batch desde terminal para mantener las rutas intactas.
+- **Estado legacy:** si existe `~/.DJProducerTools`, usa `HOME_OVERRIDE=/ruta/nueva` para no mezclar estados. El menú avisa si detecta legacy.
+- **Logs y ruido:** D10 deja log por batch en `_DJProducerTools/logs`. Para ffmpeg, usa DRYRUN_FORCE primero para revisar comandos.
+- **Pruebas rápidas:** `./scripts/VERIFY_AND_TEST.sh --fast` para sintaxis/estructura (sin red). Para TF/ML asegúrate de activar venv y tener runtimes.
+- **Cuando Safe/Lock están en 0:** el menú ofrece restaurar a 1/1. Déjalos en 0 sólo mientras aplicas un plan revisado (ej. opción 11) y vuelve a activarlos después.
+- **ffmpeg disponible:** sin ffmpeg el plan se genera pero no se ejecuta la transcodificación; instala ffmpeg para flujo completo.
+- **Seguridad OSC/API:** define token si la red es compartida; endpoints son locales por defecto.
+- **Hardware DMX:** ENTTEC/serie está protegido por Safe/Lock/DRY. Prueba en dry-run y valida mapeos de canales antes del live.
+
 ### Licencia
 - DJProducerTools License (Atribución + 20% revenue share en derivados/comercial). Mantén el crédito; ver `LICENSE`.

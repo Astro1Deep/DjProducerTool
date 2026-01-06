@@ -210,5 +210,17 @@
 - **Automation (A/68):** each chain honors Safe/Lock/DRY when applicable. For big moves, run chains with DRYRUN_FORCE=1 first to inspect.
 - **Space checks:** use option 59 (health) and D10 min-free guard. For staging to an external disk, regenerate plan or edit batch scripts to point to the staging path.
 
+### Performance, troubleshooting, and best practices
+- **Rsync compatibility:** older macOS rsync may not support `--protect-args`; D10 auto-detects. If you run manual rsync, prefer `rsync -av --info=progress2 source dest` and keep paths quoted.
+- **Disks with low space:** run D10 with smaller batches (10–20 GB) and high min-free threshold. Use option 59 to watch free space; stop batches if <15–20 GB remain.
+- **Paths with spaces/trailing spaces:** avoid trimming; drag&drop is safe. D10 preserves quoting; run helpers from terminal, not copy/paste without quotes.
+- **Legacy state:** if `~/.DJProducerTools` exists, use `HOME_OVERRIDE=/new/state` to avoid mixing. The menu warns if legacy state is found.
+- **Logs and noise control:** D10 logs per batch in `_DJProducerTools/logs`. For ffmpeg-heavy runs, keep DRYRUN_FORCE on to inspect commands first.
+- **Testing quick checks:** `./scripts/VERIFY_AND_TEST.sh --fast` for syntax/structure; `--fast` skips network/URLs. For TF/ML, ensure venv is active and runtimes installed.
+- **When Safe/Lock are 0:** the menu will ask to restore to 1/1. Keep them off only while applying a reviewed plan (e.g., option 11) and re-enable afterwards.
+- **ffmpeg availability:** if ffmpeg is missing, video plan still generates TSV/JSON but won’t run transcodes; install ffmpeg for full flow.
+- **OSC/API security:** set a token when on shared networks; endpoints are minimal and local-only by default.
+- **DMX hardware:** ENTTEC/serial send is guarded by Safe/Lock/DRY. Always test dry-run and confirm channel maps before live use.
+
 ### License
 - DJProducerTools License (Attribution + 20% revenue share on derivatives/commercial). Keep credit; see `LICENSE`.
