@@ -2217,7 +2217,29 @@ action_33_serato_video_prep() {
     printf "%s[ERR]%s Falló generación de plan (revisa lib/video_tools.py).\n" "$C_RED" "$C_RESET"
     pause_enter; return
   }
-  printf "%s[OK]%s Plan de transcode generado (no ejecuta ffmpeg).\n" "$C_GRN" "$C_RESET"
+  printf "%s[OK]%s Plan de transcode generado.\n" "$C_GRN" "$C_RESET"
+  printf "¿Ejecutar ffmpeg ahora? [y/N]: "
+  read -r run_ff
+  case "$run_ff" in
+    y|Y)
+      if ! command -v ffmpeg >/dev/null 2>&1; then
+        printf "%s[ERR]%s ffmpeg no disponible.\n" "$C_RED" "$C_RESET"; pause_enter; return
+      fi
+      confirm_heavy "Transcode ffmpeg (puede tardar)" || { pause_enter; return; }
+      tail -n +2 "$out" | while IFS=$'\t' read -r vpath action cmd est size; do
+        [ "$action" = "KEEP" ] && continue
+        [ -z "$cmd" ] && continue
+        if [ "$DRYRUN_FORCE" -eq 1 ]; then
+          printf "[DRY] ffmpeg -> %s\n" "$vpath"
+          printf "%s\n" "$cmd"
+        else
+          bash -c "$cmd"
+        fi
+      done
+      ;;
+    *)
+      ;;
+  esac
   pause_enter
 }
 
@@ -2770,11 +2792,15 @@ action_50_integration_engine() {
   read -e -r hp; [ -n "$hp" ] && http_port="$hp"
   printf "OSC port (ENTER=9000): "
   read -e -r op; [ -n "$op" ] && osc_port="$op"
+  printf "Bearer token (ENTER = sin token): "
+  read -r api_token
   printf "Iniciar servidor (HTTP %s, OSC %s)? [y/N]: " "$http_port" "$osc_port"
   read -r ans
   case "$ans" in
     y|Y)
-      nohup "$PYTHON_BIN" "lib/osc_api_server.py" --base "$BASE_PATH" --state "$STATE_DIR" --report "$REPORTS_DIR" --http-port "$http_port" --osc-port "$osc_port" >/dev/null 2>&1 &
+      args=(--base "$BASE_PATH" --state "$STATE_DIR" --report "$REPORTS_DIR" --http-port "$http_port" --osc-port "$osc_port")
+      [ -n "$api_token" ] && args+=(--auth-token "$api_token")
+      nohup "$PYTHON_BIN" "lib/osc_api_server.py" "${args[@]}" >/dev/null 2>&1 &
       srv_pid=$!
       echo "$srv_pid" >"$pid_file"
       printf "%s[OK]%s Servidor iniciado (PID %s). HTTP http://127.0.0.1:%s\n" "$C_GRN" "$C_RESET" "$srv_pid" "$http_port"

@@ -129,15 +129,19 @@ def start_http_server(
     return server
 
 
-def start_osc_server(host: str, port: int, base: Path, state: Path) -> Optional[Any]:
+def start_osc_server(host: str, port: int, base: Path, state: Path, auth_token: Optional[str] = None) -> Optional[Any]:
     if dispatcher is None or osc_server is None:
         return None
     disp = dispatcher.Dispatcher()
 
     def ping_handler(unused_addr, *args):  # type: ignore[unused-argument]
+        if auth_token and (len(args) == 0 or args[0] != auth_token):
+            return "unauthorized"
         return "pong"
 
     def status_handler(unused_addr, *args):  # type: ignore[unused-argument]
+        if auth_token and (len(args) == 0 or args[0] != auth_token):
+            return "unauthorized"
         return json.dumps({"base_path": str(base), "state_dir": str(state), "ts": time.time()})
 
     disp.map("/djpt/ping", ping_handler)
@@ -168,7 +172,7 @@ def main():
     http_srv = start_http_server(args.http_host, args.http_port, base, state, report, auth_token=args.auth_token)
     osc_srv = None
     if not args.no_osc:
-        osc_srv = start_osc_server(args.osc_host, args.osc_port, base, state)
+        osc_srv = start_osc_server(args.osc_host, args.osc_port, base, state, auth_token=args.auth_token)
         if osc_srv is None:
             print("python-osc no instalado, servidor OSC no iniciado", file=sys.stderr)
     print(f"[INFO] HTTP server on http://{args.http_host}:{args.http_port} base={base}")
