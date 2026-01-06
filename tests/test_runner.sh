@@ -200,6 +200,16 @@ test_playlist_bridge() {
     local plans_dir="$SCRIPT_DIR/tests/_DJProducerTools/plans"
     mkdir -p "$plans_dir"
     local pl="$SCRIPT_DIR/tests/fixtures/playlists/test_playlist.m3u8"
+    if [ ! -f "$pl" ]; then
+        mkdir -p "$SCRIPT_DIR/tests/fixtures/playlists"
+        cat >"$pl" <<'EOF'
+#EXTM3U
+#EXTINF:10,Artist One - Track A
+fixtures/videos/artist_blend_a.mp4
+#EXTINF:10,Artist One - Track B
+fixtures/videos/artist_blend_b.mp4
+EOF
+    fi
     local osc_out="$plans_dir/osc_from_playlist.tsv"
     local dmx_out="$plans_dir/dmx_from_playlist.tsv"
     rm -f "$osc_out" "$dmx_out"
