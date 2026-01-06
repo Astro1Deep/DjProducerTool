@@ -8,8 +8,7 @@ These test clips are provided by the repository owner for automated testing of v
 - 20251126_0636_Blend Video_blend_01kaze1b51fg4rctrtwemrdpdg.mp4
 - 20251201_0731_Loop Video_loop_01kbcd5x1cenesg7kfdpwsr407.mp4
 - 20260101_2012_Squid Monster Attack_remix_01kdxjzr1kewetekcemq1rpjxx.png (image fixture)
-- sample_keep.mp4
-- sample_transcode.mov
+- artist_loop_transcode.mov (non-h264 for transcode plan)
 
 ## Notes
 - Clips are short and H.264/AAC where applicable to keep tests fast.
