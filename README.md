@@ -74,11 +74,9 @@ dj-es    # force Spanish
 - **[guides/GUIDE_es.md](./guides/GUIDE_es.md)** — Quick guide (ES)
 - **[guides/ADVANCED_GUIDE.md](./guides/ADVANCED_GUIDE.md)** — Advanced action/menu guide (EN)
 - **[guides/ADVANCED_GUIDE_es.md](./guides/ADVANCED_GUIDE_es.md)** — Advanced guide (ES)
-- **[docs/ADVANCED_MODULES_PLAN.md](./docs/ADVANCED_MODULES_PLAN.md)** — Advanced modules plan/status
-- **[API_ES.md](./API_ES.md)** — API/OSC draft (ES, placeholder)
 - **[DEBUG_GUIDE_ES.md](./DEBUG_GUIDE_ES.md)** — Debug guide (ES)
 - **TF Lab (65):** Instala TF con opción 64 (venv aislado). `DJPT_TF_MOCK=1` evita descargas y usa modo offline. Salidas: `reports/audio_embeddings.tsv`, `reports/audio_tags.tsv`, `reports/audio_similarity.tsv`, `reports/audio_anomalies.tsv`, `reports/audio_segments.tsv`.
-- **Internal docs (colaboradores):** material histórico/planes en `docs/internal/` (no necesario para usuarios).
+- **Colaboradores:** planes/roadmap/API/seguridad en `docs/internal/` (no necesario para usuarios).
 
 ## Safety & Packaging (recordatorios rápidos)
 - No ejecutes el script como root ni apuntes `BASE_PATH` al disco del sistema. Usa `confirm_heavy_action` para operaciones grandes y revisa exclusiones por defecto antes de escanear discos con mucho media.

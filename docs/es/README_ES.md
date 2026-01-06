@@ -103,7 +103,7 @@ El estado se guarda en `BASE_PATH/_DJProducerTools/` (config, reports, planes, c
 
 - **[INSTALL_ES.md](INSTALL_ES.md)** - Guía de instalación detallada
 - **[GUIDE_es.md](GUIDE_es.md)** - Guía completa del usuario
-- **[API.md](API.md)** - Referencia de API para desarrolladores
+- **API (dev)**: material para desarrolladores en `docs/internal/API_ES.md`
 - **[DEBUG_GUIDE.md](DEBUG_GUIDE.md)** - Guía de depuración y barras de progreso
 - **[SECURITY.md](SECURITY.md)** - Políticas de seguridad
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Guía de contribución

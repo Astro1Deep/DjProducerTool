@@ -126,7 +126,7 @@ sudo chown -R $(whoami) /path/to/music/library
 
 - **Documentación**: Ver `GUIDE.md` o `GUIDE_es.md`
 - **Problemas**: [GitHub Issues](https://github.com/Astro1Deep/DjProducerTool/issues)
-- **Contribuyendo**: Ver `CONTRIBUTING.md`
+- **Contribuyendo**: material para colaboradores en `docs/internal/CONTRIBUTING_ES.md`
 
 ## Próximos Pasos
 

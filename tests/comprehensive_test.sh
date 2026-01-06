@@ -120,8 +120,10 @@ assert_file_readable "README.md" "README is readable"
 
 # Test 4: Documentation
 echo -e "\n${C_YLW}TEST GROUP 4: Documentation Completeness${C_RESET}"
-for doc in API.md DEBUG_GUIDE.md INSTALL.md INSTALL_ES.md GUIDE.md GUIDE_en.md GUIDE_es.md \
-           CONTRIBUTING.md CONTRIBUTING_ES.md SECURITY.md ROADMAP.md CHANGELOG.md CHANGELOG_ES.md; do
+for doc in README.md README_ES.md FEATURES.md FEATURES_ES.md \
+           guides/GUIDE.md guides/GUIDE_es.md guides/ADVANCED_GUIDE.md guides/ADVANCED_GUIDE_es.md \
+           docs/en/INSTALL.md docs/es/INSTALL_ES.md docs/en/README.md docs/es/README_ES.md \
+           DEBUG_GUIDE_ES.md; do
     test_case "Documentation: $doc"
     assert_file_exists "$doc" "$doc present"
 done
