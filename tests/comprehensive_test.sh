@@ -231,8 +231,10 @@ echo -e "Tests Passed:    ${C_GRN}${TESTS_PASS}${C_RESET}"
 echo -e "Tests Failed:    ${TESTS_FAIL}"
 if [ $TESTS_FAIL -eq 0 ]; then
     echo -e "\n${C_GRN}✓ ALL TESTS PASSED${C_RESET}"
-    exit 0
+    rc=0
 else
     echo -e "\n${C_RED}✗ Some tests failed${C_RESET}"
-    exit 1
+    rc=1
 fi
+[ "${DJPT_PAUSE_AT_END:-0}" -eq 1 ] && read -rp "Press Enter to exit..."
+exit $rc

@@ -252,8 +252,10 @@ fi
 echo "-------------------------------------"
 if [ "$FAIL_COUNT" -eq 0 ]; then
     echo -e "${C_GRN}🎉 ¡Verificación de consistencia completada! Todo parece estar en orden.${C_RESET}"
-    exit 0
+    rc=0
 else
     echo -e "${C_RED}🔥 Se encontraron $FAIL_COUNT problemas de consistencia. Por favor, revisa los errores de arriba.${C_RESET}"
-    exit 1
+    rc=1
 fi
+[ "${DJPT_PAUSE_AT_END:-0}" -eq 1 ] && read -rp "Presiona Enter para salir..."
+exit $rc
