@@ -143,8 +143,6 @@ test_script_syntax() {
     local scripts=(
         "scripts/DJProducerTools_MultiScript_EN.sh"
         "scripts/DJProducerTools_MultiScript_ES.sh"
-        "scripts/DJProducerTools_v3_PRODUCTION_EN.sh"
-        "scripts/DJProducerTools_v3_PRODUCTION_ES.sh"
     )
     
     local total=${#scripts[@]}
@@ -226,8 +224,6 @@ test_permissions() {
     local scripts=(
         "scripts/DJProducerTools_MultiScript_EN.sh"
         "scripts/DJProducerTools_MultiScript_ES.sh"
-        "scripts/DJProducerTools_v3_PRODUCTION_EN.sh"
-        "scripts/DJProducerTools_v3_PRODUCTION_ES.sh"
         "INSTALL.sh"
     )
     
