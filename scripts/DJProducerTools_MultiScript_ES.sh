@@ -97,6 +97,12 @@ ensure_state_dir_safe() {
     return 1
   fi
   case "$STATE_DIR" in
+    */_DJProducerTools/_DJProducerTools*)
+      printf "%s[ERR]%s STATE_DIR parece una matrioshka (%s). Ajusta BASE_PATH a la carpeta raíz, no a _DJProducerTools.\n" "$C_RED" "$C_RESET" "$STATE_DIR"
+      return 1
+      ;;
+  esac
+  case "$STATE_DIR" in
     */_DJProducerTools|*/_DJProducerTools/) ;;
     *)
       printf "%s[ERR]%s STATE_DIR no parece un dir de estado seguro: %s\n" "$C_RED" "$C_RESET" "$STATE_DIR"
