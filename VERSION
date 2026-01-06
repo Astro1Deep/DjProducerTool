@@ -1,0 +1,11 @@
+VERSION=2.0.0
+BUILD=20240104
+RELEASE_DATE="2024-01-04"
+STABILITY="stable"
+MIN_MACOS="10.15"
+MIN_BASH="4.0"
+
+# Version history
+# 2.0.0 - Complete rewrite with comprehensive testing, bilingual docs, crash recovery
+# 1.9.5 - Advanced features, auto-pilot chains
+# 1.0.0 - Initial release
