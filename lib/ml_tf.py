@@ -10,8 +10,8 @@ import csv
 import hashlib
 import json
 import os
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 
@@ -59,6 +59,15 @@ def list_audio(base: Path, limit: int) -> List[Path]:
 
 def hash_embedding(path: Path, dim: int = 16) -> List[float]:
     h = hashlib.sha256(str(path).encode("utf-8")).digest()
+    vals = []
+    for i in range(dim):
+        b = h[i]
+        vals.append((b / 255.0) * 2 - 1)
+    return vals
+
+
+def text_embedding(text: str, dim: int = 16) -> List[float]:
+    h = hashlib.sha256(text.encode("utf-8")).digest()
     vals = []
     for i in range(dim):
         b = h[i]
@@ -346,13 +355,14 @@ def write_garbage(base: Path, out_tsv: Path, limit: int) -> None:
 def write_loudness(base: Path, out_tsv: Path, limit: int, target_lufs: float = -14.0) -> None:
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Tuple[str, float, float, float, float, str]] = []
+    rows: List[Tuple[str, float, float, float, float, float, str]] = []
     for p in files:
         lufs = 0.0
         crest = 0.0
         dyn_range = 0.0
         method = "rms_dbfs"
         gain = 0.0
+        lra = 0.0
         try:
             import soundfile as _sf
             import numpy as _np
@@ -374,6 +384,10 @@ def write_loudness(base: Path, out_tsv: Path, limit: int, target_lufs: float = -
                 import pyloudnorm as pyln  # type: ignore
                 meter = pyln.Meter(sr)
                 lufs = float(meter.integrated_loudness(data))
+                try:
+                    lra = float(meter.loudness_range(data))
+                except Exception:
+                    lra = 0.0
                 method = "pyloudnorm"
             except Exception:
                 method = "rms_dbfs"
@@ -384,12 +398,13 @@ def write_loudness(base: Path, out_tsv: Path, limit: int, target_lufs: float = -
             crest = 0.0
             dyn_range = 0.0
             gain = 0.0
-        rows.append((str(p), lufs, gain, crest, dyn_range, method))
+            lra = 0.0
+        rows.append((str(p), lufs, gain, crest, dyn_range, lra, method))
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "loudness_lufs", "gain_db_to_target", "crest_factor_db", "dyn_range_db", "method"])
-        for path, lufs, gain, crest, dyn_range, method in rows:
-            w.writerow([path, f"{lufs:.2f}", f"{gain:.2f}", f"{crest:.2f}", f"{dyn_range:.2f}", method])
+        w.writerow(["path", "loudness_lufs", "gain_db_to_target", "crest_factor_db", "dyn_range_db", "lra_db", "method"])
+        for path, lufs, gain, crest, dyn_range, lra, method in rows:
+            w.writerow([path, f"{lufs:.2f}", f"{gain:.2f}", f"{crest:.2f}", f"{dyn_range:.2f}", f"{lra:.2f}", method])
 
 
 def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path] = None, tags_tsv: Optional[Path] = None) -> None:
@@ -421,8 +436,16 @@ def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path
         except Exception:
             emb_map = {}
 
+    text_map: Dict[str, List[float]] = {}
+
     def emb_score(a: str, b: str) -> float:
         va, vb = emb_map.get(a), emb_map.get(b)
+        if not va or not vb:
+            return 0.0
+        return cosine(va, vb)
+
+    def text_score(a: str, b: str) -> float:
+        va, vb = text_map.get(a), text_map.get(b)
         if not va or not vb:
             return 0.0
         return cosine(va, vb)
@@ -432,6 +455,7 @@ def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path
     for p in files:
         name = p.stem.lower()
         name = re.sub(r"[^a-z0-9]+", "_", name).strip("_")
+        text_map[str(p)] = text_embedding(name)
         tags = tag_map.get(str(p), heuristic_tags(p))
         base_score = 0.0
         if "unknown" not in tags:
@@ -449,6 +473,10 @@ def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path
         if sim >= 0.75:
             score_i += 0.2
             score_j += 0.2
+        t_sim = text_score(path_i, path_j)
+        if t_sim >= 0.75:
+            score_i += 0.15
+            score_j += 0.15
         rows[i] = (path_i, norm_i, tags_i, score_i)
         rows[j] = (path_j, norm_j, tags_j, score_j)
 

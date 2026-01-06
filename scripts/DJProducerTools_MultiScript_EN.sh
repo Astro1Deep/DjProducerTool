@@ -1914,25 +1914,23 @@ submenu_T_tensorflow_lab() {
 " "$C_YLW" "$C_RESET"
     printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)
 " "$C_YLW" "$C_RESET"
-    printf "%sB)%s Volver
-" "$C_YLW" "$C_RESET"
+    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r top
+    offline_args=()
+    [ "${DJPT_OFFLINE:-0}" -eq 1 ] && offline_args=(--offline)
     case "$top" in
       1)
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_emb="$REPORTS_DIR/audio_embeddings.tsv"
         out_tags="$REPORTS_DIR/audio_tags.tsv"
-        printf "%s[INFO]%s Auto-tagging/embeddings (offline/TF si disponible) -> %s / %s
-" "$C_CYN" "$C_RESET" "$out_emb" "$out_tags"
-        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 && \
-           "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150; then
-          printf "%s[OK]%s Reportes generados. Usa DJPT_TF_MOCK=1 para evitar descargas; instala TF (opción 64) para usar modelos reales.
-" "$C_GRN" "$C_RESET"
+        printf "%s[INFO]%s Auto-tagging/embeddings (offline/TF si disponible) -> %s / %s\n" "$C_CYN" "$C_RESET" "$out_emb" "$out_tags"
+        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 "${offline_args[@]}" && \
+           "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150 "${offline_args[@]}"; then
+          printf "%s[OK]%s Reportes generados. Usa DJPT_TF_MOCK=1 para evitar descargas; instala TF (opción 64) para usar modelos reales.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Falló generación de embeddings/tags.
-" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló generación de embeddings/tags.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -1941,14 +1939,11 @@ submenu_T_tensorflow_lab() {
         ensure_python_bin || { pause_enter; continue; }
         emb_in="$REPORTS_DIR/audio_embeddings.tsv"
         sim_out="$REPORTS_DIR/audio_similarity.tsv"
-        printf "%s[INFO]%s Similitud por contenido desde embeddings -> %s
-" "$C_CYN" "$C_RESET" "$sim_out"
+        printf "%s[INFO]%s Similitud por contenido desde embeddings -> %s\n" "$C_CYN" "$C_RESET" "$sim_out"
         if [ ! -s "$emb_in" ]; then
-          printf "%s[WARN]%s No hay embeddings previos; generando primero.
-" "$C_YLW" "$C_RESET"
-          "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit 150 || {
-            printf "%s[ERR]%s No se pudieron generar embeddings.
-" "$C_RED" "$C_RESET"
+          printf "%s[WARN]%s No hay embeddings previos; generando primero.\n" "$C_YLW" "$C_RESET"
+          "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit 150 "${offline_args[@]}" || {
+            printf "%s[ERR]%s No se pudieron generar embeddings.\n" "$C_RED" "$C_RESET"
             pause_enter; continue
           }
         fi

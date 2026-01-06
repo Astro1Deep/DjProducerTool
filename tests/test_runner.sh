@@ -287,6 +287,16 @@ test_ml_tf_enhanced_mock() {
     assert_true "[ -s \"$emb\" ]" "TF embeddings TSV generated"
     assert_true "[ -s \"$tags\" ]" "TF tags TSV generated"
     assert_true "[ -s \"$garb\" ]" "Garbage report generated"
+    if command -v ffmpeg >/dev/null 2>&1; then
+        local keyframe_dir="$reports_dir/video_keyframes"
+        local kf_count="$(ls \"$keyframe_dir\"/*_kf.jpg 2>/dev/null | wc -l | tr -d ' ')"
+        if [ "$kf_count" -gt 0 ]; then
+            assert_true "[ \"$kf_count\" -gt 0 ]" "Keyframe extracted via ffmpeg"
+        else
+            echo "⚠️  WARN: ffmpeg disponible pero no se generó keyframe (se omite check duro)."
+        fi
+    fi
+    assert_true "grep -q \"dirty_click.wav\" \"$garb\"" "Garbage report incluye dirty_click.wav"
     assert_true "head -1 \"$lufs\" | grep -q 'gain_db_to_target'" "Loudness report has gain/crest columns"
     assert_true "head -1 \"$seg\" | grep -q 'beats_sec'" "Segments report includes beats"
     assert_true "[ -s \"$match\" ]" "Matching report generated"

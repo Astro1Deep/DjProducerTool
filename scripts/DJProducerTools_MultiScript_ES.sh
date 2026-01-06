@@ -1918,6 +1918,8 @@ submenu_T_tensorflow_lab() {
 " "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r top
+    offline_args=()
+    [ "${DJPT_OFFLINE:-0}" -eq 1 ] && offline_args=(--offline)
     case "$top" in
       1)
         clear
@@ -1926,7 +1928,7 @@ submenu_T_tensorflow_lab() {
         out_tags="$REPORTS_DIR/audio_tags.tsv"
         printf "%s[INFO]%s Auto-tagging/embeddings (offline/TF si disponible) -> %s / %s
 " "$C_CYN" "$C_RESET" "$out_emb" "$out_tags"
-        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 &&            "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 "${offline_args[@]}" &&            "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150 "${offline_args[@]}"; then
           printf "%s[OK]%s Reportes generados. Usa DJPT_TF_MOCK=1 para evitar descargas; instala TF (opción 64) para usar modelos reales.
 " "$C_GRN" "$C_RESET"
         else
@@ -1945,7 +1947,7 @@ submenu_T_tensorflow_lab() {
         if [ ! -s "$emb_in" ]; then
           printf "%s[WARN]%s No hay embeddings previos; generando primero.
 " "$C_YLW" "$C_RESET"
-          "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit 150 || {
+          "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit 150 "${offline_args[@]}" || {
             printf "%s[ERR]%s No se pudieron generar embeddings.
 " "$C_RED" "$C_RESET"
             pause_enter; continue
@@ -2030,7 +2032,8 @@ submenu_T_tensorflow_lab() {
         tag_args=()
         [ -s "$emb_file" ] && emb_args=(--embeddings "$emb_file")
         [ -s "$tags_file" ] && tag_args=(--tags "$tags_file")
-        printf "%s[INFO]%s Matching cross-platform (nombres normalizados + tags/embeddings si existen) -> %s\n" "$C_CYN" "$C_RESET" "$out_match"
+        printf "%s[INFO]%s Matching cross-platform (nombres normalizados + tags/embeddings si existen) -> %s
+" "$C_CYN" "$C_RESET" "$out_match"
         if "$PYTHON_BIN" "lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit 200 "${emb_args[@]}" "${tag_args[@]}"; then
           printf "%s[OK]%s Matching generado.
 " "$C_GRN" "$C_RESET"
