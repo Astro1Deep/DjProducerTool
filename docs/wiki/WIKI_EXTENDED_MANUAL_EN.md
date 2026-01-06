@@ -140,7 +140,7 @@
 - D7 Matrioshka folders (structure duplicates) -> TSV KEEP/REMOVE suggestions.
 - D8 Mirror folders by content (hash listings) -> TSV.
 - D9 Audio similarity (YAMNet TF) with presets (fast/balanced/strict).
-- D10 Batch rsync helpers: input `consolidation_plan.tsv`, batch size GB (default 50). Creates `consolidation_rsync_batchXX.sh` with mkdir+rsync; skips missing with warning; shows per-batch files/GB and totals. Safe/Lock informative; generation does not move files.
+- D10 Batch rsync helpers: input `consolidation_plan.tsv`, batch size GB (default 50), min free GB check (default 20), optional `--remove-source-files`. Generates `consolidation_rsync_batchXX.sh` with space check, rsync version autodetect (drops `--protect-args` if unsupported), logs to `_DJProducerTools/logs`, skips missing with warning, shows per-batch files/GB and totals. Safe/Lock informative; generation no mueve archivos.
 
 ### ML / Deep (40–52, 62–67)
 - 40 Smart analysis JSON; 41 heuristic predictor; 42 efficiency checklist TSV; 43 smart workflow TSV; 44 integrated dedup placeholder.

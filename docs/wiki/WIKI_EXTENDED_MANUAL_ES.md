@@ -124,7 +124,7 @@
 - D7 Matrioshkas (estructuras duplicadas) -> TSV KEEP/REMOVE sugerido.
 - D8 Carpetas espejo por contenido (hash de listados) -> TSV.
 - D9 Similitud audio (YAMNet TF) con presets (rápido/balanceado/estricto).
-- D10 Helpers rsync por lotes: entrada `consolidation_plan.tsv`, lote en GB (por defecto 50). Crea `consolidation_rsync_batchXX.sh` con mkdir+rsync; omite faltantes con aviso; muestra archivos/GB por batch y total. Safe/Lock informativos; no mueve nada al generarlos.
+- D10 Helpers rsync por lotes: entrada `consolidation_plan.tsv`, lote en GB (por defecto 50), chequeo de espacio libre mínimo (20 GB por defecto) y opción `--remove-source-files`. Genera `consolidation_rsync_batchXX.sh` con control de espacio, autodetección de rsync (quita `--protect-args` si no existe), logs en `_DJProducerTools/logs`, omite faltantes con aviso y resume archivos/GB por batch/total. Safe/Lock informativos; no mueve nada al generarlos.
 
 ### ML / Deep (40–52, 62–67)
 - 40 Análisis inteligente JSON; 41 predictor heurístico; 42 checklist de eficiencia TSV; 43 flujo inteligente TSV; 44 dedupe integrado placeholder.

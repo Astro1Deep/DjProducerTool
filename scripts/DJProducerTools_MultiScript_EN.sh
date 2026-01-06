@@ -3375,12 +3375,22 @@ submenu_D_dupes_general() {
           printf "%s[WARN]%s Valor inválido, usando 50 GB.\n" "$C_YLW" "$C_RESET"
           batch_gb=50
         fi
-        batch_bytes=$((batch_gb * 1024 * 1024 * 1024))
-        if [ "$batch_bytes" -le 0 ]; then
-          printf "%s[WARN]%s Valor no válido, forzando 50 GB.\n" "$C_YLW" "$C_RESET"
-          batch_bytes=$((50 * 1024 * 1024 * 1024))
-          batch_gb=50
+        printf "Mínimo de GB libres antes de cada batch (ENTER=20): "
+        read -r min_free_gb
+        if [ -z "$min_free_gb" ]; then
+          min_free_gb=20
+        elif ! printf "%s" "$min_free_gb" | grep -Eq '^[0-9]+$'; then
+          printf "%s[WARN]%s Valor inválido, usando 20 GB.\n" "$C_YLW" "$C_RESET"
+          min_free_gb=20
         fi
+        printf "¿Añadir --remove-source-files tras copiar? (liberar origen) [y/N]: "
+        read -r rm_src_ans
+        case "$rm_src_ans" in
+          [yY]* ) remove_src=1 ;;
+          * ) remove_src=0 ;;
+        esac
+        batch_bytes=$((batch_gb * 1024 * 1024 * 1024))
+        [ "$batch_bytes" -le 0 ] && batch_bytes=$((50 * 1024 * 1024 * 1024)) && batch_gb=50
         mkdir -p "$PLANS_DIR"
         rm -f "$PLANS_DIR"/consolidation_rsync_batch*.sh
         batch_idx=1
@@ -3396,8 +3406,65 @@ submenu_D_dupes_general() {
           current_batch=$(printf "%s/consolidation_rsync_batch%02d.sh" "$PLANS_DIR" "$batch_idx")
           {
             printf "#!/usr/bin/env bash\n"
-            printf "set -e\n"
-            printf "echo \"Running consolidation batch %02d\"\n" "$batch_idx"
+            printf "set -euo pipefail\n"
+            printf "MIN_FREE_GB=%q\n" "$min_free_gb"
+            printf "BATCH_SIZE_GB=%q\n" "$batch_gb"
+            printf "REMOVE_SRC=%q\n" "$remove_src"
+            printf "LOG_DIR=%q\n" "$LOG_DIR"
+            printf "RSYNC_BIN=${RSYNC_BIN:-rsync}\n"
+            printf "BATCH_NAME=%q\n" "$(basename "$current_batch")"
+            cat <<'EOSCRIPT'
+log_file="${LOG_DIR}/${BATCH_NAME%.sh}.log"
+mkdir -p "$(dirname "$log_file")"
+touch "$log_file" 2>/dev/null || true
+exec > >(tee -a "$log_file") 2>&1
+min_free_bytes=$((MIN_FREE_GB * 1024 * 1024 * 1024))
+copied=0; copied_bytes=0; missing=0; failed=0
+supports_protect_args=0
+if "$RSYNC_BIN" --protect-args --version >/dev/null 2>&1; then
+  supports_protect_args=1
+fi
+RSYNC_ARGS=(-av --info=progress2)
+[ "$supports_protect_args" -eq 1 ] && RSYNC_ARGS+=(--protect-args)
+[ "$REMOVE_SRC" -eq 1 ] && RSYNC_ARGS+=(--remove-source-files)
+fmt_gb() { awk -v b="$1" 'BEGIN{printf "%.2f", b/1024/1024/1024}'; }
+check_space() {
+  dir="$1"; needed="${2:-0}"
+  free_kb=$(df -Pk "$dir" 2>/dev/null | awk 'NR==2{print $4}')
+  if [ -z "$free_kb" ]; then
+    printf "[WARN] No se pudo obtener espacio libre para %s (continuando).\n" "$dir"
+    return 0
+  fi
+  free_bytes=$((free_kb * 1024))
+  if [ "$free_bytes" -lt $((min_free_bytes + needed)) ]; then
+    printf "[ERR] Espacio insuficiente en %s: libre %.2f GB, requerido >= %.2f GB. Deteniendo batch.\n" "$dir" "$(fmt_gb "$free_bytes")" "$(fmt_gb $((min_free_bytes + needed)))"
+    return 1
+  fi
+  return 0
+}
+process() {
+  src="$1"; dst="$2"; size="$3"
+  if [ ! -f "$src" ]; then
+    printf "[WARN] Faltante: %s\n" "$src"
+    missing=$((missing + 1))
+    return
+  fi
+  dest_dir=$(dirname "$dst")
+  mkdir -p "$dest_dir" || { printf "[ERR] No se pudo crear %s\n" "$dest_dir"; failed=$((failed + 1)); return; }
+  if ! check_space "$dest_dir" "$size"; then
+    exit 3
+  fi
+  "$RSYNC_BIN" "${RSYNC_ARGS[@]}" "$src" "$dst"
+  st=$?
+  if [ "$st" -ne 0 ]; then
+    printf "[ERR] rsync falló (%s -> %s)\n" "$src" "$dst"
+    failed=$((failed + 1))
+    return
+  fi
+  copied=$((copied + 1))
+  copied_bytes=$((copied_bytes + size))
+}
+EOSCRIPT
           } >"$current_batch"
           chmod +x "$current_batch" 2>/dev/null || true
           batch_files=0
@@ -3408,6 +3475,12 @@ submenu_D_dupes_general() {
             total_batches=$((total_batches + 1))
             size_gb=$(awk -v b="$batch_size" 'BEGIN{printf "%.2f", b/1024/1024/1024}')
             batch_summary="${batch_summary}Batch ${batch_idx}: ${batch_files} files, ${size_gb} GB -> $(basename "$current_batch")\n"
+            {
+              cat <<'EOSUM'
+fmt_gb() { awk -v b="$1" 'BEGIN{printf "%.2f", b/1024/1024/1024}'; }
+printf "[INFO] Resumen batch %s: copiados=%s (%.2f GB) | faltantes=%s | fallidos=%s | log=%s\n" "$BATCH_NAME" "$copied" "$(fmt_gb "$copied_bytes")" "$missing" "$failed" "$log_file"
+EOSUM
+            } >>"$current_batch"
           fi
         }
         while IFS=$'\t' read -r src target; do
@@ -3426,9 +3499,7 @@ submenu_D_dupes_general() {
             batch_idx=$((batch_idx + 1))
             new_batch
           fi
-          dest_dir=$(dirname "$target")
-          printf "mkdir -p %q\n" "$dest_dir" >>"$current_batch"
-          printf "rsync -av --progress --protect-args %q %q\n" "$src" "$target" >>"$current_batch"
+          printf "process %q %q %s\n" "$src" "$target" "$size" >>"$current_batch"
           batch_files=$((batch_files + 1))
           batch_size=$((batch_size + size))
           total_files=$((total_files + 1))
@@ -3441,8 +3512,8 @@ submenu_D_dupes_general() {
           continue
         fi
         total_gb=$(awk -v b="$total_bytes" 'BEGIN{printf "%.2f", b/1024/1024/1024}')
-        printf "%s[OK]%s Batches creados: %s | Archivos: %s | Tamaño total: %s GB | Faltantes: %s\n" "$C_GRN" "$C_RESET" "$total_batches" "$total_files" "$total_gb" "$missing"
-        printf "Helpers en: %s (consolidation_rsync_batchXX.sh)\n" "$PLANS_DIR"
+        printf "%s[OK]%s Batches creados: %s | Archivos: %s | Tamaño total: %s GB | Faltantes: %s | Min espacio: %s GB | remove-source: %s\n" "$C_GRN" "$C_RESET" "$total_batches" "$total_files" "$total_gb" "$missing" "$min_free_gb" "$remove_src"
+        printf "Helpers en: %s (consolidation_rsync_batchXX.sh) con logs en %s\n" "$PLANS_DIR" "$LOG_DIR"
         printf "Resumen por batch:\n%s" "$batch_summary"
         pause_enter
         ;;
@@ -4432,6 +4503,16 @@ action_H_help_info() {
 
 main_loop() {
   while true; do
+    if { [ "${SAFE_MODE:-1}" -eq 0 ] || [ "${DJ_SAFE_LOCK:-1}" -eq 0 ]; }; then
+      printf "%s[WARN]%s SAFE_MODE o DJ_SAFE_LOCK están en 0. ¿Restaurar a 1/1 para proteger movimientos? [Y/n]: " "$C_YLW" "$C_RESET"
+      read -r restore_safe
+      if [ -z "$restore_safe" ] || [[ "$restore_safe" =~ ^[Yy]$ ]]; then
+        SAFE_MODE=1
+        DJ_SAFE_LOCK=1
+        save_conf
+        printf "%s[OK]%s SAFE_MODE y DJ_SAFE_LOCK restaurados a 1.\n" "$C_GRN" "$C_RESET"
+      fi
+    fi
     print_header
     print_menu
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
