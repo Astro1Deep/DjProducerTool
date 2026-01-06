@@ -278,6 +278,120 @@ def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
             w.writerow([path, ons])
 
 
+def write_garbage(base: Path, out_tsv: Path, limit: int) -> None:
+    files = list_audio(base, limit)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    rows: List[Tuple[str, float, str]] = []
+    for p in files:
+        score = 0.0
+        flags = []
+        try:
+            import soundfile as _sf
+            import numpy as _np
+            data, sr = _sf.read(str(p))
+            if data.ndim > 1:
+                data = data.mean(axis=1)
+            dur = len(data) / sr if sr else 0.0
+            rms = float(_np.sqrt(_np.mean(_np.square(data)))) if len(data) else 0.0
+            if dur < 5:
+                flags.append("short")
+                score += 0.5
+            if rms < 0.01:
+                flags.append("silence")
+                score += 0.4
+            peak = float(_np.max(_np.abs(data))) if len(data) else 0.0
+            if peak > 0.98:
+                flags.append("clipping")
+                score += 0.3
+        except Exception:
+            flags.append("error")
+            score = 1.0
+        rows.append((str(p), min(score, 1.0), ",".join(flags)))
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "score", "flags"])
+        for path, score, flags in rows:
+            w.writerow([path, f"{score:.2f}", flags])
+
+
+def write_loudness(base: Path, out_tsv: Path, limit: int) -> None:
+    files = list_audio(base, limit)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    rows: List[Tuple[str, float, str]] = []
+    for p in files:
+        lufs = 0.0
+        method = "rms_dbfs"
+        try:
+            import soundfile as _sf
+            import numpy as _np
+            data, sr = _sf.read(str(p))
+            if data.ndim > 1:
+                data = data.mean(axis=1)
+            rms = float(_np.sqrt(_np.mean(_np.square(data)))) if len(data) else 0.0
+            if rms > 0:
+                lufs = 20 * float(_np.log10(rms))
+            else:
+                lufs = -120.0
+            try:
+                import pyloudnorm as pyln  # type: ignore
+                meter = pyln.Meter(sr)
+                lufs = float(meter.integrated_loudness(data))
+                method = "pyloudnorm"
+            except Exception:
+                method = "rms_dbfs"
+        except Exception:
+            method = "error"
+            lufs = 0.0
+        rows.append((str(p), lufs, method))
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "loudness_lufs", "method"])
+        for path, lufs, method in rows:
+            w.writerow([path, f"{lufs:.2f}", method])
+
+
+def write_matching(base: Path, out_tsv: Path, limit: int) -> None:
+    # Simple matching por nombre normalizado; útil como placeholder cross-platform
+    files = list_audio(base, limit)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    rows: List[Tuple[str, str]] = []
+    import re
+    for p in files:
+        name = p.stem.lower()
+        name = re.sub(r"[^a-z0-9]+", "_", name).strip("_")
+        rows.append((str(p), name))
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "normalized_name"])
+        w.writerows(rows)
+
+
+def write_video_tags(base: Path, out_tsv: Path, limit: int) -> None:
+    VIDEO_EXTS = {".mp4", ".mov", ".mkv", ".avi", ".m4v"}
+    files = [p for p in base.rglob("*") if p.suffix.lower() in VIDEO_EXTS and p.is_file()]
+    if limit > 0:
+        files = files[:limit]
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "tags_json"])
+        for p in files:
+            # Placeholder tags based on filename cues
+            tags = heuristic_tags(p)
+            w.writerow([str(p), json.dumps(tags)])
+
+
+def write_music_tags(base: Path, out_tsv: Path, limit: int) -> None:
+    files = list_audio(base, limit)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "tags_json", "method"])
+        for p in files:
+            tags = heuristic_tags(p)
+            w.writerow([str(p), json.dumps(tags), "heuristic_multi"])
+
+
 def load_embeddings(tsv: Path) -> List[Tuple[str, List[float]]]:
     out: List[Tuple[str, List[float]]] = []
     with tsv.open("r", encoding="utf-8") as f:
@@ -347,6 +461,31 @@ def main():
     p_seg.add_argument("--out", required=True)
     p_seg.add_argument("--limit", type=int, default=50)
 
+    p_garb = sub.add_parser("garbage")
+    p_garb.add_argument("--base", default=".")
+    p_garb.add_argument("--out", required=True)
+    p_garb.add_argument("--limit", type=int, default=200)
+
+    p_lufs = sub.add_parser("loudness")
+    p_lufs.add_argument("--base", default=".")
+    p_lufs.add_argument("--out", required=True)
+    p_lufs.add_argument("--limit", type=int, default=200)
+
+    p_match = sub.add_parser("matching")
+    p_match.add_argument("--base", default=".")
+    p_match.add_argument("--out", required=True)
+    p_match.add_argument("--limit", type=int, default=200)
+
+    p_vtags = sub.add_parser("video_tags")
+    p_vtags.add_argument("--base", default=".")
+    p_vtags.add_argument("--out", required=True)
+    p_vtags.add_argument("--limit", type=int, default=200)
+
+    p_mtags = sub.add_parser("music_tags")
+    p_mtags.add_argument("--base", default=".")
+    p_mtags.add_argument("--out", required=True)
+    p_mtags.add_argument("--limit", type=int, default=200)
+
     args = ap.parse_args()
 
     if args.mode == "embeddings":
@@ -359,6 +498,16 @@ def main():
         write_anomalies(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
     elif args.mode == "segments":
         write_segments(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
+    elif args.mode == "garbage":
+        write_garbage(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
+    elif args.mode == "loudness":
+        write_loudness(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
+    elif args.mode == "matching":
+        write_matching(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
+    elif args.mode == "video_tags":
+        write_video_tags(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
+    elif args.mode == "music_tags":
+        write_music_tags(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
 
 
 if __name__ == "__main__":
