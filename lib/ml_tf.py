@@ -39,6 +39,13 @@ MODEL_URLS = {
     "musicgen": None,
 }
 
+ONNX_MODELS = {
+    "clap_onnx": "CLAP.onnx",
+    "clip_vitb16_onnx": "model.onnx",
+    "musicgen_tflite": "musicgen-small.tflite",
+    "sentence_t5_tflite": "sentence-t5.onnx",
+}
+
 # Modelos onnx/tflite opcionales (descarga manual vía subcomando download_model)
 MODEL_WEIGHTS = {
     "clap_onnx": "https://huggingface.co/lukewys/laion_clap/resolve/main/CLAP.onnx",  # grande; descarga opcional
@@ -152,6 +159,12 @@ def ensure_model_cached(name: str) -> Optional[Path]:
         return None
 
 
+def local_model_path(name: str) -> Optional[Path]:
+    base = Path(os.environ.get("DJPT_MODELS_DIR") or "_DJProducerTools/venv/models").expanduser().resolve()
+    path = base / name
+    return path if path.exists() else None
+
+
 def model_embed_and_tag(model: Any, audio: Any) -> Tuple[List[float], List[str]]:
     if model is None or audio is None or tf is None or np is None:
         return [], []
@@ -192,6 +205,7 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offli
     files = list_audio(base, limit)
     out.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Tuple[str, str, str]] = []
+    offline = offline or os.environ.get("DJPT_OFFLINE") == "1"
     use_tf = tf_available() and model_choice in MODEL_URLS and not offline
     model = load_tf_model(model_choice) if use_tf else None
     for p in files:
@@ -201,6 +215,11 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offli
             method = f"tf_{model_choice}" if emb else f"tf_{model_choice}_fallback"
             if not emb:
                 emb = hash_embedding(p)
+        elif model_choice in ONNX_MODELS:
+            # placeholder: usa hash pero marca método onnx si el modelo está cacheado
+            model_path = local_model_path(model_choice)
+            method = f"onnx_{model_choice}" if model_path else f"onnx_{model_choice}_missing"
+            emb = hash_embedding(p)
         else:
             emb = hash_embedding(p)
             method = f"{model_choice}_mock"
@@ -215,6 +234,7 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
     files = list_audio(base, limit)
     out.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Tuple[str, str, str]] = []
+    offline = offline or os.environ.get("DJPT_OFFLINE") == "1"
     use_tf = tf_available() and model_choice in MODEL_URLS and not offline
     model = load_tf_model(model_choice) if use_tf else None
     for p in files:
@@ -224,6 +244,9 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
             audio = load_audio_16k(p)
             _, tags = model_embed_and_tag(model, audio)
             method = f"tf_{model_choice}" if tags else f"tf_{model_choice}_fallback"
+        elif model_choice in ONNX_MODELS:
+            model_path = local_model_path(model_choice)
+            method = f"onnx_{model_choice}" if model_path else f"onnx_{model_choice}_missing"
         if not tags:
             tags = heuristic_tags(p)
         rows.append((str(p), method, json.dumps(tags)))
@@ -359,6 +382,17 @@ def write_garbage(base: Path, out_tsv: Path, limit: int) -> None:
             data, sr = _sf.read(str(p))
             if data.ndim > 1:
                 data = data.mean(axis=1)
+            # High-pass simple (resta media móvil)
+            try:
+                window = min(len(data), 2048)
+                if window > 0:
+                    kernel = _np.ones(window) / window
+                    smoothed = _np.convolve(data, kernel, mode="same")
+                    data_hp = data - smoothed
+                else:
+                    data_hp = data
+            except Exception:
+                data_hp = data
             dur = len(data) / sr if sr else 0.0
             rms = float(_np.sqrt(_np.mean(_np.square(data)))) if len(data) else 0.0
             if dur < 5:
@@ -372,11 +406,11 @@ def write_garbage(base: Path, out_tsv: Path, limit: int) -> None:
                 flags.append("clipping")
                 score += 0.3
             if len(data) > 0:
-                diffs = _np.abs(_np.diff(data))
+                diffs = _np.abs(_np.diff(data_hp))
                 if diffs.size and float(_np.percentile(diffs, 99)) > 0.25:
                     flags.append("clicks")
                     score += 0.2
-                zc = float(((data[:-1] * data[1:]) < 0).sum()) / max(len(data), 1)
+                zc = float(((data_hp[:-1] * data_hp[1:]) < 0).sum()) / max(len(data_hp), 1)
                 if zc > 0.15:
                     flags.append("high_zcr")
                     score += 0.1
@@ -709,14 +743,14 @@ def main():
     p_emb.add_argument("--base", default=".")
     p_emb.add_argument("--out", required=True)
     p_emb.add_argument("--limit", type=int, default=150)
-    p_emb.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()))
+    p_emb.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()) + list(ONNX_MODELS.keys()))
     p_emb.add_argument("--offline", action="store_true", help="Forzar modo sin TF/Hub (mock) incluso si está disponible.")
 
     p_tags = sub.add_parser("tags")
     p_tags.add_argument("--base", default=".")
     p_tags.add_argument("--out", required=True)
     p_tags.add_argument("--limit", type=int, default=150)
-    p_tags.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()))
+    p_tags.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()) + list(ONNX_MODELS.keys()))
     p_tags.add_argument("--offline", action="store_true", help="Forzar modo sin TF/Hub (mock) incluso si está disponible.")
 
     p_sim = sub.add_parser("similarity")
