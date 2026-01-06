@@ -440,6 +440,7 @@ VENV_DIR=""
 BANNER_FILE=""
 CONF_FILE=""
 SHARED_CORPUS_DIR=""
+SAFETY_PROMPTED=0
 VENV_ACTIVE=0
 PYTHON_BIN="python3"
 ML_ENV_DISABLED=0
@@ -4599,7 +4600,8 @@ action_H_help_info() {
 
 main_loop() {
   while true; do
-    if { [ "${SAFE_MODE:-1}" -eq 0 ] || [ "${DJ_SAFE_LOCK:-1}" -eq 0 ]; }; then
+    if [ "${SAFETY_PROMPTED:-0}" -eq 0 ] && { [ "${SAFE_MODE:-1}" -eq 0 ] || [ "${DJ_SAFE_LOCK:-1}" -eq 0 ]; }; then
+      SAFETY_PROMPTED=1
       printf "%s[WARN]%s SAFE_MODE o DJ_SAFE_LOCK están en 0. ¿Restaurar a 1/1 para proteger movimientos? [S/n]: " "$C_YLW" "$C_RESET"
       read -r restore_safe
       if [ -z "$restore_safe" ] || [[ "$restore_safe" =~ ^[sSyY]$ ]]; then
@@ -4607,6 +4609,8 @@ main_loop() {
         DJ_SAFE_LOCK=1
         save_conf
         printf "%s[OK]%s SAFE_MODE y DJ_SAFE_LOCK restaurados a 1.\n" "$C_GRN" "$C_RESET"
+      else
+        printf "%s[INFO]%s Se mantiene el estado actual de SAFE_MODE/DJ_SAFE_LOCK (no se volverá a preguntar en esta sesión).\n" "$C_CYN" "$C_RESET"
       fi
     fi
     print_header
