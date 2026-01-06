@@ -246,7 +246,7 @@ def write_anomalies(base: Path, out_tsv: Path, limit: int) -> None:
 def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Tuple[str, str, str]] = []
+    rows: List[Tuple[str, str, str, float]] = []
     have_librosa = False
     try:
         import librosa  # type: ignore
@@ -257,6 +257,7 @@ def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
     for p in files:
         onsets: List[float] = []
         beats: List[float] = []
+        tempo_val: float = 0.0
         if have_librosa:
             try:
                 import numpy as _np
@@ -264,10 +265,12 @@ def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
                 on = librosa.onset.onset_detect(y=y, sr=sr, units="time")
                 onsets = [float(x) for x in on[:12]]
                 tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr)
+                tempo_val = float(tempo)
                 beats = [float(x) for x in librosa.frames_to_time(beat_frames, sr=sr)[:16]]
             except Exception:
                 onsets = []
                 beats = []
+                tempo_val = 0.0
         else:
             # Fallback: simple energy change detector + beats aproximados
             try:
@@ -297,24 +300,26 @@ def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
             except Exception:
                 onsets = []
                 beats = []
+                tempo_val = 0.0
         rows.append(
             (
                 str(p),
                 ",".join(f"{t:.2f}" for t in onsets),
                 ",".join(f"{t:.2f}" for t in beats),
+                tempo_val,
             )
         )
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "onsets_sec", "beats_sec"])
-        for path, ons, beats in rows:
-            w.writerow([path, ons, beats])
+        w.writerow(["path", "onsets_sec", "beats_sec", "tempo_est_bpm"])
+        for path, ons, beats, tempo in rows:
+            w.writerow([path, ons, beats, f"{tempo:.2f}"])
 
 
 def write_garbage(base: Path, out_tsv: Path, limit: int) -> None:
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Tuple[str, float, str]] = []
+    rows: List[Tuple[str, float, str, float, float]] = []
     for p in files:
         score = 0.0
         flags = []
@@ -341,21 +346,30 @@ def write_garbage(base: Path, out_tsv: Path, limit: int) -> None:
                 if diffs.size and float(_np.percentile(diffs, 99)) > 0.25:
                     flags.append("clicks")
                     score += 0.2
+                zc = float(((data[:-1] * data[1:]) < 0).sum()) / max(len(data), 1)
+                if zc > 0.15:
+                    flags.append("high_zcr")
+                    score += 0.1
+            else:
+                zc = 0.0
         except Exception:
             flags.append("error")
             score = 1.0
-        rows.append((str(p), min(score, 1.0), ",".join(flags)))
+            peak = 0.0
+            zc = 0.0
+        rows.append((str(p), min(score, 1.0), ",".join(flags), peak, zc))
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "score", "flags"])
-        for path, score, flags in rows:
-            w.writerow([path, f"{score:.2f}", flags])
+        w.writerow(["path", "score", "flags", "peak", "zcr"])
+        for path, score, flags, peak, zc in rows:
+            w.writerow([path, f"{score:.2f}", flags, f"{peak:.4f}", f"{zc:.4f}"])
 
 
 def write_loudness(base: Path, out_tsv: Path, limit: int, target_lufs: float = -14.0) -> None:
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Tuple[str, float, float, float, float, float, str]] = []
+    rows: List[Tuple[str, float, float, float, float, float, str, str]] = []
+    tol = 1.5
     for p in files:
         lufs = 0.0
         crest = 0.0
@@ -399,12 +413,17 @@ def write_loudness(base: Path, out_tsv: Path, limit: int, target_lufs: float = -
             dyn_range = 0.0
             gain = 0.0
             lra = 0.0
-        rows.append((str(p), lufs, gain, crest, dyn_range, lra, method))
+        rows.append((str(p), lufs, gain, crest, dyn_range, lra, method, "OK"))
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "loudness_lufs", "gain_db_to_target", "crest_factor_db", "dyn_range_db", "lra_db", "method"])
-        for path, lufs, gain, crest, dyn_range, lra, method in rows:
-            w.writerow([path, f"{lufs:.2f}", f"{gain:.2f}", f"{crest:.2f}", f"{dyn_range:.2f}", f"{lra:.2f}", method])
+        w.writerow(["path", "loudness_lufs", "gain_db_to_target", "crest_factor_db", "dyn_range_db", "lra_db", "method", "action"])
+        for path, lufs, gain, crest, dyn_range, lra, method, _action in rows:
+            action = "OK"
+            if gain > tol:
+                action = "BOOST"
+            elif gain < -tol:
+                action = "CUT"
+            w.writerow([path, f"{lufs:.2f}", f"{gain:.2f}", f"{crest:.2f}", f"{dyn_range:.2f}", f"{lra:.2f}", method, action])
 
 
 def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path] = None, tags_tsv: Optional[Path] = None) -> None:
