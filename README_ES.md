@@ -50,7 +50,7 @@ chmod +x scripts/*.sh
 - [guides/GUIDE_es.md](guides/GUIDE_es.md) / [guides/GUIDE.md](guides/GUIDE.md) - Guía rápida
 - [guides/ADVANCED_GUIDE_es.md](guides/ADVANCED_GUIDE_es.md) / [guides/ADVANCED_GUIDE.md](guides/ADVANCED_GUIDE.md) - Guía avanzada por acción/opción
 - **Colaboradores:** planes/roadmap/API/seguridad (incluye FEATURES/DEBUG/API/VERSION) en `docs/internal/` (no necesario para usuarios).
-- **Wiki (manual extendido):** `docs/wiki/EXTENDED_MANUAL_ES.md` con todas las opciones/acciones en detalle.
+- **Wiki (manual extendido):** `docs/wiki/WIKI_EXTENDED_MANUAL_ES.md` (ES) y `docs/wiki/WIKI_EXTENDED_MANUAL_EN.md` (EN) con todas las opciones/acciones en detalle.
 
 ### Novedades (1.0.0)
 - Plan de transcode: permite elegir códec (auto/videotoolbox/nvenc/libx264) y ejecutar ffmpeg con confirmación; respeta `DRYRUN_FORCE`.

@@ -3049,8 +3049,9 @@ submenu_D_dupes_general() {
     printf "%s7)%s Reporte de matrioshkas (carpetas duplicadas por estructura) (D7)\n" "$C_YLW" "$C_RESET"
     printf "%s8)%s Carpetas espejo por contenido (hash de subdirectorios) (D8)\n" "$C_YLW" "$C_RESET"
     printf "%s9)%s Similitud audio (YAMNet embeddings, requiere TF) (D9)\n" "$C_YLW" "$C_RESET"
+    printf "%s10)%s Helpers rsync por lotes desde consolidation_plan (D10)\n" "$C_YLW" "$C_RESET"
     printf "Flujo sugerido: D1 -> D2 -> D3, luego aplicar 10/11/44 con backup previo si SafeMode=0.\n"
-    printf "Tip: GENERAL_ROOT es la raíz que se cataloga en D1/D2/D3. D4 compara destino vs orígenes. D5 acepta varias raíces separadas por coma. D6 marca sobrantes; D7 estructura; D8 contenido.\n"
+    printf "Tip: GENERAL_ROOT es la raíz que se cataloga en D1/D2/D3. D4 compara destino vs orígenes. D5 acepta varias raíces separadas por coma. D6 marca sobrantes; D7 estructura; D8 contenido; D10 crea helpers de rsync en lotes desde el plan de consolidación.\n"
     printf "%sB)%s Volver al menú principal\n" "$C_YLW" "$C_RESET"
     printf "%sH)%s Ayuda rápida (rutas/flujo)\n" "$C_YLW" "$C_RESET"
     printf "%sSelecciona una opción:%s " "$C_BLU" "$C_RESET"
@@ -3376,6 +3377,98 @@ submenu_D_dupes_general() {
         done <"$plan_conso"
         chmod +x "$rsync_helper" 2>/dev/null || true
         printf "Acción recomendada: revisar y luego ejecutar el helper: %s (SAFE_MODE no aplica, revisa antes de correrlo).\n" "$rsync_helper"
+        pause_enter
+        ;;
+      10)
+        clear
+        printf "%s[INFO]%s D10) Helpers rsync por lotes desde consolidation_plan.tsv (solo genera scripts, no mueve nada).\n" "$C_CYN" "$C_RESET"
+        default_plan="$PLANS_DIR/consolidation_plan.tsv"
+        printf "Ruta del plan (ENTER usa %s): " "$default_plan"
+        read -e -r plan_path
+        plan_path=$(strip_quotes "$plan_path")
+        [ -z "$plan_path" ] && plan_path="$default_plan"
+        if [ ! -f "$plan_path" ]; then
+          printf "%s[ERR]%s No existe el plan: %s\n" "$C_RED" "$C_RESET" "$plan_path"
+          pause_enter
+          continue
+        fi
+        printf "Tamaño de lote en GB (ENTER=50): "
+        read -r batch_gb
+        if [ -z "$batch_gb" ]; then
+          batch_gb=50
+        elif ! printf "%s" "$batch_gb" | grep -Eq '^[0-9]+$'; then
+          printf "%s[WARN]%s Valor inválido, usando 50 GB.\n" "$C_YLW" "$C_RESET"
+          batch_gb=50
+        fi
+        batch_bytes=$((batch_gb * 1024 * 1024 * 1024))
+        if [ "$batch_bytes" -le 0 ]; then
+          printf "%s[WARN]%s Valor no válido, forzando 50 GB.\n" "$C_YLW" "$C_RESET"
+          batch_bytes=$((50 * 1024 * 1024 * 1024))
+          batch_gb=50
+        fi
+        mkdir -p "$PLANS_DIR"
+        rm -f "$PLANS_DIR"/consolidation_rsync_batch*.sh
+        batch_idx=1
+        batch_files=0
+        batch_size=0
+        total_batches=0
+        total_files=0
+        total_bytes=0
+        missing=0
+        batch_summary=""
+        current_batch=""
+        new_batch() {
+          current_batch=$(printf "%s/consolidation_rsync_batch%02d.sh" "$PLANS_DIR" "$batch_idx")
+          {
+            printf "#!/usr/bin/env bash\n"
+            printf "set -e\n"
+            printf "echo \"Ejecutando batch de consolidación %02d\"\n" "$batch_idx"
+          } >"$current_batch"
+          chmod +x "$current_batch" 2>/dev/null || true
+          batch_files=0
+          batch_size=0
+        }
+        close_batch() {
+          if [ "$batch_files" -gt 0 ] && [ -n "$current_batch" ]; then
+            total_batches=$((total_batches + 1))
+            size_gb=$(awk -v b="$batch_size" 'BEGIN{printf "%.2f", b/1024/1024/1024}')
+            batch_summary="${batch_summary}Batch ${batch_idx}: ${batch_files} archivos, ${size_gb} GB -> $(basename "$current_batch")\n"
+          fi
+        }
+        while IFS=$'\t' read -r src target; do
+          [ -z "$src" ] && continue
+          if [ ! -f "$src" ]; then
+            printf "%s[WARN]%s Faltante en origen: %s\n" "$C_YLW" "$C_RESET" "$src"
+            missing=$((missing + 1))
+            continue
+          fi
+          size=$({ stat -f %z "$src" 2>/dev/null || echo 0; } | tr -d ' ')
+          [ -z "$size" ] && size=0
+          if [ -z "$current_batch" ]; then
+            new_batch
+          elif [ "$batch_files" -gt 0 ] && [ $((batch_size + size)) -gt "$batch_bytes" ]; then
+            close_batch
+            batch_idx=$((batch_idx + 1))
+            new_batch
+          fi
+          dest_dir=$(dirname "$target")
+          printf "mkdir -p %q\n" "$dest_dir" >>"$current_batch"
+          printf "rsync -av --progress --protect-args %q %q\n" "$src" "$target" >>"$current_batch"
+          batch_files=$((batch_files + 1))
+          batch_size=$((batch_size + size))
+          total_files=$((total_files + 1))
+          total_bytes=$((total_bytes + size))
+        done <"$plan_path"
+        close_batch
+        if [ "$total_batches" -eq 0 ]; then
+          printf "%s[WARN]%s No se creó ningún batch (plan vacío o sin archivos válidos).\n" "$C_YLW" "$C_RESET"
+          pause_enter
+          continue
+        fi
+        total_gb=$(awk -v b="$total_bytes" 'BEGIN{printf "%.2f", b/1024/1024/1024}')
+        printf "%s[OK]%s Batches creados: %s | Archivos: %s | Tamaño total: %s GB | Faltantes: %s\n" "$C_GRN" "$C_RESET" "$total_batches" "$total_files" "$total_gb" "$missing"
+        printf "Helpers en: %s (consolidation_rsync_batchXX.sh)\n" "$PLANS_DIR"
+        printf "Resumen por batch:\n%s" "$batch_summary"
         pause_enter
         ;;
       5)
@@ -4302,6 +4395,7 @@ action_H_help_info() {
 
   printf "%sNotas rápidas de procesos (qué hacen internamente):%s\n" "$C_YLW" "$C_RESET"
   printf "  D4: indexa destino por nombre+tamaño y lista faltantes desde orígenes → plan TSV + helper rsync.\n"
+   printf "  D10: crea helpers de rsync en lotes (50 GB por defecto) desde consolidation_plan.tsv sin mover archivos.\n"
   printf "  D6: marca sobrantes en orígenes que ya existen en destino (umbral opcional) → plan TSV.\n"
   printf "  D7: firma estructura de carpetas, sugiere KEEP/REMOVE por fecha/tamaño → plan limpieza.\n"
   printf "  D8: compara carpetas por contenido (hash de listados) para detectar espejos → plan KEEP/REMOVE.\n"

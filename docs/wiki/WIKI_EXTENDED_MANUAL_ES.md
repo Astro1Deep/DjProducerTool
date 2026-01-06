@@ -29,6 +29,12 @@
 
 **Ejemplo transcode (hw accel):** Menú 33 → códec `auto` → “¿Ejecutar ffmpeg?” Y → con DRYRUN_FORCE=1 solo imprime comandos.
 
+## Duplicados / Consolidación (submenú D)
+- D1 Catálogo general (usa `GENERAL_ROOT`), D2 duplicados por nombre+tamaño, D3 reporte inteligente (pistas ML).
+- D4 Plan de consolidación multi-disco (destino vs orígenes) → `plans/consolidation_plan.tsv` + helper `consolidation_rsync.sh`.
+- D5 duplicados exactos por hash (multirraíz), D6 consolidación inversa (sobrantes en origen), D7 matrioshkas, D8 carpetas espejo por contenido, D9 similitud audio (YAMNet, TF).
+- D10 Helpers rsync por lotes: divide `consolidation_plan.tsv` en `consolidation_rsync_batchXX.sh` (50 GB por defecto), usa tamaño real del archivo, omite faltantes con avisos, resume archivos/GB por batch y total; solo genera scripts (Safe/Lock informativos).
+
 ## ML / Deep (40–52, 62–67)
 - 40 Análisis inteligente, 41 predictor heurístico, 42 optimizador eficiencia, 43 flujo inteligente, 44 dedupe integrado (placeholder), 45–48 planes org/metadata/backup/sync.
 - 49 BPM/onsets: flags `--tempo-min/--tempo-max`, `--max-duration`; salida BPM/conf/key/energy/beat_count/first_beat_sec.
