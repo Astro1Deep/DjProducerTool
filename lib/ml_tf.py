@@ -92,6 +92,11 @@ def hash_embedding(path: Path, dim: int = 16) -> List[float]:
 
 
 def text_embedding(text: str, dim: int = 16) -> List[float]:
+    sess, inp = load_onnx_session("sentence_t5_tflite")
+    if sess and inp:
+        emb = run_onnx_text(sess, inp, text)
+        if emb:
+            return emb
     h = hashlib.sha256(text.encode("utf-8")).digest()
     vals = []
     for i in range(dim):

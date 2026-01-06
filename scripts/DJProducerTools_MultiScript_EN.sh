@@ -449,6 +449,19 @@ pause_enter() {
   read -r _
 }
 
+action_install_all_python_deps() {
+  print_header
+  ensure_python_bin || { pause_enter; return; }
+  pkgs="numpy pandas soundfile librosa onnxruntime tflite-runtime tensorflow tensorflow_hub"
+  printf "%s[INFO]%s Installing/refreshing python deps (onnx/tflite/TF)...\n" "$C_CYN" "$C_RESET"
+  if "$PYTHON_BIN" -m pip install --upgrade $pkgs; then
+    printf "%s[OK]%s Deps instaladas.\n" "$C_GRN" "$C_RESET"
+  else
+    printf "%s[ERR]%s Falló la instalación de deps.\n" "$C_RED" "$C_RESET"
+  fi
+  pause_enter
+}
+
 ensure_dirs() {
   local existed=0
   if [ -d "$STATE_DIR" ]; then
