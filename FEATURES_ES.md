@@ -1,6 +1,6 @@
 # Características de DJProducerTools (ES)
 
-**Versión:** 2.0.0  
+**Versión:** 1.0.0  
 **Última actualización:** 4 de enero de 2024  
 **Nota:** DMX (planes + envío ENTTEC en dry-run/confirmado), Video prep (ffprobe + plan transcode), playlists→OSC/DMX y servidor HTTP/OSC básico están parcialmente implementados. BPM (tags/librosa) disponible en modo ligero. ML/TF avanzado sigue en roadmap. Las funciones activas se centran en catálogo/hash, planes de duplicados, backups y reportes TSV.
 

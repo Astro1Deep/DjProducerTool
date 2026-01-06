@@ -1,6 +1,6 @@
 # DJProducerTools – Guía Avanzada (ES)
 
-Versión: 2.0.0 (2024-01-04)  
+Versión: 1.0.0 (2024-01-04)  
 Alcance: CLI para catálogo/hash, plan de duplicados + quarantine, backups de metadatos DJ y reportes TSV. DMX/Video/OSC/API/ML siguen como placeholders/roadmap (generan planes/reportes, no controlan hardware).
 
 ## Seguridad por defecto
@@ -132,7 +132,16 @@ Estado: planes con tiempos y envío DMX opcional (dry-run por defecto).
 - Modelos soportados: `yamnet` (por defecto), `musicnn`, `musictag` (nnfp). Selecciona en 65.1/65.2.
 - Salidas:
   - `reports/audio_embeddings.tsv` / `reports/audio_tags.tsv`
-  - `reports/audio_similarity.tsv` (umbral 0.60, top 200)
-  - `reports/audio_anomalies.tsv` (silencio/clipping)
-  - `reports/audio_segments.tsv` (onsets/segmentos)
+- `reports/audio_similarity.tsv` (umbral 0.60, top 200)
+- `reports/audio_anomalies.tsv` (silencio/clipping)
+- `reports/audio_segments.tsv` (onsets/segmentos)
 - Tips: limita ~150 archivos; usa `DJPT_TF_MOCK=1` en CI/offline; limpia/recachea venv desde 64 si falla.
+- Modelos ONNX/TFLite reales: activa el venv (`source _DJProducerTools/venv/bin/activate`), pon `DJPT_OFFLINE=0` y elige `clap_onnx/clip_vitb16_onnx/sentence_t5_tflite` en 65. Se intentará instalar `onnxruntime`; si no está, se usa fallback mock con aviso. En macOS ARM no hay wheel `tflite-runtime`; usa TensorFlow (64) o un entorno con wheel compatible; MusicGen_tflite se mantiene en fallback seguro mientras tanto.
+
+## Por qué estas dependencias y qué ganamos
+- **ffprobe/ffmpeg**: integridad de media, inventario de vídeo y keyframes para tagging. Beneficio: detectar corrupción temprano y generar planes de transcode sin tocar archivos.
+- **sox/librosa**: BPM/onsets/segmentación sin modificar tags. Beneficio: cues preliminares y tempos consistentes.
+- **onnxruntime / tensorflow**: embeddings y tagging locales (yamnet/musicnn/musictag/CLIP/CLAP) sin subir audio. Beneficio: similitud/recomendaciones preservando privacidad.
+- **pyloudnorm**: planes de normalización LUFS sin aplicar ganancia. Beneficio: lotes homogéneos listos para masterizar.
+- **pyserial/python-osc/fastapi**: DMX/OSC/API locales. Beneficio: control de luces/estado sin exponer servicios externos.
+- **Seguridad**: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`, `DRYRUN_FORCE` y `DJPT_OFFLINE` mantienen simulación/heurísticos por defecto; si falta una dependencia, se avisa y se usa fallback, nunca se aborta el flujo.

@@ -44,7 +44,7 @@ La herramienta automáticamente:
 
 | Versión | Estado | Hasta |
 |---------|--------|-------|
-| 2.0.0 | Soportada | 2025-01-04 |
+| 1.0.0 | Soportada | 2025-01-04 |
 | 1.9.5 | Solo correcciones de seguridad | 2024-07-04 |
 | < 1.9.5 | No soportada | - |
 

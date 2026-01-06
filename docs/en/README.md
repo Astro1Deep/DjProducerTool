@@ -80,6 +80,21 @@ cd DjProducerTool
 - Menú 59: super doctor (espacio, artefactos, herramientas, venv ML).
 - Menú A (A23–A26): auto-pilot de flujos completos.
 
+## ML/TF Lab from scratch (onnx/tflite real models)
+
+1. Activate the local venv or let the menu create it: `source _DJProducerTools/venv/bin/activate` (state lives under your BASE_PATH, never the system).
+2. In TF Lab (menu 65), set `DJPT_OFFLINE=0` to allow real models. If you pick ONNX models (clap_onnx/clip_vitb16_onnx/sentence_t5_tflite), it will prompt to install `onnxruntime`; if missing, it falls back to mock safely with a warning.
+3. TFLite on macOS ARM: there is no official `tflite-runtime` wheel; use TensorFlow (option 64) or an environment with a compatible wheel. Meanwhile, MusicGen_tflite runs in safe fallback.
+4. `DJPT_OFFLINE=1` forces heuristics/mocks for all ML options. Warnings are non-blocking; safety defaults stay on.
+
+### Quick practical examples
+- **Exact dupes + quarantine (safe):** Menu 9 → 10 (review `plans/dupes_plan.tsv`) → 11 (only if Safe/Lock=0).  
+- **Video prep:** Menu V2/V6 for ffprobe inventory; V4/V5 to generate an H.264 1080p transcode plan (dry-run list).  
+- **BPM/onsets:** Menu 49 (BPM report) + 67 (auto-cues/onsets) to pre-mark tracks; uses `librosa` if present.  
+- **DMX dry-run:** Menu V3 with `DRYRUN_FORCE=1` to log frames without sending hardware.  
+- **TF Lab embeddings/tags:** Menu 65.1/65.2 with `DJPT_OFFLINE=0`, model `clap_onnx`; outputs `audio_embeddings.tsv` / `audio_tags.tsv` for similarity/matching.  
+- **Loudness plan:** Menu 66 or 65.5, set LUFS target/tolerance; produces `audio_loudness.tsv` with suggested gain (no audio writes).
+
 ## Rutas y estado
 El estado vive en `BASE_PATH/_DJProducerTools/` (config, reports, planes, quarantine, venv). El script auto-detecta `_DJProducerTools` cercano y normaliza BASE_PATH (evita rutas duplicadas).
 

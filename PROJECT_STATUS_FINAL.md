@@ -1,4 +1,4 @@
-# 🎯 DJProducerTools - Status Snapshot v2.0.0 (CLI)
+# 🎯 DJProducerTools - Status Snapshot v1.0.0 (CLI)
 
 **Date:** January 4, 2024  
 **Status:** ⚠️ Core CLI ready (advanced modules pending)  
@@ -134,7 +134,7 @@ dj-es
 
 ## 📝 Recent Changes
 
-### Version 2.0.0 (Actual)
+### Version 1.0.0 (Actual)
 - Catalog/hash CLI + duplicate/quarantine plan
 - `_Serato_` and DJ metadata backups; fast hash snapshot
 - EN/ES menus with spinners/progress bars

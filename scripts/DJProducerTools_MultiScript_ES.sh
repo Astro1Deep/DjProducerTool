@@ -46,7 +46,7 @@ DRYRUN_FORCE=0
 RUN_TEST_MODE=0
 SHOW_VERSION=0
 SHOW_HELP=0
-SCRIPT_VERSION="2.0.0"
+SCRIPT_VERSION="1.0.0"
 
 SPIN_FRAMES=("\\" "|" "/" "-")
 SPIN_IDX=0
@@ -1927,31 +1927,33 @@ submenu_T_tensorflow_lab() {
 " "$C_YLW" "$C_RESET"
     printf "%s2)%s Similitud por contenido (audio) desde embeddings
 " "$C_YLW" "$C_RESET"
-    printf "%s3)%s Detección de fragmentos repetidos/loops
-" "$C_YLW" "$C_RESET"
-    printf "%s4)%s Clasificador de sospechosos (basura/silencio)
-" "$C_YLW" "$C_RESET"
-    printf "%s5)%s Estimar loudness (plan de normalización) [target env DJPT_LUFS_TARGET]
-" "$C_YLW" "$C_RESET"
-    printf "%s6)%s Auto-segmentación (cues preliminares)
-" "$C_YLW" "$C_RESET"
-    printf "%s7)%s Matching cross-platform (relink inteligente)
-" "$C_YLW" "$C_RESET"
-    printf "%s8)%s Auto-tagging de vídeo (keyframes)
-" "$C_YLW" "$C_RESET"
-    printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)
-" "$C_YLW" "$C_RESET"
-    printf "%s10)%s Mastering check (LUFS/crest/DR plan)
-" "$C_YLW" "$C_RESET"
-    printf "%s11)%s Descargar modelo opcional (onnx/tflite cache)
-" "$C_YLW" "$C_RESET"
-    printf "%sB)%s Volver
-" "$C_YLW" "$C_RESET"
+    printf "%s3)%s Detección de fragmentos repetidos/loops\n" "$C_YLW" "$C_RESET"
+    printf "%s4)%s Clasificador de sospechosos (basura/silencio)\n" "$C_YLW" "$C_RESET"
+    printf "%s5)%s Estimar loudness (plan de normalización) [target env DJPT_LUFS_TARGET]\n" "$C_YLW" "$C_RESET"
+    printf "%s6)%s Auto-segmentación (cues preliminares)\n" "$C_YLW" "$C_RESET"
+    printf "%s7)%s Matching cross-platform (relink inteligente)\n" "$C_YLW" "$C_RESET"
+    printf "%s8)%s Auto-tagging de vídeo (keyframes)\n" "$C_YLW" "$C_RESET"
+    printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)\n" "$C_YLW" "$C_RESET"
+    printf "%s10)%s Mastering check (LUFS/crest/DR plan)\n" "$C_YLW" "$C_RESET"
+    printf "%s11)%s Descargar modelo opcional (onnx/tflite cache)\n" "$C_YLW" "$C_RESET"
+    printf "%s0)%s Toggle offline (DJPT_OFFLINE=%s)\n" "$C_YLW" "$C_RESET" "${DJPT_OFFLINE:-0}"
+    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r top
     offline_args=()
     [ "${DJPT_OFFLINE:-0}" -eq 1 ] && offline_args=(--offline)
     case "$top" in
+      0)
+        if [ "${DJPT_OFFLINE:-0}" -eq 1 ]; then
+          DJPT_OFFLINE=0
+          printf "%s[INFO]%s Offline desactivado.\n" "$C_CYN" "$C_RESET"
+        else
+          DJPT_OFFLINE=1
+          printf "%s[INFO]%s Offline activado (forzará heurísticos/mocks).\n" "$C_CYN" "$C_RESET"
+        fi
+        export DJPT_OFFLINE
+        pause_enter
+        ;;
       1)
         clear
         ensure_python_bin || { pause_enter; continue; }
@@ -1962,6 +1964,14 @@ submenu_T_tensorflow_lab() {
         printf "Modelo (yamnet/musicnn/musictag/clap_onnx/clip_vitb16_onnx/musicgen_tflite/sentence_t5_tflite) [por defecto %s]: " "${DJPT_ML_MODEL:-yamnet}"
         read -r mdl_choice
         mdl_choice=${mdl_choice:-${DJPT_ML_MODEL:-yamnet}}
+        case "$mdl_choice" in
+          clap_onnx|clip_vitb16_onnx|sentence_t5_tflite)
+            ensure_python_deps "onnxruntime (para $mdl_choice)" onnxruntime || {
+              printf "%s[WARN]%s Sin onnxruntime; se usará fallback/mock.
+" "$C_YLW" "$C_RESET"
+            }
+            ;;
+        esac
         if "$PYTHON_BIN" "lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit 150 --model "$mdl_choice" "${offline_args[@]}" &&\
            "$PYTHON_BIN" "lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit 150 --model "$mdl_choice" "${offline_args[@]}"; then
           printf "%s[OK]%s Reportes generados. Usa DJPT_TF_MOCK=1 para evitar descargas; instala TF (opción 64) para usar modelos reales.
@@ -1988,7 +1998,7 @@ submenu_T_tensorflow_lab() {
             pause_enter; continue
           }
         fi
-        if "$PYTHON_BIN" "lib/ml_tf.py" similarity --embeddings "$emb_in" --out "$sim_out" --threshold 0.60 --top 200; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" similarity --embeddings "$emb_in" --out "$sim_out" --threshold 0.60 --top 200 "${offline_args[@]}"; then
           printf "%s[OK]%s Similitud generada: %s
 " "$C_GRN" "$C_RESET" "$sim_out"
         else
@@ -2003,7 +2013,7 @@ submenu_T_tensorflow_lab() {
         out_an="$REPORTS_DIR/audio_anomalies.tsv"
         printf "%s[INFO]%s Anomalías (silencio/clipping) -> %s
 " "$C_CYN" "$C_RESET" "$out_an"
-        if "$PYTHON_BIN" "lib/ml_tf.py" anomalies --base "$BASE_PATH" --out "$out_an" --limit 200; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" anomalies --base "$BASE_PATH" --out "$out_an" --limit 200 "${offline_args[@]}"; then
           printf "%s[OK]%s Anomalías generadas.
 " "$C_GRN" "$C_RESET"
         else
@@ -2018,7 +2028,7 @@ submenu_T_tensorflow_lab() {
         out_gb="$REPORTS_DIR/audio_garbage.tsv"
         printf "%s[INFO]%s Clasificador basura/silencio/clipping -> %s
 " "$C_CYN" "$C_RESET" "$out_gb"
-        if "$PYTHON_BIN" "lib/ml_tf.py" garbage --base "$BASE_PATH" --out "$out_gb" --limit 200; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" garbage --base "$BASE_PATH" --out "$out_gb" --limit 200 "${offline_args[@]}"; then
           printf "%s[OK]%s Reporte de sospechosos generado.
 " "$C_GRN" "$C_RESET"
         else
@@ -2031,15 +2041,17 @@ submenu_T_tensorflow_lab() {
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_lufs="$REPORTS_DIR/audio_loudness.tsv"
-        target="${DJPT_LUFS_TARGET:- -14.0}"
-        printf "%s[INFO]%s Estimación de loudness (objetivo %s LUFS; usa pyloudnorm si está) -> %s
-" "$C_CYN" "$C_RESET" "$target" "$out_lufs"
-        if "$PYTHON_BIN" "lib/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit 200 --target "$target"; then
-          printf "%s[OK]%s Reporte de loudness generado.
-" "$C_GRN" "$C_RESET"
+        printf "Objetivo LUFS (default %s): " "${DJPT_LUFS_TARGET:- -14.0}"
+        read -r target
+        target=${target:-${DJPT_LUFS_TARGET:- -14.0}}
+        printf "Tolerancia BOOST/CUT dB (default %s): " "${DJPT_GAIN_TOL:-1.5}"
+        read -r tol
+        tol=${tol:-${DJPT_GAIN_TOL:-1.5}}
+        printf "%s[INFO]%s Estimación de loudness (objetivo %s LUFS, tolerancia %s dB; usa pyloudnorm si está) -> %s\n" "$C_CYN" "$C_RESET" "$target" "$tol" "$out_lufs"
+        if DJPT_GAIN_TOL="$tol" "$PYTHON_BIN" "lib/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit 200 --target "$target" --tolerance "$tol" "${offline_args[@]}"; then
+          printf "%s[OK]%s Reporte de loudness generado.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Falló la estimación de loudness.
-" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló la estimación de loudness.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2049,7 +2061,7 @@ submenu_T_tensorflow_lab() {
         out_seg="$REPORTS_DIR/audio_segments.tsv"
         printf "%s[INFO]%s Segmentación/onsets -> %s
 " "$C_CYN" "$C_RESET" "$out_seg"
-        if "$PYTHON_BIN" "lib/ml_tf.py" segments --base "$BASE_PATH" --out "$out_seg" --limit 50; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" segments --base "$BASE_PATH" --out "$out_seg" --limit 50 "${offline_args[@]}"; then
           printf "%s[OK]%s Segmentos generados.
 " "$C_GRN" "$C_RESET"
         else
@@ -2070,7 +2082,7 @@ submenu_T_tensorflow_lab() {
         [ -s "$tags_file" ] && tag_args=(--tags "$tags_file")
         printf "%s[INFO]%s Matching cross-platform (nombres normalizados + tags/embeddings si existen) -> %s
 " "$C_CYN" "$C_RESET" "$out_match"
-        if "$PYTHON_BIN" "lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit 200 "${emb_args[@]}" "${tag_args[@]}"; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit 200 "${emb_args[@]}" "${tag_args[@]}" "${offline_args[@]}"; then
           printf "%s[OK]%s Matching generado.
 " "$C_GRN" "$C_RESET"
         else
@@ -2085,7 +2097,7 @@ submenu_T_tensorflow_lab() {
         out_vtags="$REPORTS_DIR/video_tags.tsv"
         printf "%s[INFO]%s Auto-tagging de vídeo (heurístico por nombre) -> %s
 " "$C_CYN" "$C_RESET" "$out_vtags"
-        if "$PYTHON_BIN" "lib/ml_tf.py" video_tags --base "$BASE_PATH" --out "$out_vtags" --limit 200; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" video_tags --base "$BASE_PATH" --out "$out_vtags" --limit 200 "${offline_args[@]}"; then
           printf "%s[OK]%s Tags de vídeo generados.
 " "$C_GRN" "$C_RESET"
         else
@@ -2100,7 +2112,7 @@ submenu_T_tensorflow_lab() {
         out_mtags="$REPORTS_DIR/music_tags.tsv"
         printf "%s[INFO]%s Music tagging multi-label (TF Hub o heurístico) -> %s
 " "$C_CYN" "$C_RESET" "$out_mtags"
-        if "$PYTHON_BIN" "lib/ml_tf.py" music_tags --base "$BASE_PATH" --out "$out_mtags" --limit 200; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" music_tags --base "$BASE_PATH" --out "$out_mtags" --limit 200 "${offline_args[@]}"; then
           printf "%s[OK]%s Music tagging generado.
 " "$C_GRN" "$C_RESET"
         else
@@ -2115,7 +2127,7 @@ submenu_T_tensorflow_lab() {
         out_master="$REPORTS_DIR/audio_mastering.tsv"
         printf "%s[INFO]%s Mastering check (LUFS/crest/DR) -> %s
 " "$C_CYN" "$C_RESET" "$out_master"
-        if "$PYTHON_BIN" "lib/ml_tf.py" mastering --base "$BASE_PATH" --out "$out_master" --limit 200 --target -14.0 --crest-min 6.0 --dr-min 5.0; then
+        if "$PYTHON_BIN" "lib/ml_tf.py" mastering --base "$BASE_PATH" --out "$out_master" --limit 200 --target -14.0 --crest-min 6.0 --dr-min 5.0 "${offline_args[@]}"; then
           printf "%s[OK]%s Plan de mastering generado.
 " "$C_GRN" "$C_RESET"
         else
@@ -2133,7 +2145,7 @@ submenu_T_tensorflow_lab() {
         if [ -z "$mdl" ]; then
           printf "%s[WARN]%s Sin nombre, cancelado.\n" "$C_YLW" "$C_RESET"
         else
-          if "$PYTHON_BIN" "lib/ml_tf.py" download_model --name "$mdl"; then
+          if "$PYTHON_BIN" "lib/ml_tf.py" download_model --name "$mdl" "${offline_args[@]}"; then
             printf "%s[OK]%s Modelo %s cacheado.\n" "$C_GRN" "$C_RESET" "$mdl"
           else
             printf "%s[ERR]%s Descarga falló (revisa red/URL).\n" "$C_RED" "$C_RESET"

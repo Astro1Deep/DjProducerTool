@@ -1,10 +1,10 @@
-# 🎧 DJProducerTools v2.0.0
+# 🎧 DJProducerTools v1.0.0
 
 Suite Profesional de Producción DJ para macOS | [English Version](README.md)
 
 ## Estado
 
-- **Versión actual:** 2.0.0 (2024-01-04)
+- **Versión actual:** 1.0.0 (2024-01-04)
 - **Implementado (CLI):** catálogo de archivos, índice SHA-256 y plan de duplicados, quarantine manager, backups de `_Serato_`/metadatos DJ, snapshot hash rápido, reportes TSV (ffprobe, relink helper, rescan), playlists por carpeta, toggles `SAFE_MODE`/`DJ_SAFE_LOCK`/`DRYRUN_FORCE`, inventario ffprobe + plan de transcode (H.264 1080p), planes playlists→OSC/DMX, envío DMX opcional (ENTTEC) en dry-run, servidor HTTP/OSC local, análisis BPM/librosa → TSV.
 - **Roadmap/placeholder:** auto-tagging ML avanzado y laboratorio TensorFlow (solo plan/documentado); exportes HTML/PDF avanzados.
 
@@ -53,9 +53,16 @@ chmod +x scripts/*.sh
 - [API_ES.md](API_ES.md) - Borrador API/OSC (placeholder)
 - [DEBUG_GUIDE_ES.md](DEBUG_GUIDE_ES.md) - Guía de depuración
 
+### ML/TF Lab desde cero (modelos reales onnx/tflite)
+
+1. Activa el venv local o deja que el menú lo cree: `source _DJProducerTools/venv/bin/activate` (se aloja en la carpeta donde arrancas el script, nunca en el sistema).
+2. En TF Lab (menú 65), pon `DJPT_OFFLINE=0` para permitir modelos reales. Si eliges modelos ONNX (clap_onnx/clip_vitb16_onnx/sentence_t5_tflite), se pedirá instalar `onnxruntime`; si falta, se usa fallback mock con aviso.
+3. TFLite en macOS ARM: no hay wheel oficial `tflite-runtime`; usa TensorFlow (opción 64) o un entorno con wheel compatible. Mientras tanto, MusicGen_tflite opera en modo fallback seguro.
+4. `DJPT_OFFLINE=1` fuerza heurísticos/mocks en todas las opciones ML. Los avisos son no bloqueantes y el script permanece en modo seguro.
+
 ## Licencia
 
 MIT - Ver [LICENSE](LICENSE)
 
 ---
-**Versión:** 2.0.0 | **Estado:** ✅ CLI básica lista / 🚧 módulos avanzados pendientes
+**Versión:** 1.0.0 | **Estado:** ✅ CLI básica lista / 🚧 módulos avanzados pendientes

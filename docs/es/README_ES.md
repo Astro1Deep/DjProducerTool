@@ -5,7 +5,7 @@
 [![Bash](https://img.shields.io/badge/Bash-4.0%2B-brightgreen)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/Platform-macOS%2010.15%2B-blue)](https://www.apple.com/macos/)
 [![License](https://img.shields.io/badge/License-DJProducerTools-green)](LICENSE.md)
-[![Version](https://img.shields.io/badge/Version-2.0.0-blue)](VERSION)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue)](VERSION)
 
 ---
 
@@ -84,6 +84,21 @@ Menú Principal:
 
 El estado se guarda en `BASE_PATH/_DJProducerTools/` (config, reports, planes, cuarentena, venv). El script auto-detecta `_DJProducerTools` cercano y normaliza BASE_PATH.
 
+## ML/TF Lab desde cero (modelos reales onnx/tflite)
+
+1. Activa el venv local o deja que el menú lo cree: `source _DJProducerTools/venv/bin/activate` (estado bajo BASE_PATH, nunca en el sistema).
+2. En TF Lab (menú 65), pon `DJPT_OFFLINE=0` para permitir modelos reales. Si eliges ONNX (clap_onnx/clip_vitb16_onnx/sentence_t5_tflite), pedirá instalar `onnxruntime`; si falta, usa fallback/mock con aviso.
+3. TFLite en macOS ARM: no hay wheel oficial `tflite-runtime`; usa TensorFlow (opción 64) o un entorno con wheel compatible. Mientras tanto, MusicGen_tflite opera en fallback seguro.
+4. `DJPT_OFFLINE=1` fuerza heurísticos/mocks en todas las opciones ML. Los avisos no bloquean y las protecciones siguen activas.
+
+### Ejemplos prácticos rápidos
+- **Duplicados exactos + cuarentena (seguro):** Menú 9 → 10 (revisar `plans/dupes_plan.tsv`) → 11 (solo si Safe/Lock=0).  
+- **Preparar video:** Menú V2/V6 para inventario ffprobe; V4/V5 para plan de transcode H.264 1080p (solo lista, no ejecuta).  
+- **BPM/onsets:** Menú 49 (reporte BPM) + 67 (auto-cues/onsets) para marcar pistas; usa `librosa` si está.  
+- **DMX en dry-run:** Menú V3 con `DRYRUN_FORCE=1` para registrar frames sin enviar al hardware.  
+- **Embeddings/tags en TF Lab:** Menú 65.1/65.2 con `DJPT_OFFLINE=0`, modelo `clap_onnx`; genera `audio_embeddings.tsv` / `audio_tags.tsv` para similitud/matching.  
+- **Plan de loudness:** Menú 66 o 65.5, fija objetivo/tolerancia LUFS; produce `audio_loudness.tsv` con ganancia sugerida (sin escribir audio).
+
 ## 📚 Documentación
 
 - **[INSTALL_ES.md](INSTALL_ES.md)** - Guía de instalación detallada
@@ -117,7 +132,7 @@ DJProducerTools License (Atribución + Participación de Ingresos). Consulta [LI
 
 **Creado por**: Astro1Deep 🎵  
 **GitHub**: https://github.com/Astro1Deep/DjProducerTool  
-**Versión**: 2.0.0  
+**Versión**: 1.0.0  
 **Estado**: Production Ready ✅
 
 ---

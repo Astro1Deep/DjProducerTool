@@ -1,6 +1,6 @@
 # Advanced Modules Implementation Plan
 
-Version: draft (aligned with CLI 2.0.0)  
+Version: draft (aligned with CLI 1.0.0)  
 Status: Video inventory/transcode plan + playlist→OSC/DMX + DMX send (dry-run) + HTTP/OSC status server + BPM (tags/librosa) implemented parcialmente. Items abajo siguen como roadmap/mejora.  
 Goal: turn remaining placeholders into real features with safety and test coverage.
 

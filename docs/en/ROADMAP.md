@@ -3,7 +3,7 @@
 ## Vision
 DJProducerTools aims to be the most comprehensive, safe, and intelligent music library management solution for DJs and producers on macOS.
 
-## Current Version: 2.0.0
+## Current Version: 1.0.0
 **Release Date**: January 4, 2024
 
 ### ✅ Completed
@@ -154,7 +154,7 @@ Have ideas? Found a bug? Want to help?
 
 ## Version History
 
-- **2.0.0** (Jan 2024) - Complete rewrite, comprehensive testing
+- **1.0.0** (Jan 2024) - Complete rewrite, comprehensive testing
 - **1.9.5** (Dec 2023) - Advanced features, auto-pilot chains
 - **1.0.0** (Nov 2023) - Initial release
 

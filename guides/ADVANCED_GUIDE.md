@@ -1,6 +1,6 @@
 # DJProducerTools – Advanced Guide (EN)
 
-Version: 2.0.0 (2024-01-04)  
+Version: 1.0.0 (2024-01-04)  
 Scope: CLI for catalog/hash, duplicate planning + quarantine, DJ metadata backups, TSV reports. DMX/Video/OSC/API/ML remain placeholders/roadmap (plans/reports only).
 
 ## Safety Defaults
@@ -136,3 +136,12 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
   - `reports/audio_anomalies.tsv` (silencio/clipping)
   - `reports/audio_segments.tsv` (onsets/segmentos)
 - Consejos: limita a ~150 archivos, `DJPT_TF_MOCK=1` para CI/offline; borra/recachea venv desde opción 64 si hay problemas.
+- Modelos ONNX/TFLite reales: activa venv (`source _DJProducerTools/venv/bin/activate`), pon `DJPT_OFFLINE=0` y elige `clap_onnx/clip_vitb16_onnx/sentence_t5_tflite` en 65. Se intentará instalar `onnxruntime`; si no está, se usa fallback con aviso. En macOS ARM no hay wheel `tflite-runtime`; usa TensorFlow (64) o un entorno con wheel compatible; MusicGen_tflite cae a fallback seguro.
+
+## Why these deps and what you gain
+- **ffprobe/ffmpeg**: media integrity, video inventory, keyframes for tagging. Beneficio: detección temprana de archivos corruptos y planes de transcode sin modificar nada.
+- **sox/librosa**: BPM/onsets/segmentation sin tocar tags. Beneficio: cues preliminares y consistencia de tempos.
+- **onnxruntime / tensorflow**: embeddings y tagging locales (yamnet/musicnn/musictag/CLIP/CLAP) sin subir audio. Beneficio: recomendaciones/similitud sin perder privacidad.
+- **pyloudnorm**: planes de normalización LUFS sin aplicar ganancia. Beneficio: preparar lotes homogéneos antes de masterizar.
+- **pyserial/python-osc/fastapi**: DMX/OSC/API locales. Beneficio: controlar luces/estado sin exponer servicios externos.
+- **Seguridad**: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`, `DRYRUN_FORCE` y `DJPT_OFFLINE` mantienen todo en simulación/heurísticos por defecto; cualquier dependencia faltante genera warning y fallback, nunca aborta la sesión.

@@ -11,7 +11,7 @@ Bilingual CLI for safe DJ library management on macOS. Spanish version: [README_
 
 ## 📌 Status
 
-- **Current version:** 2.0.0 (2024-01-04)
+- **Current version:** 1.0.0 (2024-01-04)
 - **Implemented (CLI):** file catalog, SHA-256 index and duplicate plan, quarantine manager, `_Serato_`/DJ metadata backups, fast hash snapshot, TSV reports (ffprobe, relink helper, rescan), per-folder playlists, safety toggles (`SAFE_MODE`, `DJ_SAFE_LOCK`, `DRYRUN_FORCE`), ffprobe video inventory + transcode plan (H.264 1080p suggested), playlist→OSC/DMX plans, DMX send (dry-run by default), local API/OSC server, BPM/librosa TSV analysis.
 - **Roadmap/placeholders:** advanced ML auto-tagging and TensorFlow Lab ideas (only documented/plan output for now); richer HTML/PDF exports.
 
@@ -79,6 +79,13 @@ dj-es    # force Spanish
 - **[DEBUG_GUIDE_ES.md](./DEBUG_GUIDE_ES.md)** — Debug guide (ES)
 - **TF Lab (65):** Instala TF con opción 64 (venv aislado). `DJPT_TF_MOCK=1` evita descargas y usa modo offline. Salidas: `reports/audio_embeddings.tsv`, `reports/audio_tags.tsv`, `reports/audio_similarity.tsv`, `reports/audio_anomalies.tsv`, `reports/audio_segments.tsv`.
 
+### ML/TF Lab desde cero (modelos reales onnx/tflite)
+
+1. Activa el venv local o deja que el menú lo cree: `source _DJProducerTools/venv/bin/activate` (se aloja en la carpeta donde arrancas el script, nunca en el sistema).
+2. En TF Lab (menú 65), pon `DJPT_OFFLINE=0` para permitir modelos reales. Si eliges modelos ONNX (clap_onnx/clip_vitb16_onnx/sentence_t5_tflite), se pedirá instalar `onnxruntime`; si falta, se usa fallback mock con aviso.
+3. TFLite en macOS ARM: no hay wheel oficial `tflite-runtime`; usa TensorFlow (opción 64) o un entorno con wheel compatible. Mientras tanto, MusicGen_tflite opera en modo fallback seguro.
+4. `DJPT_OFFLINE=1` fuerza heurísticos/mocks en todas las opciones ML. Los avisos son no bloqueantes y el script permanece en modo seguro.
+
 ## ⚙️ System Requirements
 
 - macOS 10.13+ (10.15+ recommended)
@@ -112,7 +119,7 @@ DJProducerTools_Project/
 
 ## 📝 Version History
 
-- **v2.0.0** (Jan 2024)
+- **v1.0.0** (Jan 2024)
   - Hash index + duplicate plan with optional quarantine
   - `_Serato_`/DJ metadata backups; fast hash snapshot
   - EN/ES menus, safety defaults, TSV reports

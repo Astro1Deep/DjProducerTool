@@ -232,5 +232,5 @@ oscsend localhost 9000 /djpt/ping s "test"
 
 ---
 
-**Versión**: 2.0.0  
+**Versión**: 1.0.0  
 **Última actualización**: 2025-01-04

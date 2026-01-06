@@ -185,7 +185,7 @@ DEBUG_MODE=1 ./DJProducerTools_MultiScript_ES.sh
 
 ## Versión
 
-Versión actual: 2.0.0
+Versión actual: 1.0.0
 Ver archivo `VERSION` para más detalles.
 
 ## Contribuyendo

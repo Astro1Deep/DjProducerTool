@@ -1,6 +1,6 @@
 # FEATURES.md - Feature Implementation Status
 
-**Version:** 2.0.0  
+**Version:** 1.0.0  
 **Last Updated:** January 4, 2024  
 **Note:** DMX (plan + ENTTEC send), Serato Video (ffprobe inventory + transcode plan), playlists→OSC/DMX, and the basic HTTP/OSC server are partially implemented. BPM (tags/librosa) is available in a light mode. Advanced ML remains on the roadmap. Active functionality focuses on catalog/hash, duplicate plans, backups, and TSV reports.
 

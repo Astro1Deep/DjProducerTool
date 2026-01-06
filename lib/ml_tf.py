@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 import importlib
@@ -38,6 +39,13 @@ try:
     import tflite_runtime.interpreter as tflite  # type: ignore
 except Exception:  # pragma: no cover
     tflite = None
+
+_onnx_warned = False
+_tflite_warned = False
+
+
+def is_offline_env() -> bool:
+    return os.environ.get("DJPT_OFFLINE") == "1"
 
 
 MODEL_URLS = {
@@ -126,7 +134,11 @@ def heuristic_tags(path: Path) -> List[str]:
 
 
 def load_onnx_session(model_name: str) -> Tuple[Optional[Any], Optional[str]]:
+    global _onnx_warned
     if ort is None:
+        if not _onnx_warned:
+            print(f"[WARN] onnxruntime no disponible; se usará fallback/mock para {model_name}", file=sys.stderr)
+            _onnx_warned = True
         return None, None
     model_path = local_model_path(model_name)
     if not model_path or not model_path.exists():
@@ -147,7 +159,19 @@ def run_onnx_audio(sess: Any, input_name: str, path: Path) -> List[float]:
         data, sr = _sf.read(str(path))
         if data.ndim > 1:
             data = data.mean(axis=1)
+        # Normaliza a -1..1 y resamplea a 16k si es posible
         data = _np.asarray(data, dtype=_np.float32)
+        peak = _np.max(_np.abs(data)) if len(data) else 1.0
+        if peak > 0:
+            data = data / peak
+        if sr != 16000:
+            try:
+                import librosa  # type: ignore
+
+                data = librosa.resample(data, orig_sr=sr, target_sr=16000)
+                sr = 16000
+            except Exception:
+                pass
         out = sess.run(None, {input_name: data})
         if isinstance(out, list) and len(out) > 0:
             arr = _np.asarray(out[0]).flatten()
@@ -172,7 +196,11 @@ def run_onnx_text(sess: Any, input_name: str, text: str) -> List[float]:
 
 
 def load_tflite_interpreter(model_name: str) -> Optional[Any]:
+    global _tflite_warned
     if tflite is None:
+        if not _tflite_warned:
+            print(f"[WARN] tflite-runtime no disponible; se usará fallback/mock para {model_name}", file=sys.stderr)
+            _tflite_warned = True
         return None
     model_path = local_model_path(model_name)
     if not model_path or not model_path.exists():
@@ -571,7 +599,7 @@ def write_loudness(base: Path, out_tsv: Path, limit: int, target_lufs: float = -
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Tuple[str, float, float, float, float, float, str, str]] = []
-    tol = 1.5
+    tol = float(os.environ.get("DJPT_GAIN_TOL", "1.5"))
     for p in files:
         lufs = 0.0
         crest = 0.0
@@ -875,50 +903,51 @@ def write_similarity(emb_tsv: Path, out_tsv: Path, threshold: float, top_n: int)
 
 def main():
     ap = argparse.ArgumentParser()
+    common_offline = argparse.ArgumentParser(add_help=False)
+    common_offline.add_argument("--offline", action="store_true", help="Forzar modo offline/heurístico (equivale a DJPT_OFFLINE=1).")
     sub = ap.add_subparsers(dest="mode", required=True)
 
-    p_emb = sub.add_parser("embeddings")
+    p_emb = sub.add_parser("embeddings", parents=[common_offline])
     p_emb.add_argument("--base", default=".")
     p_emb.add_argument("--out", required=True)
     p_emb.add_argument("--limit", type=int, default=150)
     p_emb.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()) + list(ONNX_MODELS.keys()))
-    p_emb.add_argument("--offline", action="store_true", help="Forzar modo sin TF/Hub (mock) incluso si está disponible.")
 
-    p_tags = sub.add_parser("tags")
+    p_tags = sub.add_parser("tags", parents=[common_offline])
     p_tags.add_argument("--base", default=".")
     p_tags.add_argument("--out", required=True)
     p_tags.add_argument("--limit", type=int, default=150)
     p_tags.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()) + list(ONNX_MODELS.keys()))
-    p_tags.add_argument("--offline", action="store_true", help="Forzar modo sin TF/Hub (mock) incluso si está disponible.")
 
-    p_sim = sub.add_parser("similarity")
+    p_sim = sub.add_parser("similarity", parents=[common_offline])
     p_sim.add_argument("--embeddings", required=True, help="Input embeddings TSV")
     p_sim.add_argument("--out", required=True)
     p_sim.add_argument("--threshold", type=float, default=0.60)
     p_sim.add_argument("--top", type=int, default=200)
 
-    p_an = sub.add_parser("anomalies")
+    p_an = sub.add_parser("anomalies", parents=[common_offline])
     p_an.add_argument("--base", default=".")
     p_an.add_argument("--out", required=True)
     p_an.add_argument("--limit", type=int, default=200)
 
-    p_seg = sub.add_parser("segments")
+    p_seg = sub.add_parser("segments", parents=[common_offline])
     p_seg.add_argument("--base", default=".")
     p_seg.add_argument("--out", required=True)
     p_seg.add_argument("--limit", type=int, default=50)
 
-    p_garb = sub.add_parser("garbage")
+    p_garb = sub.add_parser("garbage", parents=[common_offline])
     p_garb.add_argument("--base", default=".")
     p_garb.add_argument("--out", required=True)
     p_garb.add_argument("--limit", type=int, default=200)
 
-    p_lufs = sub.add_parser("loudness")
+    p_lufs = sub.add_parser("loudness", parents=[common_offline])
     p_lufs.add_argument("--base", default=".")
     p_lufs.add_argument("--out", required=True)
     p_lufs.add_argument("--limit", type=int, default=200)
     p_lufs.add_argument("--target", type=float, default=-14.0, help="Objetivo LUFS para sugerir ganancia (default -14).")
+    p_lufs.add_argument("--tolerance", type=float, default=None, help="Umbral BOOST/CUT (default 1.5 dB o DJPT_GAIN_TOL).")
 
-    p_master = sub.add_parser("mastering")
+    p_master = sub.add_parser("mastering", parents=[common_offline])
     p_master.add_argument("--base", default=".")
     p_master.add_argument("--out", required=True)
     p_master.add_argument("--limit", type=int, default=200)
@@ -926,27 +955,30 @@ def main():
     p_master.add_argument("--crest-min", type=float, default=6.0, help="Crest factor mínimo recomendado.")
     p_master.add_argument("--dr-min", type=float, default=5.0, help="Rango dinámico mínimo recomendado.")
 
-    p_match = sub.add_parser("matching")
+    p_match = sub.add_parser("matching", parents=[common_offline])
     p_match.add_argument("--base", default=".")
     p_match.add_argument("--out", required=True)
     p_match.add_argument("--limit", type=int, default=200)
     p_match.add_argument("--embeddings", help="Embeddings TSV opcional para similitud cruzada.")
     p_match.add_argument("--tags", help="Tags TSV opcional para pista->tags.")
 
-    p_vtags = sub.add_parser("video_tags")
+    p_vtags = sub.add_parser("video_tags", parents=[common_offline])
     p_vtags.add_argument("--base", default=".")
     p_vtags.add_argument("--out", required=True)
     p_vtags.add_argument("--limit", type=int, default=200)
 
-    p_mtags = sub.add_parser("music_tags")
+    p_mtags = sub.add_parser("music_tags", parents=[common_offline])
     p_mtags.add_argument("--base", default=".")
     p_mtags.add_argument("--out", required=True)
     p_mtags.add_argument("--limit", type=int, default=200)
 
-    p_dl = sub.add_parser("download_model")
+    p_dl = sub.add_parser("download_model", parents=[common_offline])
     p_dl.add_argument("--name", required=True, choices=list(MODEL_WEIGHTS.keys()))
 
     args = ap.parse_args()
+    offline = getattr(args, "offline", False) or is_offline_env()
+    if getattr(args, "offline", False):
+        os.environ["DJPT_OFFLINE"] = "1"
 
     if args.mode == "embeddings":
         write_embeddings(
@@ -954,7 +986,7 @@ def main():
             Path(args.out).expanduser().resolve(),
             args.limit,
             args.model,
-            args.offline,
+            offline,
         )
     elif args.mode == "tags":
         write_tags(
@@ -962,7 +994,7 @@ def main():
             Path(args.out).expanduser().resolve(),
             args.limit,
             args.model,
-            args.offline,
+            offline,
         )
     elif args.mode == "similarity":
         write_similarity(Path(args.embeddings).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.threshold, args.top)
@@ -973,6 +1005,8 @@ def main():
     elif args.mode == "garbage":
         write_garbage(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
     elif args.mode == "loudness":
+        tol = args.tolerance if args.tolerance is not None else float(os.environ.get("DJPT_GAIN_TOL", "1.5"))
+        os.environ["DJPT_GAIN_TOL"] = str(tol)
         write_loudness(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit, args.target)
     elif args.mode == "mastering":
         write_mastering(
@@ -992,6 +1026,9 @@ def main():
     elif args.mode == "music_tags":
         write_music_tags(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
     elif args.mode == "download_model":
+        if offline:
+            print("[WARN] Modo offline activo; omitiendo descarga de modelos (usa DJPT_OFFLINE=0 para forzar).")
+            return
         dest = ensure_model_cached(args.name)
         if dest:
             print(f"[OK] Modelo {args.name} descargado en {dest}")

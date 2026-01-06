@@ -44,7 +44,7 @@ The tool automatically:
 
 | Version | Status | Until |
 |---------|--------|-------|
-| 2.0.0 | Supported | 2025-01-04 |
+| 1.0.0 | Supported | 2025-01-04 |
 | 1.9.5 | Security fixes only | 2024-07-04 |
 | < 1.9.5 | Unsupported | - |
 
