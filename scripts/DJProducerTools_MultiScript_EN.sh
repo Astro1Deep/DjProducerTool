@@ -1962,8 +1962,18 @@ submenu_T_tensorflow_lab() {
         pause_enter
         ;;
       3)
-        printf "%s[WARN]%s Placeholder: loops no implementado.
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_an="$REPORTS_DIR/audio_anomalies.tsv"
+        printf "%s[INFO]%s Anomalías (silencio/clipping) -> %s
+" "$C_CYN" "$C_RESET" "$out_an"
+        if "$PYTHON_BIN" "lib/ml_tf.py" anomalies --base "$BASE_PATH" --out "$out_an" --limit 200; then
+          printf "%s[OK]%s Anomalías generadas.
+" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Falló análisis de anomalías.
+" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       4)
@@ -1977,8 +1987,18 @@ submenu_T_tensorflow_lab() {
         pause_enter
         ;;
       6)
-        printf "%s[WARN]%s Placeholder: auto-segmentación TF no implementada.
-" "$C_YLW" "$C_RESET"
+        clear
+        ensure_python_bin || { pause_enter; continue; }
+        out_seg="$REPORTS_DIR/audio_segments.tsv"
+        printf "%s[INFO]%s Segmentación/onsets -> %s
+" "$C_CYN" "$C_RESET" "$out_seg"
+        if "$PYTHON_BIN" "lib/ml_tf.py" segments --base "$BASE_PATH" --out "$out_seg" --limit 50; then
+          printf "%s[OK]%s Segmentos generados.
+" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s Falló segmentación.
+" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       7)

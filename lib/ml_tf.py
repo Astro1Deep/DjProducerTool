@@ -11,7 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif", ".ogg"}
 
@@ -20,14 +20,29 @@ try:  # pragma: no cover - optional path
     import tensorflow as tf  # type: ignore
     import tensorflow_hub as hub  # type: ignore
     import soundfile as sf  # type: ignore
+    import numpy as np  # type: ignore
 except Exception:  # pragma: no cover - optional path
     tf = None
     hub = None
     sf = None
+    np = None
+
+
+MODEL_URLS = {
+    "yamnet": "https://tfhub.dev/google/yamnet/1",
+    "musicnn": "https://tfhub.dev/google/musicnn/1",
+    "musictag": "https://tfhub.dev/google/music_tagging/nnfp/1",
+}
 
 
 def tf_available() -> bool:
-    return tf is not None and hub is not None and sf is not None and os.environ.get("DJPT_TF_MOCK") != "1"
+    return (
+        tf is not None
+        and hub is not None
+        and sf is not None
+        and np is not None
+        and os.environ.get("DJPT_TF_MOCK") != "1"
+    )
 
 
 def list_audio(base: Path, limit: int) -> List[Path]:
@@ -68,7 +83,7 @@ def heuristic_tags(path: Path) -> List[str]:
 
 # --- TF helpers ---
 
-def load_audio_16k(path: Path) -> Any:
+def load_audio_16k(path: Path) -> Optional[Any]:
     if sf is None or tf is None:
         return None
     data, sr = sf.read(str(path))
@@ -81,26 +96,46 @@ def load_audio_16k(path: Path) -> Any:
     return data
 
 
-def yamnet_model() -> Any:
+def load_tf_model(model_name: str) -> Optional[Any]:
     if hub is None:
         return None
+    url = MODEL_URLS.get(model_name, MODEL_URLS["yamnet"])
     try:
-        return hub.load("https://tfhub.dev/google/yamnet/1")
+        return hub.load(url)
     except Exception:
         return None
 
 
-def yamnet_embed(model: Any, audio: Any) -> Tuple[List[float], List[str]]:
-    if model is None or audio is None or tf is None:
+def model_embed_and_tag(model: Any, audio: Any) -> Tuple[List[float], List[str]]:
+    if model is None or audio is None or tf is None or np is None:
         return [], []
     try:
-        scores, embeddings, spectrogram = model(audio)  # type: ignore
-        # Average embeddings across patches
-        emb = tf.reduce_mean(embeddings, axis=0).numpy().tolist()
-        # Top tag
-        top_idx = int(tf.argmax(tf.reduce_mean(scores, axis=0)))
-        tag = f"class_{top_idx}"
-        return emb, [tag]
+        outputs = model(audio)
+        # Different hubs return different shapes; try to extract embeddings and scores
+        embeddings = None
+        scores = None
+        if isinstance(outputs, (list, tuple)) and len(outputs) >= 2:
+            scores, embeddings = outputs[0], outputs[1]
+        elif isinstance(outputs, dict):
+            # choose first two items
+            vals = list(outputs.values())
+            if len(vals) >= 2:
+                scores, embeddings = vals[0], vals[1]
+            elif len(vals) == 1:
+                scores = embeddings = vals[0]
+        else:
+            embeddings = outputs
+
+        emb_vec: List[float] = []
+        tags: List[str] = []
+        if embeddings is not None:
+            emb_mean = tf.reduce_mean(tf.convert_to_tensor(embeddings), axis=0)
+            emb_vec = emb_mean.numpy().tolist()
+        if scores is not None:
+            scores_mean = tf.reduce_mean(tf.convert_to_tensor(scores), axis=0)
+            top_idx = int(tf.argmax(scores_mean))
+            tags = [f"class_{top_idx}"]
+        return emb_vec, tags
     except Exception:
         return [], []
 
@@ -111,13 +146,13 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str) -> No
     files = list_audio(base, limit)
     out.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Tuple[str, str, str]] = []
-    use_tf = tf_available() and model_choice == "yamnet"
-    model = yamnet_model() if use_tf else None
+    use_tf = tf_available() and model_choice in MODEL_URLS
+    model = load_tf_model(model_choice) if use_tf else None
     for p in files:
         if use_tf and model is not None:
             audio = load_audio_16k(p)
-            emb, _ = yamnet_embed(model, audio)
-            method = "tf_yamnet" if emb else "tf_yamnet_fallback"
+            emb, _ = model_embed_and_tag(model, audio)
+            method = f"tf_{model_choice}" if emb else f"tf_{model_choice}_fallback"
             if not emb:
                 emb = hash_embedding(p)
         else:
@@ -134,15 +169,15 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str) -> None:
     files = list_audio(base, limit)
     out.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Tuple[str, str, str]] = []
-    use_tf = tf_available() and model_choice == "yamnet"
-    model = yamnet_model() if use_tf else None
+    use_tf = tf_available() and model_choice in MODEL_URLS
+    model = load_tf_model(model_choice) if use_tf else None
     for p in files:
         tags: List[str] = []
         method = "hash_mock"
         if use_tf and model is not None:
             audio = load_audio_16k(p)
-            _, tags = yamnet_embed(model, audio)
-            method = "tf_yamnet" if tags else "tf_yamnet_fallback"
+            _, tags = model_embed_and_tag(model, audio)
+            method = f"tf_{model_choice}" if tags else f"tf_{model_choice}_fallback"
         if not tags:
             tags = heuristic_tags(p)
         rows.append((str(p), method, json.dumps(tags)))
@@ -162,6 +197,85 @@ def cosine(a: List[float], b: List[float]) -> float:
     if da == 0 or db == 0:
         return 0.0
     return num / (da * db)
+
+
+def write_anomalies(base: Path, out_tsv: Path, limit: int) -> None:
+    files = list_audio(base, limit)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    rows: List[Tuple[str, float, float, str]] = []
+    for p in files:
+        try:
+            import soundfile as _sf  # local import to allow mock mode
+            data, sr = _sf.read(str(p))
+            if data.ndim > 1:
+                data = data.mean(axis=1)
+            import numpy as _np
+            rms = float(_np.sqrt(_np.mean(_np.square(data)))) if len(data) else 0.0
+            peak = float(_np.max(_np.abs(data))) if len(data) else 0.0
+            flags = []
+            if peak >= 0.99:
+                flags.append("clipping")
+            if rms < 0.01:
+                flags.append("silence")
+            rows.append((str(p), rms, peak, ",".join(flags)))
+        except Exception:
+            rows.append((str(p), 0.0, 0.0, "error"))
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "rms", "peak", "flags"])
+        for r in rows:
+            w.writerow([r[0], f"{r[1]:.6f}", f"{r[2]:.6f}", r[3]])
+
+
+def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
+    files = list_audio(base, limit)
+    out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    rows: List[Tuple[str, str]] = []
+    have_librosa = False
+    try:
+        import librosa  # type: ignore
+        have_librosa = True
+    except Exception:
+        have_librosa = False
+
+    for p in files:
+        onsets: List[float] = []
+        if have_librosa:
+            try:
+                import numpy as _np
+                y, sr = librosa.load(p, sr=22050, mono=True, duration=180)
+                on = librosa.onset.onset_detect(y=y, sr=sr, units="time")
+                onsets = [float(x) for x in on[:10]]
+            except Exception:
+                onsets = []
+        else:
+            # Fallback: simple energy change detector
+            try:
+                import soundfile as _sf
+                import numpy as _np
+                data, sr = _sf.read(str(p))
+                if data.ndim > 1:
+                    data = data.mean(axis=1)
+                hop = max(int(sr * 0.05), 1)
+                rms = []
+                for i in range(0, len(data), hop):
+                    window = data[i : i + hop]
+                    if len(window) == 0:
+                        continue
+                    rms.append(float(_np.sqrt(_np.mean(_np.square(window)))))
+                for idx in range(1, len(rms)):
+                    if rms[idx] > 2 * rms[idx - 1] and rms[idx] > 0.02:
+                        onsets.append(idx * 0.05)
+                        if len(onsets) >= 10:
+                            break
+            except Exception:
+                onsets = []
+        rows.append((str(p), ",".join(f"{t:.2f}" for t in onsets)))
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["path", "onsets_sec"])
+        for path, ons in rows:
+            w.writerow([path, ons])
 
 
 def load_embeddings(tsv: Path) -> List[Tuple[str, List[float]]]:
@@ -209,19 +323,29 @@ def main():
     p_emb.add_argument("--base", default=".")
     p_emb.add_argument("--out", required=True)
     p_emb.add_argument("--limit", type=int, default=150)
-    p_emb.add_argument("--model", default="yamnet")
+    p_emb.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()))
 
     p_tags = sub.add_parser("tags")
     p_tags.add_argument("--base", default=".")
     p_tags.add_argument("--out", required=True)
     p_tags.add_argument("--limit", type=int, default=150)
-    p_tags.add_argument("--model", default="yamnet")
+    p_tags.add_argument("--model", default="yamnet", choices=list(MODEL_URLS.keys()))
 
     p_sim = sub.add_parser("similarity")
     p_sim.add_argument("--embeddings", required=True, help="Input embeddings TSV")
     p_sim.add_argument("--out", required=True)
     p_sim.add_argument("--threshold", type=float, default=0.60)
     p_sim.add_argument("--top", type=int, default=200)
+
+    p_an = sub.add_parser("anomalies")
+    p_an.add_argument("--base", default=".")
+    p_an.add_argument("--out", required=True)
+    p_an.add_argument("--limit", type=int, default=200)
+
+    p_seg = sub.add_parser("segments")
+    p_seg.add_argument("--base", default=".")
+    p_seg.add_argument("--out", required=True)
+    p_seg.add_argument("--limit", type=int, default=50)
 
     args = ap.parse_args()
 
@@ -231,6 +355,10 @@ def main():
         write_tags(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit, args.model)
     elif args.mode == "similarity":
         write_similarity(Path(args.embeddings).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.threshold, args.top)
+    elif args.mode == "anomalies":
+        write_anomalies(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
+    elif args.mode == "segments":
+        write_segments(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
 
 
 if __name__ == "__main__":
