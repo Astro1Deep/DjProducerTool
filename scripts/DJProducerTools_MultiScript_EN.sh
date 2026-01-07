@@ -457,6 +457,25 @@ pause_enter() {
   read -r _
 }
 
+ensure_safety_guard() {
+  if [ "${SAFETY_PROMPTED:-0}" -eq 1 ]; then
+    return 0
+  fi
+  if { [ "${SAFE_MODE:-1}" -eq 0 ] || [ "${DJ_SAFE_LOCK:-1}" -eq 0 ]; }; then
+    SAFETY_PROMPTED=1
+    printf "%s[WARN]%s SAFE_MODE o DJ_SAFE_LOCK están en 0. ¿Restaurar a 1/1 para proteger movimientos? [Y/n]: " "$C_YLW" "$C_RESET"
+    read -r restore_safe
+    if [ -z "$restore_safe" ] || [[ "$restore_safe" =~ ^[Yy]$ ]]; then
+      SAFE_MODE=1
+      DJ_SAFE_LOCK=1
+      save_conf
+      printf "%s[OK]%s SAFE_MODE y DJ_SAFE_LOCK restaurados a 1.\n" "$C_GRN" "$C_RESET"
+    else
+      printf "%s[INFO]%s Manteniendo SAFE_MODE/DJ_SAFE_LOCK en su estado actual (no se volverá a preguntar en esta sesión).\n" "$C_CYN" "$C_RESET"
+    fi
+  fi
+}
+
 action_install_all_python_deps() {
   print_header
   ensure_python_bin || { pause_enter; return; }
@@ -1124,6 +1143,7 @@ action_10_dupes_plan() {
 }
 
 action_11_quarantine_from_plan() {
+  ensure_safety_guard
   if [ "$DRYRUN_FORCE" -eq 1 ]; then
     print_header
     printf "%s[WARN]%s DRYRUN_FORCE=1, se omite quarantine (no se moverá nada).\n" "$C_YLW" "$C_RESET"
@@ -1188,6 +1208,7 @@ action_12_quarantine_manager() {
         pause_enter
         ;;
       2)
+        ensure_safety_guard
         if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
           printf "%s[ERR]%s SAFE_MODE o DJ_SAFE_LOCK activos. No se restaurará nada.\n" "$C_RED" "$C_RESET"
           pause_enter
@@ -1208,6 +1229,7 @@ action_12_quarantine_manager() {
         fi
         ;;
       3)
+        ensure_safety_guard
         if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
           printf "%s[ERR]%s SAFE_MODE o DJ_SAFE_LOCK activos. No se borrará nada.\n" "$C_RED" "$C_RESET"
           pause_enter
@@ -1480,6 +1502,7 @@ action_53_reset_state() {
   printf "BASE_PATH: %s\n" "$BASE_PATH"
   printf "STATE_DIR a borrar: %s\n" "$STATE_DIR"
   printf "EXTRA_SOURCE_ROOTS actuales: %s\n" "${EXTRA_SOURCE_ROOTS:-<vacío>}"
+  ensure_safety_guard
   if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
     printf "%s[WARN]%s SAFE_MODE/DJ_SAFE_LOCK activos. Desactiva temporalmente si realmente quieres borrar el estado.\n" "$C_YLW" "$C_RESET"
     pause_enter
@@ -4575,19 +4598,6 @@ action_H_help_info() {
 
 main_loop() {
   while true; do
-    if [ "${SAFETY_PROMPTED:-0}" -eq 0 ] && { [ "${SAFE_MODE:-1}" -eq 0 ] || [ "${DJ_SAFE_LOCK:-1}" -eq 0 ]; }; then
-      SAFETY_PROMPTED=1
-      printf "%s[WARN]%s SAFE_MODE o DJ_SAFE_LOCK están en 0. ¿Restaurar a 1/1 para proteger movimientos? [Y/n]: " "$C_YLW" "$C_RESET"
-      read -r restore_safe
-      if [ -z "$restore_safe" ] || [[ "$restore_safe" =~ ^[Yy]$ ]]; then
-        SAFE_MODE=1
-        DJ_SAFE_LOCK=1
-        save_conf
-        printf "%s[OK]%s SAFE_MODE y DJ_SAFE_LOCK restaurados a 1.\n" "$C_GRN" "$C_RESET"
-      else
-        printf "%s[INFO]%s Manteniendo SAFE_MODE/DJ_SAFE_LOCK en su valor actual (no se volverá a preguntar en esta sesión).\n" "$C_CYN" "$C_RESET"
-      fi
-    fi
     print_header
     print_menu
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
