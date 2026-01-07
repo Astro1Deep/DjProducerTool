@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 import importlib
+import math
+import statistics
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif", ".ogg"}
 
@@ -99,6 +101,31 @@ def hash_embedding(path: Path, dim: int = 16) -> List[float]:
     return vals
 
 
+def load_audio_mono(path: Path, target_sr: int = 32000) -> Tuple[Optional["np.ndarray"], Optional[int]]:
+    if sf is None or np is None:
+        return None, None
+    try:
+        data, sr = sf.read(str(path))
+    except Exception:
+        return None, None
+    if data.ndim > 1:
+        data = data.mean(axis=1)
+    data = np.asarray(data, dtype=np.float32)
+    # normaliza a -1..1
+    peak = np.max(np.abs(data)) if data.size else 1.0
+    if peak > 0:
+        data = data / peak
+    if target_sr and sr != target_sr:
+        try:
+            import librosa  # type: ignore
+
+            data = librosa.resample(data, orig_sr=sr, target_sr=target_sr)
+            sr = target_sr
+        except Exception:
+            pass
+    return data, sr
+
+
 def text_embedding(text: str, dim: int = 16) -> List[float]:
     sess, inp = load_onnx_session("sentence_t5_tflite")
     if sess and inp:
@@ -153,28 +180,12 @@ def load_onnx_session(model_name: str) -> Tuple[Optional[Any], Optional[str]]:
 
 def run_onnx_audio(sess: Any, input_name: str, path: Path) -> List[float]:
     try:
-        import soundfile as _sf
-        import numpy as _np
-
-        data, sr = _sf.read(str(path))
-        if data.ndim > 1:
-            data = data.mean(axis=1)
-        # Normaliza a -1..1 y resamplea a 16k si es posible
-        data = _np.asarray(data, dtype=_np.float32)
-        peak = _np.max(_np.abs(data)) if len(data) else 1.0
-        if peak > 0:
-            data = data / peak
-        if sr != 16000:
-            try:
-                import librosa  # type: ignore
-
-                data = librosa.resample(data, orig_sr=sr, target_sr=16000)
-                sr = 16000
-            except Exception:
-                pass
+        data, _ = load_audio_mono(path, target_sr=16000)
+        if data is None:
+            return []
         out = sess.run(None, {input_name: data})
         if isinstance(out, list) and len(out) > 0:
-            arr = _np.asarray(out[0]).flatten()
+            arr = np.asarray(out[0]).flatten()
             return arr.tolist()
     except Exception:
         return []
@@ -183,13 +194,11 @@ def run_onnx_audio(sess: Any, input_name: str, path: Path) -> List[float]:
 
 def run_onnx_text(sess: Any, input_name: str, text: str) -> List[float]:
     try:
-        import numpy as _np
-
         tokens = [ord(c) % 255 for c in text][:512]
-        arr = _np.array(tokens, dtype=_np.float32)
+        arr = np.array(tokens, dtype=np.float32)
         out = sess.run(None, {input_name: arr})
         if isinstance(out, list) and len(out) > 0:
-            return _np.asarray(out[0]).flatten().tolist()
+            return np.asarray(out[0]).flatten().tolist()
     except Exception:
         return []
     return []
@@ -437,35 +446,72 @@ def cosine(a: List[float], b: List[float]) -> float:
 def write_anomalies(base: Path, out_tsv: Path, limit: int) -> None:
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Tuple[str, float, float, str]] = []
+    rows: List[Dict[str, Any]] = []
     for p in files:
+        silence_ratio = 0.0
+        clipping = 0.0
+        clicks = 0.0
+        pops = 0.0
+        noise_dbfs = -90.0
+        flags: List[str] = []
         try:
-            import soundfile as _sf  # local import to allow mock mode
-            data, sr = _sf.read(str(p))
-            if data.ndim > 1:
-                data = data.mean(axis=1)
-            import numpy as _np
-            rms = float(_np.sqrt(_np.mean(_np.square(data)))) if len(data) else 0.0
-            peak = float(_np.max(_np.abs(data))) if len(data) else 0.0
-            flags = []
-            if peak >= 0.99:
-                flags.append("clipping")
-            if rms < 0.01:
-                flags.append("silence")
-            rows.append((str(p), rms, peak, ",".join(flags)))
+            data, sr = load_audio_mono(p, target_sr=32000)
+            if data is not None and sr:
+                silence_ratio = float(np.mean(np.abs(data) < 1e-3))
+                clipping = float(np.mean(np.abs(data) > 0.98))
+                diff = np.abs(np.diff(data)) if data.size > 1 else np.array([0.0], dtype=np.float32)
+                clicks = float(np.mean(diff > 0.6))
+                pops = float(np.mean(diff > 0.8))
+                rms = float(np.sqrt(np.mean(np.square(data)))) if data.size else 0.0
+                if rms > 0:
+                    noise_dbfs = 20 * math.log10(rms + 1e-9)
+                if clipping > 0.01:
+                    flags.append("clipping")
+                if silence_ratio > 0.5:
+                    flags.append("silence")
+                if clicks > 0.01:
+                    flags.append("clicks")
+                if pops > 0.005:
+                    flags.append("pops")
         except Exception:
-            rows.append((str(p), 0.0, 0.0, "error"))
+            flags.append("error")
+        severity = min(1.0, clipping * 2 + clicks + pops + silence_ratio * 0.5)
+        rows.append(
+            {
+                "path": str(p),
+                "silence_ratio": round(silence_ratio, 6),
+                "clipping_ratio": round(clipping, 6),
+                "clicks_ratio": round(clicks, 6),
+                "pops_ratio": round(pops, 6),
+                "noise_dbfs": round(noise_dbfs, 2),
+                "severity": round(severity, 6),
+                "flags": ",".join(flags),
+            }
+        )
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "rms", "peak", "flags"])
+        w.writerow(
+            ["path", "silence_ratio", "clipping_ratio", "clicks_ratio", "pops_ratio", "noise_dbfs", "severity", "flags"]
+        )
         for r in rows:
-            w.writerow([r[0], f"{r[1]:.6f}", f"{r[2]:.6f}", r[3]])
+            w.writerow(
+                [
+                    r["path"],
+                    f"{r['silence_ratio']:.6f}",
+                    f"{r['clipping_ratio']:.6f}",
+                    f"{r['clicks_ratio']:.6f}",
+                    f"{r['pops_ratio']:.6f}",
+                    f"{r['noise_dbfs']:.2f}",
+                    f"{r['severity']:.6f}",
+                    r["flags"],
+                ]
+            )
 
 
 def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Tuple[str, str, str, float]] = []
+    rows: List[Tuple[str, str, str, float, float]] = []
     have_librosa = False
     try:
         import librosa  # type: ignore
@@ -477,6 +523,7 @@ def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
         onsets: List[float] = []
         beats: List[float] = []
         tempo_val: float = 0.0
+        bars_est: float = 4.0
         if have_librosa:
             try:
                 import numpy as _np
@@ -490,6 +537,7 @@ def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
                 onsets = []
                 beats = []
                 tempo_val = 0.0
+                bars_est = 4.0
         else:
             # Fallback: simple energy change detector + beats aproximados
             try:
@@ -526,13 +574,14 @@ def write_segments(base: Path, out_tsv: Path, limit: int) -> None:
                 ",".join(f"{t:.2f}" for t in onsets),
                 ",".join(f"{t:.2f}" for t in beats),
                 tempo_val,
+                bars_est,
             )
         )
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "onsets_sec", "beats_sec", "tempo_est_bpm"])
-        for path, ons, beats, tempo in rows:
-            w.writerow([path, ons, beats, f"{tempo:.2f}"])
+        w.writerow(["path", "onsets_sec", "beats_sec", "tempo_est_bpm", "bars_est"])
+        for path, ons, beats, tempo, bars in rows:
+            w.writerow([path, ons, beats, f"{tempo:.2f}", f"{bars:.2f}"])
 
 
 def write_garbage(base: Path, out_tsv: Path, limit: int) -> None:
