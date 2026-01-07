@@ -43,6 +43,7 @@ chmod +x scripts/*.sh
 - `--test` ejecuta chequeo de dependencias (bash, find, awk, sed, xargs, python3, ffprobe, sox, jq); `--dry-run` activa `DRYRUN_FORCE=1` (respeta backups/quarantine).
 - Estado en `BASE_PATH/_DJProducerTools` (por defecto el cwd al lanzar); `HOME_OVERRIDE=/ruta` si quieres aislar estado. Existe estado legacy en `~/.DJProducerTools` (ya no se usa).
 - Variables por defecto: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`.
+- Corpus compartido: `DJPT_SHARED_CORPUS=/ruta/compartida` (o elección en el menú 69) copia embeddings/tags en `reports/` para poder reutilizarlos en otras bases sin volver a escanear.
 
 ## Documentación
 

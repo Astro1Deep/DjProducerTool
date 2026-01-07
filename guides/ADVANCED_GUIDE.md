@@ -138,6 +138,7 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
 - Consejos: limita a ~150 archivos, `DJPT_TF_MOCK=1` para CI/offline; borra/recachea venv desde opción 64 si hay problemas.
 - Modelos ONNX/TFLite reales: activa venv (`source _DJProducerTools/venv/bin/activate`), pon `DJPT_OFFLINE=0` y elige `clap_onnx/clip_vitb16_onnx/sentence_t5_tflite` en 65. Se intentará instalar `onnxruntime`; si no está, se usa fallback con aviso. En macOS ARM no hay wheel `tflite-runtime`; usa TensorFlow (64) o un entorno con wheel compatible; MusicGen_tflite cae a fallback seguro.
 - Rendimiento: puedes forzar hilos antes de entrar al menú: `export TF_NUM_INTRAOP_THREADS=8 TF_NUM_INTEROP_THREADS=8 OMP_NUM_THREADS=8` (por defecto se auto-ajustan al nº de cores). Útil para Apple Silicon/CPU-only.
+- Matching cross-platform (65.7) ahora combina normalización de nombre + heurísticos + 💎 similitud audio+texto. Produce `reports/audio_matching.tsv` con columnas `base_score`, `audio_score`, `text_score`, `combined_score` y reusa `audio_embeddings.tsv`/`audio_tags.tsv` que ya estén en `DJPT_SHARED_CORPUS` o menú 69 antes de recalcular.
 
 ## Why these deps and what you gain
 - **ffprobe/ffmpeg**: media integrity, video inventory, keyframes for tagging. Beneficio: detección temprana de archivos corruptos y planes de transcode sin modificar nada.

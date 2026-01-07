@@ -132,12 +132,13 @@ Estado: planes con tiempos y envío DMX opcional (dry-run por defecto).
 - Modelos soportados: `yamnet` (por defecto), `musicnn`, `musictag` (nnfp). Selecciona en 65.1/65.2.
 - Salidas:
   - `reports/audio_embeddings.tsv` / `reports/audio_tags.tsv`
-- `reports/audio_similarity.tsv` (umbral 0.60, top 200)
-- `reports/audio_anomalies.tsv` (silencio/clipping)
-- `reports/audio_segments.tsv` (onsets/segmentos)
+  - `reports/audio_similarity.tsv` (umbral 0.60, top 200)
+  - `reports/audio_anomalies.tsv` (silencio/clipping)
+  - `reports/audio_segments.tsv` (onsets/segmentos)
 - Tips: limita ~150 archivos; usa `DJPT_TF_MOCK=1` en CI/offline; limpia/recachea venv desde 64 si falla.
 - Modelos ONNX/TFLite reales: activa el venv (`source _DJProducerTools/venv/bin/activate`), pon `DJPT_OFFLINE=0` y elige `clap_onnx/clip_vitb16_onnx/sentence_t5_tflite` en 65. Se intentará instalar `onnxruntime`; si no está, se usa fallback mock con aviso. En macOS ARM no hay wheel `tflite-runtime`; usa TensorFlow (64) o un entorno con wheel compatible; MusicGen_tflite se mantiene en fallback seguro mientras tanto.
 - Rendimiento: puedes forzar hilos antes de entrar al menú: `export TF_NUM_INTRAOP_THREADS=8 TF_NUM_INTEROP_THREADS=8 OMP_NUM_THREADS=8` (por defecto se autoajustan al nº de cores). Útil en Apple Silicon/CPU-only.
+- Matching cross-platform (65.7) mezcla normalización + heurísticos + similitud audio+texto. Genera `reports/audio_matching.tsv` con columnas `base_score`, `audio_score`, `text_score`, `combined_score` y reutiliza `audio_embeddings.tsv`/`audio_tags.tsv` alojados en `DJPT_SHARED_CORPUS` o menú 69 antes de recalcular.
 
 ## Por qué estas dependencias y qué ganamos
 - **ffprobe/ffmpeg**: integridad de media, inventario de vídeo y keyframes para tagging. Beneficio: detectar corrupción temprano y generar planes de transcode sin tocar archivos.

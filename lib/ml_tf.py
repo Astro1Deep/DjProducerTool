@@ -8,16 +8,19 @@ Outputs TSV files for embeddings/tags and similarity (cosine).
 import argparse
 import csv
 import hashlib
+import itertools
 import json
+import math
 import os
+import re
 import shutil
+import statistics
 import subprocess
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 import importlib
-import math
-import statistics
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif", ".ogg"}
 
@@ -210,7 +213,62 @@ def load_tflite_interpreter(model_name: str) -> Optional[Any]:
         if not _tflite_warned:
             print(f"[WARN] tflite-runtime no disponible; se usará fallback/mock para {model_name}", file=sys.stderr)
             _tflite_warned = True
+    return None
+
+
+def get_shared_corpus_root() -> Optional[Path]:
+    for key in ("DJPT_SHARED_CORPUS", "SHARED_CORPUS_DIR"):
+        path = os.environ.get(key)
+        if path:
+            root = Path(path).expanduser()
+            try:
+                root.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            return root
+    return None
+
+
+def shared_subpath(subdir: str, name: str) -> Optional[Path]:
+    root = get_shared_corpus_root()
+    if root is None:
         return None
+    return root / subdir / name
+
+
+def copy_to_shared(out: Path, subdir: str) -> None:
+    target = shared_subpath(subdir, out.name)
+    if target:
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(out, target)
+        except Exception:
+            pass
+
+
+def fetch_shared(subdir: str, name: str) -> Optional[Path]:
+    candidate = shared_subpath(subdir, name)
+    if candidate and candidate.exists():
+        return candidate
+    return None
+
+
+def load_tags(tsv: Path) -> Dict[str, List[str]]:
+    out: Dict[str, List[str]] = {}
+    if not tsv.exists():
+        return out
+    with tsv.open("r", encoding="utf-8") as f:
+        next(f, None)
+        for line in f:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 3:
+                continue
+            try:
+                tags = json.loads(parts[2])
+            except Exception:
+                tags = []
+            out[parts[0]] = tags if isinstance(tags, list) else [str(tags)]
+    return out
     model_path = local_model_path(model_name)
     if not model_path or not model_path.exists():
         return None
@@ -337,6 +395,10 @@ def model_embed_and_tag(model: Any, audio: Any) -> Tuple[List[float], List[str]]
 
 def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offline: bool) -> None:
     files = list_audio(base, limit)
+    shared_in = fetch_shared("reports", out.name)
+    if shared_in:
+        shutil.copy2(shared_in, out)
+        return
     out.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Tuple[str, str, str]] = []
     offline = offline or os.environ.get("DJPT_OFFLINE") == "1"
@@ -378,10 +440,15 @@ def write_embeddings(base: Path, out: Path, limit: int, model_choice: str, offli
         w = csv.writer(f, delimiter="\t")
         w.writerow(["path", "method", "embedding_json"])
         w.writerows(rows)
+    copy_to_shared(out, "reports")
 
 
 def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bool) -> None:
     files = list_audio(base, limit)
+    shared_in = fetch_shared("reports", out.name)
+    if shared_in:
+        shutil.copy2(shared_in, out)
+        return
     out.parent.mkdir(parents=True, exist_ok=True)
     rows: List[Tuple[str, str, str]] = []
     offline = offline or os.environ.get("DJPT_OFFLINE") == "1"
@@ -429,6 +496,7 @@ def write_tags(base: Path, out: Path, limit: int, model_choice: str, offline: bo
         w = csv.writer(f, delimiter="\t")
         w.writerow(["path", "method", "tags_json"])
         w.writerows(rows)
+    copy_to_shared(out, "reports")
 
 
 def cosine(a: List[float], b: List[float]) -> float:
@@ -760,81 +828,109 @@ def write_mastering(base: Path, out_tsv: Path, limit: int, target_lufs: float = 
 
 def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path] = None, tags_tsv: Optional[Path] = None) -> None:
     """
-    Matching simple multi-modal: nombre normalizado + tags heurísticos + opcional similitud de embeddings.
+    Matching avanzado multimodal: normaliza nombres, agrega similitud audio/text y usa embeddings compartidos si existen.
     """
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
-    rows: List[Tuple[str, str, str, float]] = []
-    import re
+    tag_sources: List[Path] = []
+    emb_sources: List[Path] = []
+    if emb_tsv and emb_tsv.exists():
+        emb_sources.append(emb_tsv)
+    shared_emb = fetch_shared("reports", emb_tsv.name if emb_tsv else "audio_embeddings.tsv")
+    if shared_emb and shared_emb not in emb_sources:
+        emb_sources.append(shared_emb)
+    if tags_tsv and tags_tsv.exists():
+        tag_sources.append(tags_tsv)
+    shared_tags = fetch_shared("reports", tags_tsv.name if tags_tsv else "audio_tags.tsv")
+    if shared_tags and shared_tags not in tag_sources:
+        tag_sources.append(shared_tags)
 
     tag_map: Dict[str, List[str]] = {}
-    if tags_tsv and tags_tsv.exists():
-        try:
-            with tags_tsv.open("r", encoding="utf-8") as f:
-                next(f, None)
-                for line in f:
-                    parts = line.rstrip("\n").split("\t")
-                    if len(parts) >= 3:
-                        tag_map[parts[0]] = json.loads(parts[2])
-        except Exception:
-            tag_map = {}
-
+    for src in tag_sources:
+        tag_map.update(load_tags(src))
     emb_map: Dict[str, List[float]] = {}
-    if emb_tsv and emb_tsv.exists():
-        try:
-            for path, vec in load_embeddings(emb_tsv):
+    for src in emb_sources:
+        for path, vec in load_embeddings(src):
+            if path not in emb_map:
                 emb_map[path] = vec
-        except Exception:
-            emb_map = {}
 
-    text_map: Dict[str, List[float]] = {}
-
-    def emb_score(a: str, b: str) -> float:
-        va, vb = emb_map.get(a), emb_map.get(b)
-        if not va or not vb:
-            return 0.0
-        return cosine(va, vb)
-
-    def text_score(a: str, b: str) -> float:
-        va, vb = text_map.get(a), text_map.get(b)
-        if not va or not vb:
-            return 0.0
-        return cosine(va, vb)
-
-    import itertools
-    # Precompute normalized names and base rows
+    rows: List[Dict[str, Any]] = []
+    normalized: Dict[str, str] = {}
     for p in files:
-        name = p.stem.lower()
-        name = re.sub(r"[^a-z0-9]+", "_", name).strip("_")
-        text_map[str(p)] = text_embedding(name)
-        tags = tag_map.get(str(p), heuristic_tags(p))
-        base_score = 0.0
-        if "unknown" not in tags:
-            base_score += 0.1 * len(tags)
-        rows.append((str(p), name, ",".join(tags), base_score))
+        name = str(p.stem).lower()
+        norm = json.dumps([name], ensure_ascii=False)
+        text_map_value = f"{norm}_{','.join(tag_map.get(str(p), heuristic_tags(p)))}"
+        text_map_value = "_" + text_map_value + "_"
+        normalized[str(p)] = re.sub(r"[^a-z0-9]+", "_", norm)  # sanitized version
+        rows.append(
+            {
+                "path": str(p),
+                "normalized_name": normalized[str(p)],
+                "tags": ",".join(tag_map.get(str(p), heuristic_tags(p))),
+                "base_score": 0.1 * len(tag_map.get(str(p), [])),
+                "audio_score": 0.0,
+                "text_score": 0.0,
+                "combined_score": 0.0,
+            }
+        )
 
-    # Boost scores using name matches and embedding similarity
+    audio_max: Dict[str, float] = defaultdict(float)
+    text_max: Dict[str, float] = defaultdict(float)
+    text_embeddings: Dict[str, List[float]] = {}
+    for row in rows:
+        text_embeddings[row["path"]] = text_embedding(row["normalized_name"] + "_" + row["tags"])
+
     for i, j in itertools.combinations(range(len(rows)), 2):
-        path_i, norm_i, tags_i, score_i = rows[i]
-        path_j, norm_j, tags_j, score_j = rows[j]
-        if norm_i and norm_i == norm_j:
-            score_i += 0.3
-            score_j += 0.3
-        sim = emb_score(path_i, path_j)
-        if sim >= 0.75:
-            score_i += 0.2
-            score_j += 0.2
-        t_sim = text_score(path_i, path_j)
-        if t_sim >= 0.75:
-            score_i += 0.15
-            score_j += 0.15
-        rows[i] = (path_i, norm_i, tags_i, score_i)
-        rows[j] = (path_j, norm_j, tags_j, score_j)
+        path_i = rows[i]["path"]
+        path_j = rows[j]["path"]
+        base_similarity = 0.0
+        if normalized[path_i] and normalized[path_i] == normalized[path_j]:
+            base_similarity = 0.3
+        sim_audio = 0.0
+        if path_i in emb_map and path_j in emb_map:
+            sim_audio = cosine(emb_map[path_i], emb_map[path_j])
+        sim_text = cosine(text_embeddings[path_i], text_embeddings[path_j])
+        combined = base_similarity + 0.4 * sim_audio + 0.3 * sim_text
+        audio_max[path_i] = max(audio_max[path_i], sim_audio)
+        audio_max[path_j] = max(audio_max[path_j], sim_audio)
+        text_max[path_i] = max(text_max[path_i], sim_text)
+        text_max[path_j] = max(text_max[path_j], sim_text)
+        rows[i]["base_score"] += base_similarity
+        rows[j]["base_score"] += base_similarity
+
+    for row in rows:
+        path = row["path"]
+        row["audio_score"] = round(audio_max[path], 4)
+        row["text_score"] = round(text_max[path], 4)
+        row["combined_score"] = round(
+            row["base_score"] + 0.4 * row["audio_score"] + 0.3 * row["text_score"], 4
+        )
 
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "normalized_name", "tags", "match_score_hint"])
-        w.writerows(rows)
+        w.writerow(
+            [
+                "path",
+                "normalized_name",
+                "tags",
+                "base_score",
+                "audio_score",
+                "text_score",
+                "combined_score",
+            ]
+        )
+        for row in rows:
+            w.writerow(
+                [
+                    row["path"],
+                    row["normalized_name"],
+                    row["tags"],
+                    f"{row['base_score']:.3f}",
+                    f"{row['audio_score']:.4f}",
+                    f"{row['text_score']:.4f}",
+                    f"{row['combined_score']:.4f}",
+                ]
+            )
 
 
 def _ffprobe_meta(path: Path) -> Dict[str, Any]:
@@ -948,6 +1044,7 @@ def write_similarity(emb_tsv: Path, out_tsv: Path, threshold: float, top_n: int)
         w.writerow(["path_a", "path_b", "score"])
         for a, b, s in pairs:
             w.writerow([a, b, f"{s:.4f}"])
+    copy_to_shared(out_tsv, "reports")
 
 
 def main():
