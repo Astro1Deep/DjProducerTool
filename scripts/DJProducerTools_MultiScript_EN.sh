@@ -2028,7 +2028,7 @@ submenu_T_tensorflow_lab() {
     printf "%s5)%s Estimar loudness (plan de normalización) [target env DJPT_LUFS_TARGET]\n" "$C_YLW" "$C_RESET"
     printf "%s6)%s Auto-segmentación (cues preliminares)\n" "$C_YLW" "$C_RESET"
     printf "%s7)%s Matching cross-platform (relink inteligente)\n" "$C_YLW" "$C_RESET"
-    printf "%s8)%s Auto-tagging de vídeo (keyframes)\n" "$C_YLW" "$C_RESET"
+    printf "%s8)%s Auto-tagging de vídeo (keyframes + CLIP tags)\n" "$C_YLW" "$C_RESET"
     printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)\n" "$C_YLW" "$C_RESET"
     printf "%s10)%s Mastering check (LUFS/crest/DR plan)\n" "$C_YLW" "$C_RESET"
     printf "%s11)%s Download optional model (onnx/tflite cache)\n" "$C_YLW" "$C_RESET"

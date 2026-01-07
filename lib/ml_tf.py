@@ -23,6 +23,83 @@ from typing import Any, Dict, List, Tuple, Optional
 import importlib
 
 AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif", ".ogg"}
+VIDEO_TAG_PROMPTS = [
+    "cinematic live performance",
+    "studio session with instruments",
+    "nature landscape",
+    "city nightlife",
+    "abstract light show",
+    "slow motion dreamy",
+    "dramatic lighting scene",
+    "crowd cheering",
+    "portrait closeup",
+    "high contrast art",
+]
+
+
+def load_text_prompts(dim: int) -> List[Tuple[str, List[float]]]:
+    cache = _clip_prompt_cache.get(dim)
+    if cache:
+        return cache
+    embeddings = [(prompt, text_embedding(prompt, dim=dim)) for prompt in VIDEO_TAG_PROMPTS]
+    _clip_prompt_cache[dim] = embeddings
+    return embeddings
+
+
+def load_clip_session() -> Optional[Any]:
+    global _clip_session, _clip_warned
+    if _clip_session is not None:
+        return _clip_session
+    if ort is None:
+        if not _clip_warned:
+            print("[WARN] onnxruntime no disponible para CLIP; se usará heurístico.", file=sys.stderr)
+            _clip_warned = True
+        return None
+    model_path = local_model_path("clip_vitb16_onnx")
+    if not model_path or not model_path.exists():
+        return None
+    try:
+        _clip_session = ort.InferenceSession(str(model_path))
+        return _clip_session
+    except Exception:
+        return None
+
+
+def preprocess_clip_image(path: Path) -> Optional[List[float]]:
+    try:
+        from PIL import Image
+
+        img = Image.open(path).convert("RGB")
+        img = img.resize((224, 224))
+        data = np.asarray(img, dtype=np.float32) / 255.0
+        mean = np.array([0.48145466, 0.4578275, 0.40821073], dtype=np.float32)
+        std = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32)
+        data = (data - mean) / std
+        data = np.transpose(data, (2, 0, 1))
+        return data.flatten().tolist()
+    except Exception:
+        return None
+
+
+def embed_clip_image(path: Path) -> List[float]:
+    session = load_clip_session()
+    if session is None:
+        return []
+    inputs = session.get_inputs()
+    if not inputs:
+        return []
+    tensor = preprocess_clip_image(path)
+    if tensor is None:
+        return []
+    tensor = np.array(tensor, dtype=np.float32).reshape((1, 3, 224, 224))
+    try:
+        output = session.run(None, {inputs[0].name: tensor})
+        if output:
+            arr = np.asarray(output[0]).flatten()
+            return arr.tolist()
+    except Exception:
+        pass
+    return []
 
 # Optional imports
 try:  # pragma: no cover - optional path
@@ -47,6 +124,9 @@ except Exception:  # pragma: no cover
 
 _onnx_warned = False
 _tflite_warned = False
+_clip_warned = False
+_clip_session: Optional[Any] = None
+_clip_prompt_cache: Dict[int, List[Tuple[str, List[float]]]] = {}
 
 
 def is_offline_env() -> bool:
@@ -288,7 +368,21 @@ def run_tflite_audio(interpreter: Any, path: Path) -> List[float]:
         input_details = interpreter.get_input_details()
         output_details = interpreter.get_output_details()
         if not input_details:
-            return []
+    return []
+
+
+def compute_clip_tags(keyframe: Path, top_k: int = 3) -> List[str]:
+    emb = embed_clip_image(keyframe)
+    if not emb:
+        return []
+    dim = len(emb)
+    prompt_embs = load_text_prompts(dim)
+    scored = []
+    for prompt, vec in prompt_embs:
+        sim = cosine(emb, vec)
+        scored.append((prompt, sim))
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [f"{prompt}:{score:.3f}" for prompt, score in scored[:top_k] if score > 0.1]
         data, sr = _sf.read(str(path))
         if data.ndim > 1:
             data = data.mean(axis=1)
@@ -965,7 +1059,7 @@ def write_video_tags(base: Path, out_tsv: Path, limit: int) -> None:
     keyframe_dir.mkdir(parents=True, exist_ok=True)
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["path", "tags_json", "meta_json", "keyframe_path"])
+        w.writerow(["path", "tags_json", "meta_json", "keyframe_path", "clip_tags"])
         for p in files:
             tags = heuristic_tags(p)
             meta = _ffprobe_meta(p)
@@ -995,7 +1089,12 @@ def write_video_tags(base: Path, out_tsv: Path, limit: int) -> None:
                     )
                 except Exception:
                     keyframe_path = ""
-            w.writerow([str(p), json.dumps(tags), json.dumps(meta), keyframe_path])
+            clip_tags = []
+            if keyframe_path:
+                clip_tags = compute_clip_tags(Path(keyframe_path))
+            w.writerow(
+                [str(p), json.dumps(tags), json.dumps(meta), keyframe_path, json.dumps(clip_tags)]
+            )
 
 
 def write_music_tags(base: Path, out_tsv: Path, limit: int) -> None:

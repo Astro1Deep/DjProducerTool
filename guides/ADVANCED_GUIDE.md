@@ -109,6 +109,7 @@ Status: now generates timed plans; DMX sending soportado con dry-run por defecto
 - **V7** Organize visuals by resolution (plan).  
 - **V8** Exact dupes (hash) for visuals.  
 - **V9** Optimize plan suggesting H.264 1080p.  
+- **V8)** Auto-tagging vídeo agrega `clip_tags` (prompt:score) cuando `clip_vitb16_onnx` está instalado; el TSV incluye `keyframe_path` y etiquetas heurísticas+CLIP, ideal para clasificar scenes (cinematic, crowd, portrait).  
 - **V10** OSC plan from playlist (`.m3u/.m3u8`) with start times (ffprobe durations).  
 - **V11** DMX plan from playlist (Intro/Drop/Outro timed, CH map editable).  
 - **V12** DMX presets template (editable channels/values).
