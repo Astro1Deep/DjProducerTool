@@ -166,6 +166,18 @@
 - 65 TF Lab: models yamnet/musicnn/musictag/clap_onnx/clip_vitb16_onnx/musicgen_tflite/sentence_t5_tflite; respects `DJPT_OFFLINE`/`DJPT_TF_MOCK`; outputs embeddings/tags/similarity/anomalies/segments/loudness/matching/video_tags/music_tags/mastering TSV. Warns and falls back if runtime missing.
 - 66 LUFS plan (pyloudnorm+soundfile optional); 67 Auto-cues (librosa onsets/segments).
 
+#### TF Lab models & offline first
+`DJPT_OFFLINE=1` keeps every TF Lab command in heuristic/mock mode; the flag can be set globally (menu prompt or shell environment) before opening the menu. When you unset it (`DJPT_OFFLINE=0` or skip the `--offline` flag) and install the optional runtimes (`onnxruntime`, `tflite-runtime`, `tensorflow`), the submenu 65 flows load:
+  * TensorFlow Hub: `yamnet`, `musicnn`, `musictag`.
+  * ONNX: `clap_onnx` (audio+text), `clip_vitb16_onnx` (video), `sentence_t5_tflite` (text prompts/matching).
+  * TFLite: `musicgen_tflite` (lightweight embeddings and tags).
+Use `./lib/ml_tf.py download_model --name <model>` (also menu 65.15) to cache weights under `_DJProducerTools/venv/models` or the `DJPT_MODELS_DIR` environment. When a runtime is missing, the CLI warns and falls back to hash-based embeddings, so the sequence always completes.
+
+`music_tags` now combines CLAP embeddings with `MUSIC_TAG_PROMPTS`, while `video_tags` grabs ffmpeg keyframes and runs them against CLIP prompts. Matching/anomalies/segments/loudness/mastering re-use embeddings through `DJPT_SHARED_CORPUS`/`SHARED_CORPUS_DIR`, so a single deep analysis per disk can be reused across others.
+
+#### MusicBrainz online metadata
+The master report (menu 65.14) also accepts `--online`/`--query` to hit MusicBrainz, appending title, artist, release date to `reports/ml_master_report.tsv`. It respects `DJPT_OFFLINE`: the request runs only when you explicitly toggle `--online`. This gives a reliable external reference for cross-checking local analyses.
+
 ### Visuals / OSC / DMX (V)
 - V1 Ableton .als quick report; V2 Visuals inventory; V3 DMX send plan (ENTTEC dry-run by default, logs frames); V4/V5 video report/plan; V6 resolution/duration; V7 visuals by resolution; V8 visuals dupes; V9 optimize plan; V10 playlist→OSC; V11 playlist→DMX timed; V12 DMX presets template (edit channels/values for your rig).
 

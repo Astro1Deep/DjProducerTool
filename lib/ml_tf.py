@@ -17,6 +17,8 @@ import shutil
 import statistics
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
@@ -35,15 +37,40 @@ VIDEO_TAG_PROMPTS = [
     "portrait closeup",
     "high contrast art",
 ]
+MUSIC_TAG_PROMPTS = [
+    "deep techno groove",
+    "melodic house journey",
+    "cinematic downtempo soundscape",
+    "analogue synth wave",
+    "organic percussion loop",
+    "ambient texture pad",
+    "spacious dub vibes",
+    "drum & bass rush",
+    "future bass shimmer",
+    "glitch hop experiment",
+]
 
 
-def load_text_prompts(dim: int) -> List[Tuple[str, List[float]]]:
-    cache = _clip_prompt_cache.get(dim)
+def load_text_prompts(dim: int, prompts: List[str]) -> List[Tuple[str, List[float]]]:
+    cache_key = (dim, tuple(prompts))
+    cache = _clip_prompt_cache.get(cache_key)
     if cache:
         return cache
-    embeddings = [(prompt, text_embedding(prompt, dim=dim)) for prompt in VIDEO_TAG_PROMPTS]
-    _clip_prompt_cache[dim] = embeddings
+    embeddings = [(prompt, text_embedding(prompt, dim=dim)) for prompt in prompts]
+    _clip_prompt_cache[cache_key] = embeddings
     return embeddings
+def tag_matches_from_embedding(emb: List[float], prompts: List[str], threshold: float = 0.18, limit: int = 3) -> List[str]:
+    if not emb:
+        return []
+    dim = len(emb)
+    if dim == 0:
+        return []
+    prompt_embs = load_text_prompts(dim, prompts)
+    scored: List[Tuple[str, float]] = []
+    for prompt, vec in prompt_embs:
+        scored.append((prompt, cosine(emb, vec)))
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [prompt for prompt, score in scored if score >= threshold][:limit]
 
 
 def load_clip_session() -> Optional[Any]:
@@ -126,7 +153,7 @@ _onnx_warned = False
 _tflite_warned = False
 _clip_warned = False
 _clip_session: Optional[Any] = None
-_clip_prompt_cache: Dict[int, List[Tuple[str, List[float]]]] = {}
+_clip_prompt_cache: Dict[Any, List[Tuple[str, List[float]]]] = {}
 
 
 def is_offline_env() -> bool:
@@ -263,12 +290,13 @@ def load_onnx_session(model_name: str) -> Tuple[Optional[Any], Optional[str]]:
 
 def run_onnx_audio(sess: Any, input_name: str, path: Path) -> List[float]:
     try:
+        import numpy as _np
         data, _ = load_audio_mono(path, target_sr=16000)
         if data is None:
             return []
         out = sess.run(None, {input_name: data})
         if isinstance(out, list) and len(out) > 0:
-            arr = np.asarray(out[0]).flatten()
+            arr = _np.asarray(out[0]).flatten()
             return arr.tolist()
     except Exception:
         return []
@@ -277,11 +305,12 @@ def run_onnx_audio(sess: Any, input_name: str, path: Path) -> List[float]:
 
 def run_onnx_text(sess: Any, input_name: str, text: str) -> List[float]:
     try:
+        import numpy as _np
         tokens = [ord(c) % 255 for c in text][:512]
-        arr = np.array(tokens, dtype=np.float32)
+        arr = _np.array(tokens, dtype=_np.float32)
         out = sess.run(None, {input_name: arr})
         if isinstance(out, list) and len(out) > 0:
-            return np.asarray(out[0]).flatten().tolist()
+            return _np.asarray(out[0]).flatten().tolist()
     except Exception:
         return []
     return []
@@ -293,7 +322,16 @@ def load_tflite_interpreter(model_name: str) -> Optional[Any]:
         if not _tflite_warned:
             print(f"[WARN] tflite-runtime no disponible; se usará fallback/mock para {model_name}", file=sys.stderr)
             _tflite_warned = True
-    return None
+        return None
+    model_path = local_model_path(model_name)
+    if not model_path or not model_path.exists():
+        return None
+    try:
+        interpreter = tflite.Interpreter(model_path=str(model_path))
+        interpreter.allocate_tensors()
+        return interpreter
+    except Exception:
+        return None
 
 
 def get_shared_corpus_root() -> Optional[Path]:
@@ -349,15 +387,6 @@ def load_tags(tsv: Path) -> Dict[str, List[str]]:
                 tags = []
             out[parts[0]] = tags if isinstance(tags, list) else [str(tags)]
     return out
-    model_path = local_model_path(model_name)
-    if not model_path or not model_path.exists():
-        return None
-    try:
-        interpreter = tflite.Interpreter(model_path=str(model_path))
-        interpreter.allocate_tensors()
-        return interpreter
-    except Exception:
-        return None
 
 
 def run_tflite_audio(interpreter: Any, path: Path) -> List[float]:
@@ -367,22 +396,8 @@ def run_tflite_audio(interpreter: Any, path: Path) -> List[float]:
 
         input_details = interpreter.get_input_details()
         output_details = interpreter.get_output_details()
-        if not input_details:
-    return []
-
-
-def compute_clip_tags(keyframe: Path, top_k: int = 3) -> List[str]:
-    emb = embed_clip_image(keyframe)
-    if not emb:
-        return []
-    dim = len(emb)
-    prompt_embs = load_text_prompts(dim)
-    scored = []
-    for prompt, vec in prompt_embs:
-        sim = cosine(emb, vec)
-        scored.append((prompt, sim))
-    scored.sort(key=lambda x: x[1], reverse=True)
-    return [f"{prompt}:{score:.3f}" for prompt, score in scored[:top_k] if score > 0.1]
+        if not input_details or not output_details:
+            return []
         data, sr = _sf.read(str(path))
         if data.ndim > 1:
             data = data.mean(axis=1)
@@ -394,6 +409,20 @@ def compute_clip_tags(keyframe: Path, top_k: int = 3) -> List[str]:
         return _np.asarray(out).flatten().tolist()
     except Exception:
         return []
+
+
+def compute_clip_tags(keyframe: Path, top_k: int = 3) -> List[str]:
+    emb = embed_clip_image(keyframe)
+    if not emb:
+        return []
+    dim = len(emb)
+    prompt_embs = load_text_prompts(dim, VIDEO_TAG_PROMPTS)
+    scored = []
+    for prompt, vec in prompt_embs:
+        sim = cosine(emb, vec)
+        scored.append((prompt, sim))
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [f"{prompt}:{score:.3f}" for prompt, score in scored[:top_k] if score > 0.1]
 
 
 # --- TF helpers ---
@@ -426,22 +455,67 @@ def load_tf_model(model_name: str) -> Optional[Any]:
 def ensure_model_cached(name: str) -> Optional[Path]:
     """
     Descarga un modelo opcional (onnx/tflite) a _DJProducerTools/venv/models.
-    No se usa en los flujos por defecto, sólo cuando se llame al subcomando download_model.
+    Intenta usar curl/wget primero para robustez, fallback a python urllib chunked.
     """
     if name not in MODEL_WEIGHTS:
         return None
     base = Path(os.environ.get("DJPT_MODELS_DIR") or "_DJProducerTools/venv/models").expanduser().resolve()
-    base.mkdir(parents=True, exist_ok=True)
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        print(f"[ERR] No se puede crear directorio de modelos {base}: {e}", file=sys.stderr)
+        return None
+
     target = base / f"{name}"
     if target.exists() and target.stat().st_size > 0:
         return target
+    
     url = MODEL_WEIGHTS[name]
-    try:
-        import urllib.request
+    print(f"[INFO] Downloading {name}...", file=sys.stderr)
+    
+    # Try external tools first
+    if shutil.which("curl"):
+        try:
+            subprocess.run(["curl", "-L", "-o", str(target), url], check=True, timeout=300)
+            if target.exists() and target.stat().st_size > 0:
+                return target
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, Exception):
+            pass
+    elif shutil.which("wget"):
+        try:
+            subprocess.run(["wget", "-O", str(target), url], check=True, timeout=300)
+            if target.exists() and target.stat().st_size > 0:
+                return target
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, Exception):
+            pass
 
-        urllib.request.urlretrieve(url, target)
+    # Fallback to Python
+    print(f"[INFO] Using Python fallback download...", file=sys.stderr)
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "DJProducerTools/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as response, open(target, 'wb') as out_file:
+            total_size = int(response.getheader('Content-Length') or 0)
+            downloaded = 0
+            chunk_size = 1024 * 1024  # 1MB chunks
+            while True:
+                chunk = response.read(chunk_size)
+                if not chunk:
+                    break
+                out_file.write(chunk)
+                downloaded += len(chunk)
+                if total_size > 0:
+                    percent = downloaded * 100 / total_size
+                    sys.stderr.write(f"\r[INFO] Progress: {percent:.1f}% ({downloaded // (1024*1024)} MB)")
+                    sys.stderr.flush()
+            sys.stderr.write("\n")
         return target
-    except Exception:
+    except Exception as e:
+        print(f"\n[ERR] Download failed: {e}", file=sys.stderr)
+        if target.exists():
+            try:
+                target.unlink() # Delete partial file
+            except Exception:
+                pass
         return None
 
 
@@ -971,8 +1045,8 @@ def write_matching(base: Path, out_tsv: Path, limit: int, emb_tsv: Optional[Path
     audio_max: Dict[str, float] = defaultdict(float)
     text_max: Dict[str, float] = defaultdict(float)
     text_embeddings: Dict[str, List[float]] = {}
-    for row in rows:
-        text_embeddings[row["path"]] = text_embedding(row["normalized_name"] + "_" + row["tags"])
+    for r in rows:
+        text_embeddings[r["path"]] = text_embedding(r["normalized_name"] + "_" + r["tags"], dim=len(emb_map.get(r["path"], [])) or 16)
 
     for i, j in itertools.combinations(range(len(rows)), 2):
         path_i = rows[i]["path"]
@@ -1100,12 +1174,35 @@ def write_video_tags(base: Path, out_tsv: Path, limit: int) -> None:
 def write_music_tags(base: Path, out_tsv: Path, limit: int) -> None:
     files = list_audio(base, limit)
     out_tsv.parent.mkdir(parents=True, exist_ok=True)
+    clap_sess, clap_input = load_onnx_session("clap_onnx")
+    tflite_interp = load_tflite_interpreter("musicgen_tflite")
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
         w.writerow(["path", "tags_json", "method"])
         for p in files:
             tags = heuristic_tags(p)
-            w.writerow([str(p), json.dumps(tags), "heuristic_multi"])
+            method = "heuristic_multi"
+            if clap_sess and clap_input:
+                emb = run_onnx_audio(clap_sess, clap_input, p)
+                if emb:
+                    prompt_tags = tag_matches_from_embedding(emb, MUSIC_TAG_PROMPTS)
+                    if prompt_tags:
+                        tags = prompt_tags
+                        method = "clap_onnx"
+                    else:
+                        method = "clap_onnx_fallback"
+            elif tflite_interp is not None:
+                emb = run_tflite_audio(tflite_interp, p)
+                if emb:
+                    prompt_tags = tag_matches_from_embedding(emb, MUSIC_TAG_PROMPTS)
+                    if prompt_tags:
+                        tags = prompt_tags
+                        method = "musicgen_tflite"
+                    else:
+                        method = "musicgen_tflite_fallback"
+                else:
+                    method = "musicgen_tflite_missing"
+            w.writerow([str(p), json.dumps(tags), method])
 
 
 def load_embeddings(tsv: Path) -> List[Tuple[str, List[float]]]:
@@ -1141,8 +1238,184 @@ def write_similarity(emb_tsv: Path, out_tsv: Path, threshold: float, top_n: int)
     with out_tsv.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f, delimiter="\t")
         w.writerow(["path_a", "path_b", "score"])
-        for a, b, s in pairs:
-            w.writerow([a, b, f"{s:.4f}"])
+        for pa, pb, score in pairs:
+            w.writerow([pa, pb, f"{score:.4f}"])
+    copy_to_shared(out_tsv, "reports")
+
+
+def _safe_float(value: str) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return 0.0
+
+
+def _musicbrainz_query(query: str) -> Dict[str, str]:
+    if not query:
+        return {}
+    base_url = "https://musicbrainz.org/ws/2/recording/"
+    params = urllib.parse.urlencode({"query": query, "fmt": "json", "limit": 1})
+    url = f"{base_url}?{params}"
+    headers = {"User-Agent": "DJProducerTools/1.0 (djproducertools@example.com)"}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        recordings = data.get("recordings") or []
+        if recordings:
+            rec = recordings[0]
+            title = rec.get("title")
+            artists = []
+            for val in rec.get("artist-credit", []):
+                name = val.get("name") or val.get("artist", {}).get("name")
+                if name:
+                    artists.append(name)
+            release = rec.get("releases", [])
+            released = release[0].get("date") if release else ""
+            return {
+                "title": title or "",
+                "artists": ", ".join(artists),
+                "release": released or "",
+            }
+    except Exception:
+        return {}
+    return {}
+
+
+def write_master_report(base: Path, out_tsv: Path, online: bool, query: str) -> None:
+    state_dir = base.expanduser().resolve() / "_DJProducerTools"
+    reports_dir = state_dir / "reports"
+    report_rows: List[Tuple[str, str, str]] = []
+
+    def _matching_summary(path: Path) -> Tuple[int, float, str]:
+        count = 0
+        top_score = 0.0
+        top_pair = ""
+        if not path.exists():
+            return count, top_score, top_pair
+        with path.open("r", encoding="utf-8") as f:
+            next(f, None)
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) < 4:
+                    continue
+                try:
+                    score = float(parts[3])
+                except Exception:
+                    score = 0.0
+                count += 1
+                if score > top_score:
+                    top_score = score
+                    top_pair = f"{parts[0]} <-> {parts[1]}"
+        return count, top_score, top_pair
+
+    matching_path = reports_dir / "audio_matching.tsv"
+    matching_count, matching_top, matching_pair = _matching_summary(matching_path)
+    report_rows.append(("matching_pairs", str(matching_count), matching_pair or ""))
+    report_rows.append(("matching_top_score", f"{matching_top:.4f}", matching_pair or ""))
+
+    def _anomaly_stats(path: Path) -> Tuple[float, int]:
+        total = 0
+        severity_sum = 0.0
+        high = 0
+        if not path.exists():
+            return 0.0, 0
+        with path.open("r", encoding="utf-8") as f:
+            next(f, None)
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) < 6:
+                    continue
+                sev = _safe_float(parts[5])
+                total += 1
+                severity_sum += sev
+                if sev >= 0.7:
+                    high += 1
+        avg = severity_sum / total if total else 0.0
+        return avg, high
+
+    severity_avg, severity_high = _anomaly_stats(reports_dir / "audio_anomalies.tsv")
+    report_rows.append(("anomaly_avg_severity", f"{severity_avg:.4f}", f"high:{severity_high}"))
+
+    def _segments_stats(path: Path) -> Tuple[float, float]:
+        tempos = []
+        bars = []
+        if not path.exists():
+            return 0.0, 0.0
+        with path.open("r", encoding="utf-8") as f:
+            next(f, None)
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) < 5:
+                    continue
+                tempos.append(_safe_float(parts[3]))
+                bars.append(_safe_float(parts[4]))
+        avg_tempo = sum(tempos) / len(tempos) if tempos else 0.0
+        avg_bars = sum(bars) / len(bars) if bars else 0.0
+        return avg_tempo, avg_bars
+
+    avg_tempo, avg_bars = _segments_stats(reports_dir / "audio_segments.tsv")
+    report_rows.append(("avg_tempo", f"{avg_tempo:.2f}", f"bars:{avg_bars:.2f}"))
+
+    def _loudness_stats(path: Path) -> Tuple[float, int, int]:
+        gains = []
+        boost = 0
+        cut = 0
+        if not path.exists():
+            return 0.0, 0, 0
+        with path.open("r", encoding="utf-8") as f:
+            next(f, None)
+            for line in f:
+                parts = line.strip().split("\t")
+                if len(parts) < 8:
+                    continue
+                try:
+                    gain = float(parts[2])
+                except Exception:
+                    gain = 0.0
+                gains.append(gain)
+                action = parts[7] if len(parts) >= 8 else ""
+                if action == "BOOST":
+                    boost += 1
+                elif action == "CUT":
+                    cut += 1
+        avg_gain = sum(gains) / len(gains) if gains else 0.0
+        return avg_gain, boost, cut
+
+    avg_gain, boost_cnt, cut_cnt = _loudness_stats(reports_dir / "audio_loudness.tsv")
+    report_rows.append(("avg_gain", f"{avg_gain:.2f}", f"boost:{boost_cnt},cut:{cut_cnt}"))
+
+    video_path = reports_dir / "video_tags.tsv"
+    video_total = 0
+    clip_hits = 0
+    if video_path.exists():
+        with video_path.open("r", encoding="utf-8") as f:
+            next(f, None)
+            for line in f:
+                video_total += 1
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) >= 5:
+                    try:
+                        clip_data = json.loads(parts[4])
+                        if clip_data:
+                            clip_hits += 1
+                    except Exception:
+                        pass
+    report_rows.append(("video_tags_total", str(video_total), f"clip_tags:{clip_hits}"))
+
+    online_info = {}
+    if online:
+        query_safe = query or base.name
+        online_info = _musicbrainz_query(query_safe)
+        if online_info:
+            detail = f"{online_info.get('artists')} | {online_info.get('release')}"
+            report_rows.append(("musicbrainz_title", online_info.get("title", ""), detail))
+
+    with out_tsv.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, delimiter="\t")
+        w.writerow(["metric", "value", "notes"])
+        for metric, value, notes in report_rows:
+            w.writerow([metric, value, notes])
     copy_to_shared(out_tsv, "reports")
 
 
@@ -1169,6 +1442,12 @@ def main():
     p_sim.add_argument("--out", required=True)
     p_sim.add_argument("--threshold", type=float, default=0.60)
     p_sim.add_argument("--top", type=int, default=200)
+
+    p_master = sub.add_parser("master", parents=[common_offline])
+    p_master.add_argument("--base", default=".")
+    p_master.add_argument("--out", required=True)
+    p_master.add_argument("--online", action="store_true")
+    p_master.add_argument("--query", default="")
 
     p_an = sub.add_parser("anomalies", parents=[common_offline])
     p_an.add_argument("--base", default=".")
@@ -1218,7 +1497,12 @@ def main():
     p_mtags.add_argument("--limit", type=int, default=200)
 
     p_dl = sub.add_parser("download_model", parents=[common_offline])
-    p_dl.add_argument("--name", required=True, choices=list(MODEL_WEIGHTS.keys()))
+    p_dl.add_argument(
+        "--name",
+        required=True,
+        help="Nombre(s) de modelo onnx/tflite. Acepta uno o varios separados por coma. Opciones: "
+        + ", ".join(MODEL_WEIGHTS.keys()),
+    )
 
     args = ap.parse_args()
     offline = getattr(args, "offline", False) or is_offline_env()
@@ -1266,6 +1550,13 @@ def main():
         emb = Path(args.embeddings).expanduser().resolve() if getattr(args, "embeddings", None) else None
         tags = Path(args.tags).expanduser().resolve() if getattr(args, "tags", None) else None
         write_matching(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit, emb, tags)
+    elif args.mode == "master":
+        write_master_report(
+            Path(args.base).expanduser().resolve(),
+            Path(args.out).expanduser().resolve(),
+            args.online,
+            args.query,
+        )
     elif args.mode == "video_tags":
         write_video_tags(Path(args.base).expanduser().resolve(), Path(args.out).expanduser().resolve(), args.limit)
     elif args.mode == "music_tags":
@@ -1274,11 +1565,34 @@ def main():
         if offline:
             print("[WARN] Modo offline activo; omitiendo descarga de modelos (usa DJPT_OFFLINE=0 para forzar).")
             return
-        dest = ensure_model_cached(args.name)
-        if dest:
-            print(f"[OK] Modelo {args.name} descargado en {dest}")
-        else:
-            print(f"[ERR] No se pudo descargar {args.name} (revisa red/URL).")
+        try:
+            raw_names = args.name
+            if isinstance(raw_names, str):
+                raw_list = [raw_names]
+            else:
+                raw_list = list(raw_names)
+            names: List[str] = []
+            for item in raw_list:
+                parts = [x.strip() for x in item.split(",") if x.strip()]
+                names.extend(parts)
+            if not names:
+                print("[ERR] No se proporcionaron nombres de modelo.")
+                return
+            allowed = set(MODEL_WEIGHTS.keys())
+            for name in names:
+                if name not in allowed:
+                    print(f"[WARN] Nombre de modelo no soportado: {name}. Opciones: {', '.join(allowed)}")
+                    continue
+                print(f"[INFO] Processing {name}...", file=sys.stderr)
+                dest = ensure_model_cached(name)
+                if dest:
+                    print(f"[OK] Modelo {name} descargado en {dest}")
+                else:
+                    print(f"[ERR] No se pudo descargar {name} (revisa red/URL).")
+        except Exception as e:
+            print(f"[CRITICAL] Error inesperado en download_model: {e}", file=sys.stderr)
+            # Do not sys.exit(1) to avoid breaking the calling shell script
+            return
 
 
 if __name__ == "__main__":

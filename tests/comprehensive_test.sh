@@ -177,10 +177,32 @@ else
     echo -e "  ${C_YLW}⚠${C_RESET} Script may need full execution context"
 fi
 
+test_case "Wrapper entrypoint help (EN)"
+TMP_HELP_EN=$(mktemp)
+if ./DJProducerTools_MultiScript_EN.sh --help >"$TMP_HELP_EN" 2>&1 && grep -q "DJProducerTools" "$TMP_HELP_EN"; then
+    echo -e "  ${C_GRN}✓${C_RESET} English wrapper --help responds"
+    TESTS_PASS=$((TESTS_PASS + 1))
+else
+    echo -e "  ${C_RED}✗${C_RESET} English wrapper help missing or failed"
+    TESTS_FAIL=$((TESTS_FAIL + 1))
+fi
+rm -f "$TMP_HELP_EN" || true
+
+test_case "Wrapper entrypoint help (ES)"
+TMP_HELP_ES=$(mktemp)
+if ./DJProducerTools_MultiScript_ES.sh --help >"$TMP_HELP_ES" 2>&1 && grep -q "DJProducerTools" "$TMP_HELP_ES"; then
+    echo -e "  ${C_GRN}✓${C_RESET} Spanish wrapper --help responds"
+    TESTS_PASS=$((TESTS_PASS + 1))
+else
+    echo -e "  ${C_RED}✗${C_RESET} Spanish wrapper help missing or failed"
+    TESTS_FAIL=$((TESTS_FAIL + 1))
+fi
+rm -f "$TMP_HELP_ES" || true
+
 # Test 8: File Size Sanity Checks
 echo -e "\n${C_YLW}TEST GROUP 8: File Size Sanity${C_RESET}"
 test_case "English script size reasonable"
-EN_SIZE=$(stat -f%z DJProducerTools_MultiScript_EN.sh 2>/dev/null || echo 0)
+EN_SIZE=$(stat -f%z scripts/DJProducerTools_MultiScript_EN.sh 2>/dev/null || echo 0)
 if [ "$EN_SIZE" -gt 100000 ] && [ "$EN_SIZE" -lt 500000 ]; then
     echo -e "  ${C_GRN}✓${C_RESET} English script size: $EN_SIZE bytes"
     TESTS_PASS=$((TESTS_PASS + 1))
@@ -190,7 +212,7 @@ else
 fi
 
 test_case "Spanish script size reasonable"
-ES_SIZE=$(stat -f%z DJProducerTools_MultiScript_ES.sh 2>/dev/null || echo 0)
+ES_SIZE=$(stat -f%z scripts/DJProducerTools_MultiScript_ES.sh 2>/dev/null || echo 0)
 if [ "$ES_SIZE" -gt 100000 ] && [ "$ES_SIZE" -lt 500000 ]; then
     echo -e "  ${C_GRN}✓${C_RESET} Spanish script size: $ES_SIZE bytes"
     TESTS_PASS=$((TESTS_PASS + 1))
@@ -202,7 +224,7 @@ fi
 # Test 9: No Forbidden Characters
 echo -e "\n${C_YLW}TEST GROUP 9: Character Validation${C_RESET}"
 test_case "Scripts have no null bytes"
-if ! grep -r $'\0' DJProducerTools_MultiScript_*.sh 2>/dev/null; then
+if perl -ne 'exit 1 if /\x00/' scripts/DJProducerTools_MultiScript_EN.sh scripts/DJProducerTools_MultiScript_ES.sh 2>/dev/null; then
     echo -e "  ${C_GRN}✓${C_RESET} No null bytes found"
     TESTS_PASS=$((TESTS_PASS + 1))
 else
@@ -214,7 +236,7 @@ fi
 echo -e "\n${C_YLW}TEST GROUP 10: Essential Functions${C_RESET}"
 for func in scan_workspace backup_metadata find_duplicates quarantine_files; do
     test_case "Function: $func"
-    if grep -q "^${func}()" DJProducerTools_MultiScript_EN.sh; then
+    if grep -q "^${func}()" scripts/DJProducerTools_MultiScript_EN.sh; then
         echo -e "  ${C_GRN}✓${C_RESET} Function $func found"
         TESTS_PASS=$((TESTS_PASS + 1))
     else

@@ -1,0 +1,70 @@
+dublin_core:
+  conformsto: rc0.2
+  contributor:
+    - Fundación Idiomas Puentes
+  creator: Door43 World Missions Community
+  description: >-
+    Enlaces con licencia abierta de determinadas palabras en el idioma original
+    a artículos de Palabras de Traducción.
+  format: text/tsv
+  identifier: twl
+  issued: '2024-07-17'
+  language:
+    title: Español (Latin American Spanish)
+    identifier: es-419
+    direction: ltr
+  modified: '2024-07-17'
+  publisher: Idiomas Puentes
+  relation:
+    - es-419/gst
+    - es-419/glt
+    - es-419/tn
+    - es-419/tq
+    - es-419/twl
+    - es-419/tw
+    - es-419/obs
+    - es-419/obs-tn
+    - hbo/uhb?v=2.1.25
+    - el-x-koine/ugnt?v=0.25
+  rights: CC BY-SA 4.0
+  source:
+    - identifier: twl
+      language: en
+      version: '16'
+  subject: TSV Translation Words Links
+  title: Enlaces a las Palabras de Traducción
+  type: help
+  version: '18'
+checking:
+  checking_entity:
+    - Idiomas Puentes
+  checking_level: '3'
+projects:
+  - title: Rut
+    versification: ufw
+    identifier: rut
+    sort: 8
+    path: ./twl_RUT.tsv
+    categories:
+      - bible-ot
+  - title: Jonás
+    versification: ufw
+    identifier: jon
+    sort: 32
+    path: ./twl_JON.tsv
+    categories:
+      - bible-ot
+  - title: Tito
+    versification: ufw
+    identifier: tit
+    sort: 57
+    path: ./twl_TIT.tsv
+    categories:
+      - bible-nt
+  - title: 3 Juan
+    versification: ufw
+    identifier: 3jn
+    sort: 64
+    path: ./twl_3JN.tsv
+    categories:
+      - bible-nt

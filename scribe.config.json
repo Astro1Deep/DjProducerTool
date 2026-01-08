@@ -1,0 +1,12 @@
+{
+  "resources": [
+    {
+      "name": "es-419_twl",
+      "id": "44371",
+      "localPath": "/.project/resources/es-419_twl",
+      "type": "codex.twl",
+      "remoteUrl": "https://git.door43.org/api/v1/catalog/entry/es-419_gl/es-419_twl/v18",
+      "version": "v18"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+path	bpm	confidence	method	key	key_confidence	energy_rms	beat_count	first_beat_sec
+/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/tests/fixtures/audio/dirty_hum.wav			librosa_missing		0.00	0.0000		
+/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/tests/fixtures/audio/click_120.wav			librosa_missing		0.00	0.0000		
+/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/tests/fixtures/audio/tagged_128.mp3	128.00	0.40	ffprobe_tag		0.00	0.0000		
+/Users/ivan/Desktop/0 SERATO BIBLIOTECA/DJProducerTools_Project/tests/fixtures/audio/dirty_click.wav			librosa_missing		0.00	0.0000		

@@ -44,6 +44,7 @@ chmod +x scripts/*.sh
 - Estado en `BASE_PATH/_DJProducerTools` (por defecto el cwd al lanzar); `HOME_OVERRIDE=/ruta` si quieres aislar estado. Existe estado legacy en `~/.DJProducerTools` (ya no se usa).
 - Variables por defecto: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`.
 - Corpus compartido: `DJPT_SHARED_CORPUS=/ruta/compartida` (o elección en el menú 69) copia embeddings/tags en `reports/` para poder reutilizarlos en otras bases sin volver a escanear.
+- Informe maestro ML (menú 65.13) combina matching/anomalías/segmentos/loudness/video tags en `reports/ml_master_report.tsv`. Ajusta batch/threshold/top-N en la opción 65.12 y activa MusicBrainz (65.14) para sumar metadata oficial si hay conexión.
 
 ## Documentación
 
@@ -63,12 +64,15 @@ chmod +x scripts/*.sh
 - Dependencias mínimas: `bash`, `python3`, `ffprobe`, `sox`, `jq`. Ejemplo macOS: `brew install ffmpeg sox jq`.
 - Paquete limpio: `git archive -o ../DJProducerTools_WAX.zip HEAD` e incluye `djpt_icon.icns` para el icono del Dock.
 
-### ML/TF Lab desde cero (modelos reales onnx/tflite)
+### Deep Thinking & ML/TF Lab (modelos reales onnx/tflite)
 
-1. Activa el venv local o deja que el menú lo cree: `source _DJProducerTools/venv/bin/activate` (se aloja en la carpeta donde arrancas el script, nunca en el sistema).
-2. En TF Lab (menú 65), pon `DJPT_OFFLINE=0` para permitir modelos reales. Si eliges modelos ONNX (clap_onnx/clip_vitb16_onnx/sentence_t5_tflite), se pedirá instalar `onnxruntime`; si falta, se usa fallback mock con aviso.
-3. TFLite en macOS ARM: no hay wheel oficial `tflite-runtime`; usa TensorFlow (opción 64) o un entorno con wheel compatible. Mientras tanto, MusicGen_tflite opera en modo fallback seguro.
-4. `DJPT_OFFLINE=1` fuerza heurísticos/mocks en todas las opciones ML. Los avisos son no bloqueantes y el script permanece en modo seguro.
+ 1. Activa el venv local o deja que el menú lo cree: `source _DJProducerTools/venv/bin/activate` (se aloja en la carpeta donde arrancas el script, nunca en el sistema).
+ 2. En TF Lab (menú 65), pon `DJPT_OFFLINE=0` para permitir modelos reales. Si eliges modelos ONNX (clap_onnx/clip_vitb16_onnx/sentence_t5_tflite), se pedirá instalar `onnxruntime`; si falta, se usa fallback mock con aviso.
+ 3. TFLite en macOS ARM: no hay wheel oficial `tflite-runtime`; usa TensorFlow (opción 64) o un entorno con wheel compatible. Mientras tanto, MusicGen_tflite opera en modo fallback seguro.
+ 4. `DJPT_OFFLINE=1` fuerza heurísticos/mocks en todas las opciones ML. Los avisos son no bloqueantes y el script permanece en modo seguro.
+ 5. Modelos disponibles: `yamnet`, `musicnn`, `musictag` (TF Hub), `clap_onnx`, `clip_vitb16_onnx`, `musicgen_tflite` y `sentence_t5_tflite`. `music_tags` usa CLAP + prompts (`MUSIC_TAG_PROMPTS`), `video_tags` extrae keyframes con ffmpeg y aplica CLIP, y `matching/anomalies/segments/loudness/mastering` reutilizan embeddings de `DJPT_SHARED_CORPUS`/`SHARED_CORPUS_DIR`.
+ 6. Descarga pesos opcionales con `./lib/ml_tf.py download_model --name <model>` o la opción 65.15; los archivos se guardan en `_DJProducerTools/venv/models` para llevar a otros discos.
+ 7. El reporte maestro (65.14) admite `--online`/`--query` para consultar MusicBrainz y anexa título/artista/fecha en `reports/ml_master_report.tsv`. Mantén `DJPT_OFFLINE=1` si prefieres un flujo local y privado.
 
 ## Licencia
 

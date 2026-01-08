@@ -137,6 +137,45 @@ section_header() {
 # TEST FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════
 
+test_python_syntax() {
+    section_header "Python Syntax Verification"
+    
+    local py_files=(
+        "scripts/djpt_chat_cli.py"
+        "lib/ml_evolutionary.py"
+        "lib/ml_tf.py"
+        "lib/osc_api_server.py"
+        "lib/video_tools.py"
+    )
+    
+    local total=${#py_files[@]}
+    
+    for i in "${!py_files[@]}"; do
+        local script="${py_files[$i]}"
+        local count=$((i + 1))
+        
+        if [ -f "$script" ]; then
+            python3 -m py_compile "$script" 2>/dev/null &
+            local pid=$!
+            show_spinner $pid "Checking $script..." "Verificando $script..." 30 10
+            
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✓ $script (Python Syntax OK)${RESET}"
+            else
+                echo -e "${RED}✗ $script (Python Syntax Error)${RESET}"
+                return 1
+            fi
+        else
+            echo -e "${YELLOW}○ $script (Not found, skipping)${RESET}"
+        fi
+        
+        progress_bar $count $total "$script"
+    done
+    echo ""
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
+
 test_script_syntax() {
     section_header "Syntax Verification / Verificación de Sintaxis"
     
@@ -183,6 +222,8 @@ test_file_structure() {
         "README_ES.md"
         "scripts/DJProducerTools_MultiScript_EN.sh"
         "scripts/DJProducerTools_MultiScript_ES.sh"
+        "scripts/djpt_chat_cli.py"
+        "lib/ml_evolutionary.py"
     )
     
     local optional_files=(
@@ -466,6 +507,7 @@ main() {
     
     # Run all tests
     test_script_syntax
+    test_python_syntax
     test_file_structure
     test_permissions
     test_bilingual_parity

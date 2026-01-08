@@ -150,6 +150,18 @@
 - 65 TF Lab: modelos yamnet/musicnn/musictag/clap_onnx/clip_vitb16_onnx/musicgen_tflite/sentence_t5_tflite; respeta `DJPT_OFFLINE`/`DJPT_TF_MOCK`; genera embeddings/tags/similarity/anomalies/segments/loudness/matching/video_tags/music_tags/mastering TSV. Advierte y cae a mock si falta runtime.
 - 66 Plan LUFS (pyloudnorm+soundfile opcional); 67 Auto-cues (onsets/segmentos con librosa).
 
+#### Modelos TF Lab & modo offline primero
+`DJPT_OFFLINE=1` mantiene cualquier comando del TF Lab en modo heurístico/mock. Si lo desactivas (`DJPT_OFFLINE=0` o no usas `--offline`) y tienes los runtimes opcionales (`onnxruntime`, `tflite-runtime`, `tensorflow`), los flujos del menú 65 cargan:
+  * TensorFlow Hub: `yamnet`, `musicnn`, `musictag`.
+  * ONNX: `clap_onnx` (audio+texto), `clip_vitb16_onnx` (video), `sentence_t5_tflite` (prompts de texto).
+  * TFLite: `musicgen_tflite` (embeddings/tags ligeros).
+Descarga los pesos con `./lib/ml_tf.py download_model --name <model>` (o la opción 65.15) y guárdalos en `_DJProducerTools/venv/models` o `DJPT_MODELS_DIR`. Si falta un runtime, el script avisa y utiliza hash/heurísticos sin interrumpir el flujo.
+
+`music_tags` combina embeddings de CLAP con los prompts `MUSIC_TAG_PROMPTS`, mientras `video_tags` extrae keyframes con ffmpeg y aplica CLIP. Matching/anomalies/segments/loudness/mastering reutilizan embeddings mediante `DJPT_SHARED_CORPUS`/`SHARED_CORPUS_DIR`, de modo que un análisis profundo por disco se reaprovecha en otros entornos.
+
+#### Metadata online con MusicBrainz
+El reporte maestro (menú 65.14) admite `--online`/`--query` para consultar MusicBrainz y añadir título/artista/fecha en `reports/ml_master_report.tsv`. Respeta `DJPT_OFFLINE`: la consulta solo ocurre si activas `--online`. Úsalo cuando quieras contrastar tu análisis local con metadata oficial.
+
 ### Visuales / OSC / DMX (V)
 - V1 Ableton .als quick report; V2 Inventario visuales; V3 Envío plan DMX (ENTTEC dry-run por defecto, log de frames); V4/V5 reporte/plan de video; V6 resolución/duración; V7 visuales por resolución; V8 duplicados visuales; V9 plan optimizar; V10 playlist→OSC; V11 playlist→DMX; V12 presets DMX (ajusta canales/valores).
 

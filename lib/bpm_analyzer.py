@@ -20,6 +20,11 @@ AUDIO_EXTS = {".mp3", ".wav", ".flac", ".m4a", ".aiff", ".aif", ".ogg"}
 
 
 def bpm_from_tags(path: Path) -> Tuple[float, float, str]:
+    # Check if ffprobe is available
+    import shutil
+    if not shutil.which("ffprobe"):
+        return 0.0, 0.0, "ffprobe_missing"
+    
     cmd = [
         "ffprobe",
         "-v",
