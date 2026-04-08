@@ -1,0 +1,26 @@
+{
+  "packet_version": "external_review_packet_v1",
+  "repo_root": ".",
+  "canonical_paths": [
+    "scripts/DJProducerTools_MultiScript_ES.sh",
+    "cli.py",
+    "lib/djpt_chat_cli.py"
+  ],
+  "baseline_scores": {
+    "v1": 100.0,
+    "v2": 100.0,
+    "headroom": 20.0
+  },
+  "required_commands": [
+    "python3 -m pytest -q tests",
+    "bash tests/VERIFY_AND_TEST.sh"
+  ],
+  "evidence_files": [
+    "state/reports/health_score_evidence_latest.json"
+  ],
+  "acceptance_rules": [
+    "Include health_score_evidence when score_claims are present",
+    "Do not mutate production data during external review"
+  ],
+  "response_schema_ref": "config/schemas/external_review_response_v1.schema.json"
+}

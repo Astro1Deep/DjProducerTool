@@ -1,0 +1,104 @@
+[ai_components]
+# Enhanced Workflow Engine configuration
+enabled = true
+max_concurrent_tasks = 4
+default_execution_mode = "adaptive"
+auto_retry_failed = true
+max_retries = 3
+
+# AI Power Analyzer configuration
+analysis_depth = "comprehensive"
+pattern_detection = true
+anomaly_detection = true
+predictive_analysis = true
+confidence_threshold = 0.7
+
+# Smart Execution Engine configuration
+resource_monitoring = true
+adaptive_optimization = true
+rollback_enabled = true
+timeout_default = 300
+resource_limits = { cpu = 80.0, memory = 1024.0, disk_io = 100.0 }
+
+# Predictive System Optimizer configuration
+prediction_horizon = 24  # hours
+trend_analysis = true
+seasonal_detection = true
+auto_recommendations = true
+implementation_effort_threshold = 3.0
+
+[ui]
+# User interface preferences
+theme = "degraded"
+banner_display = true
+spinner_style = "advanced"
+color_scheme = "matrix"
+progress_indicators = true
+verbose_output = false
+
+[features]
+# Feature toggles
+advanced_diagnostics = true
+real_time_monitoring = true
+auto_healing = true
+predictive_alerts = true
+workflow_automation = true
+ml_optimization = true
+
+[logging]
+# Logging configuration
+level = "INFO"
+file_path = "./logs/advanced_chat_cli.log"
+max_file_size = "10MB"
+backup_count = 5
+structured_logging = true
+include_metrics = true
+
+[advanced]
+# Advanced parameters
+ml_model_path = "./models"
+cache_predictions = true
+cache_size = 1000
+parallel_analysis = true
+batch_processing = true
+optimization_interval = 3600  # seconds
+health_check_interval = 300  # seconds
+
+[backends]
+# AI backend configuration
+ollama = { enabled = true, url = "http://localhost:11434", timeout = 30 }
+openai = { enabled = false, api_key_env = "OPENAI_API_KEY", model = "gpt-4" }
+huggingface = { enabled = true, token_env = "HUGGINGFACE_TOKEN", cache_dir = "./cache" }
+
+[security]
+# Security settings
+safe_mode = true
+command_validation = true
+sandbox_mode = false
+audit_logging = true
+max_command_length = 1000
+
+[performance]
+# Performance optimization
+thread_pool_size = 8
+async_execution = true
+memory_limit_mb = 2048
+cpu_limit_percent = 90
+disk_cache_size_mb = 512
+network_timeout = 60
+
+[integration]
+# System integration
+djpt_path = "./DJProducerTools_Con_Opciones_IA.sh"
+venv_path = "./venv"
+state_path = "./state"
+config_path = "./config"
+logs_path = "./logs"
+
+[experimental]
+# Experimental features
+quantum_optimization = false
+neural_acceleration = false
+predictive_scaling = false
+auto_tuning = false
+ml_evolution = false

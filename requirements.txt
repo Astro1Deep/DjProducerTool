@@ -1,0 +1,4 @@
+# DJProducerTools full dependency umbrella.
+# Use `requirements-core.txt` for reproducible fresh installs and local-first runtime.
+-r requirements-core.txt
+-r requirements-optional-backends.txt

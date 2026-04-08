@@ -1,0 +1,100 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "summary",
+    "backends",
+    "messages"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["ai_health_v2"]
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "base_path": {
+      "type": "string"
+    },
+    "reports_dir": {
+      "type": "string"
+    },
+    "execution_ms": {
+      "type": "number"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "overall_status",
+        "available_backend_count",
+        "total_backend_count"
+      ],
+      "properties": {
+        "overall_status": {
+          "type": "string",
+          "enum": ["ok", "warn", "fail"]
+        },
+        "available_backend_count": {
+          "type": "integer"
+        },
+        "total_backend_count": {
+          "type": "integer"
+        }
+      }
+    },
+    "backends": {
+      "type": "object",
+      "required": [
+        "mlx",
+        "tensorflow",
+        "scikit_learn",
+        "ollama",
+        "openai",
+        "huggingface"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "available",
+          "status",
+          "details"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["ok", "warn", "fail"]
+          },
+          "details": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "python": {
+      "type": "object",
+      "required": [
+        "executable",
+        "version"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

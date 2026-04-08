@@ -1,10 +1,147 @@
 #!/usr/bin/env bash
-set -u
+set -euo pipefail
+
+# Variable de idioma con fallback para ejecución directa
+: "${DJPT_CURRENT_LANG:=EN}"
+
+# Cargar cadenas de texto localizadas
+LANG_FILE="$(dirname "${BASH_SOURCE[0]}")/lang_strings.sh"
+if [ -f "$LANG_FILE" ]; then
+  source "$LANG_FILE"
+else
+  # Fallback simple si no existe el archivo de idioma para evitar crash
+  get_localized_string() { echo "$1"; }
+fi
 
 # Re-ejecuta con bash si no se lanzó con bash (doble click/otros shells)
 if [ -z "${BASH_VERSION:-}" ]; then
   exec bash "$0" "$@"
 fi
+
+guard_entrypoint_reentry() {
+  local current_script
+  current_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+  local stack="${DJPT_ENTRYPOINT_STACK:-}"
+  if [[ "$stack" == *"|$current_script|"* ]]; then
+    echo "[ERR] Recursive source/exec detected for $current_script" >&2
+    exit 1
+  fi
+  export DJPT_ENTRYPOINT_STACK="${stack}|${current_script}|"
+}
+
+is_root_volume_path() {
+  local p="${1%/}"
+  [ -z "$p" ] && return 1
+  [ "$p" = "/" ] && return 0
+  [[ "$p" =~ ^/Volumes/[^/]+$ ]] && return 0
+  return 1
+}
+
+guard_entrypoint_reentry
+
+# Early CLI flags used before full argument parsing.
+for __djpt_early_arg in "$@"; do
+  case "$__djpt_early_arg" in
+    --no-interactive|-n)
+      export DJPT_NO_INTERACTIVE=1
+      ;;
+  esac
+done
+
+if [[ -z "${BASE_PATH:-}" ]]; then
+  script_root_hint="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  echo "ERROR: BASE_PATH environment variable is required for safety" >&2
+  echo "Example: export BASE_PATH=\"$script_root_hint\"" >&2
+  exit 1
+fi
+
+if is_root_volume_path "$BASE_PATH" && [[ "${ALLOW_FULL_VOLUME:-0}" != "1" ]]; then
+  echo "ERROR: Full volume scan detected and blocked for safety" >&2
+  echo "BASE_PATH=\"$BASE_PATH\" appears to be a root volume path" >&2
+  echo "To allow full volume scans, set: export ALLOW_FULL_VOLUME=1" >&2
+  exit 1
+fi
+
+if [[ ! -d "$BASE_PATH" ]]; then
+  echo "ERROR: BASE_PATH directory does not exist: $BASE_PATH" >&2
+  exit 1
+fi
+export DJPT_EXPLICIT_BASE_PATH="$BASE_PATH"
+
+bootstrap_runtime_context() {
+  local script_dir root probe abs_probe env_file
+  local assets=()
+  local venv_candidates=()
+
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  root=""
+
+  for probe in "$script_dir/.." "$script_dir" "$PWD" "/Volumes/SeaGate2TB/_DJProducerTools"; do
+    abs_probe="$(cd "$probe" 2>/dev/null && pwd || true)"
+    [ -n "$abs_probe" ] || continue
+    if [ -f "$abs_probe/scripts/cli.py" ]; then
+      root="$abs_probe"
+      break
+    fi
+  done
+
+  [ -n "$root" ] || root="$(cd "$script_dir/.." && pwd)"
+
+  export DJPT_CANONICAL_ROOT="$root"
+  : "${DJPT_BASE_DIR:=$root}"
+  : "${DJPT_STATE_DIR:=$root/state}"
+  : "${DJPT_LIB_DIR:=$root/lib}"
+  : "${DJPT_LOGS_DIR:=$root/state/logs}"
+  : "${DJPT_QUARANTINE_DIR:=$root/state/quarantine}"
+  export DJPT_BASE_DIR DJPT_STATE_DIR DJPT_LIB_DIR DJPT_LOGS_DIR DJPT_QUARANTINE_DIR
+
+  env_file="$root/env"
+  if [ -r "$env_file" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "$env_file"
+    set +a
+  fi
+
+  for probe in state backups reports data archive archives_home; do
+    [ -d "$root/$probe" ] && assets+=("$probe")
+  done
+  if [ "${#assets[@]}" -gt 0 ]; then
+    DJPT_CANONICAL_ASSETS="$(IFS=,; printf "%s" "${assets[*]}")"
+  else
+    DJPT_CANONICAL_ASSETS="none"
+  fi
+  export DJPT_CANONICAL_ASSETS
+
+  venv_candidates=(
+    "$root/_DJProducerTools/djpt_venv"
+    "$root/djpt_venv"
+    "$root/.venv"
+    "$root/venv"
+    "$root/state/djpt_venv"
+    "$DJPT_STATE_DIR/djpt_venv"
+  )
+  for probe in "${venv_candidates[@]}"; do
+    [ -x "$probe/bin/python3" ] || continue
+    export DJPT_VENV_DIR="$probe"
+    export VIRTUAL_ENV="$probe"
+    export PATH="$probe/bin:$PATH"
+    : "${PYTHON_BIN:=$probe/bin/python3}"
+    : "${DJPT_PYTHON_BIN:=$probe/bin/python3}"
+    export PYTHON_BIN DJPT_PYTHON_BIN
+    break
+  done
+}
+
+bootstrap_runtime_context
+
+# Anti-recursion protection - prevent recursive entrypoint invocation
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+if [[ "${DJPT_ENTRYPOINT_LOCK:-}" == "$SCRIPT_PATH" ]]; then
+  echo "ERROR: Recursive entrypoint invocation detected ($SCRIPT_PATH)" >&2
+  exit 1
+fi
+export DJPT_ENTRYPOINT_LOCK="$SCRIPT_PATH"
 
 ESC=$'\033'
 C_RESET="${ESC}[0m"
@@ -12,12 +149,30 @@ C_RED="${ESC}[1;31m"
 C_GRN="${ESC}[1;32m"
 C_YLW="${ESC}[1;33m"
 C_BLU="${ESC}[1;34m"
-C_CYN="${ESC}[1;36m"
-C_PURP="${ESC}[38;5;129m"
-BANNER="${ESC}[1;37;44m"
+C_CYN="${ESC}[1;35m"
+C_PURP="${ESC}[1;35m"
+BANNER="${ESC}[1;37;48;5;22m"  # Fondo verde estándar
+
+# Paleta unificada verde/degradado para banners
+
+C_GREEN1="${ESC}[38;5;22m"   # Verde oscuro
+C_GREEN2="${ESC}[38;5;28m"   # Verde medio
+C_GREEN3="${ESC}[38;5;46m"   # Verde estándar
+C_GREEN4="${ESC}[38;5;82m"   # Verde claro
+C_GREEN5="${ESC}[38;5;120m"  # Verde brillante
+EN_BANNER_COLORS=("${C_GREEN1}" "${C_GREEN2}" "${C_GREEN3}" "${C_GREEN4}" "${C_GREEN5}" "${C_GREEN1}") # Degradado verde EN
+ES_BANNER_COLORS=("${C_GREEN5}" "${C_GREEN4}" "${C_GREEN3}" "${C_GREEN2}" "${C_GREEN1}" "${C_GREEN5}") # Degradado verde ES
 
 # Asegura TERM para evitar cortes raros en terminales mínimos
 export TERM="${TERM:-xterm-256color}"
+
+# Directorio del script para llamadas fiables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Directorio de librerías (corregido para consistencia)
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
+
+# Limpieza de archivos temporales al salir
+trap 'rm -f "${STATE_DIR:-/tmp}"/*.tmp* &>/dev/null' EXIT
 
 # Polyfill mapfile para Bash 3.2 en macOS (con escape seguro)
 if ! command -v mapfile >/dev/null 2>&1; then
@@ -43,17 +198,16 @@ DRYRUN_FORCE=0
 RUN_TEST_MODE=0
 SHOW_VERSION=0
 SHOW_HELP=0
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 
 SPIN_FRAMES=("\\" "|" "/" "-")
 SPIN_IDX=0
-SPIN_COLORS=("$C_PURP" "$C_GRN" "$C_CYN" "$C_YLW" "$C_BLU")
+SPIN_COLORS=("$C_GREEN1" "$C_GREEN2" "$C_GREEN3" "$C_GREEN4" "$C_GREEN5")
 SPIN_COLOR_IDX=0
-GHOST_COLORS=("${ESC}[38;5;129m" "${ESC}[38;5;46m") # violeta y verde
+GHOST_COLORS=("${C_GREEN1}" "${C_GREEN5}") # verde oscuro y verde brillante
 GHOST_IDX=0
 
-BASE_DEFAULT="$PWD"
-BASE_PATH="$BASE_DEFAULT"
+BASE_DEFAULT="${BASE_PATH}"
 LAUNCH_PATH="$BASE_DEFAULT"
 EXTRA_SOURCE_ROOTS=""
 DEFAULT_EXCLUDES_BASE="*.asd,*.asd.*,*/Ableton/Cache/*,*/Ableton/Factory Packs/*,*/node_modules/*,*/.git/*,*/.Trash/*,*/Backups.backupdb/*,*/_DJProducerTools/*,*/_Serato_*/*,*.log,*.tmp,*.dmg,*.iso"
@@ -64,7 +218,7 @@ AUDIO_HISTORY_FILE=""
 EXCLUDES_PROFILES_FILE=""
 STATE_HEALTH_REPORT=""
 PRESET_EXCLUDES_AUDIO="*.asd,*.asd.*,*/Ableton/Cache/*,*/Ableton/Factory Packs/*,*/node_modules/*,*/.git/*,*/.Trash/*,*/Backups.backupdb/*,*.tmp,*.dmg,*.iso"
-PRESET_EXCLUDES_PROYECTOS="*/node_modules/*,*/.git/*,*/dist/*,*/build/*,*/venv/*,*.log,*.tmp,*.dmg,*.iso"
+PRESET_EXCLUDES_PROYECTOS="*/node_modules/*,*/.git/*,*/dist/*,*/build/*,*/.venv/*,*.log,*.tmp,*.dmg,*.iso"
 
 append_extra_root() {
   local new="$1"
@@ -75,7 +229,7 @@ append_extra_root() {
     IFS=',' read -r -a arr <<<"${EXTRA_SOURCE_ROOTS}"
   fi
   # Safe check for array length avoiding unbound variable error
-  if [ "${#arr[@]:-0}" -gt 0 ]; then
+  if [ "${#arr[@]}" -gt 0 ]; then
     for r in "${arr[@]}"; do
       [ "$r" = "$new" ] && return
     done
@@ -125,14 +279,15 @@ warn_legacy_state() {
 maybe_migrate_legacy_state() {
   local legacy="$HOME/.DJProducerTools"
   local marker="$CONFIG_DIR/.migration_done"
-
+  
   if [ -f "$marker" ]; then
     return
   fi
-
+  
   if [ ! -d "$legacy" ]; then
     return
   fi
+  
   if [ "$legacy" -ef "$STATE_DIR" ]; then
     return
   fi
@@ -146,20 +301,22 @@ maybe_migrate_legacy_state() {
   fi
 
   if [ -d "$STATE_DIR" ] && [ "$(ls -A "$STATE_DIR" 2>/dev/null)" ]; then
+    # Already populated, mark as done
     touch "$marker"
-    printf "%s[INFO]%s _DJProducerTools already has data; skipping legacy migration.\n" "$C_CYN" "$C_RESET"
+    printf "%s[INFO]%s _DJProducerTools ya tiene datos; no se migra legacy.\n" "$C_CYN" "$C_RESET"
     return
   fi
-  printf "%s[WARN]%s Legacy state detected at %s.\n" "$C_YLW" "$C_RESET" "$legacy"
-  printf "Option: MIGRATE copies to %s, DRY simulates, SKIP ignores [MIGRATE/DRY/SKIP]: " "$STATE_DIR"
+
+  printf "%s[WARN]%s Se detectó estado legacy en %s.\n" "$C_YLW" "$C_RESET" "$legacy"
+  printf "Opción: MIGRATE copia a %s, DRY simula, SKIP omite [MIGRATE/DRY/SKIP]: " "$STATE_DIR"
   read -r mig
   case "$mig" in
     MIGRATE)
       ensure_state_dir_safe || return
-      printf "%s[INFO]%s Migrating legacy -> %s\n" "$C_CYN" "$C_RESET" "$STATE_DIR"
+      printf "%s[INFO]%s Migrando legacy -> %s\n" "$C_CYN" "$C_RESET" "$STATE_DIR"
       safe_rsync "$legacy" "$STATE_DIR"
       touch "$marker"
-      printf "%s[OK]%s Migration completed.\n" "$C_GRN" "$C_RESET"
+      printf "%s[OK]%s Migración completada.\n" "$C_GRN" "$C_RESET"
       ;;
     DRY)
       printf "[DRY] rsync %s -> %s\n" "$legacy" "$STATE_DIR"
@@ -167,10 +324,10 @@ maybe_migrate_legacy_state() {
       ;;
     SKIP)
       touch "$marker"
-      printf "%s[INFO]%s Skipping migration (will not ask again).\n" "$C_CYN" "$C_RESET"
+      printf "%s[INFO]%s Saltando migración (no se volverá a preguntar).\n" "$C_CYN" "$C_RESET"
       ;;
     *)
-      printf "%s[INFO]%s Skipping migration temporarily.\n" "$C_CYN" "$C_RESET"
+      printf "%s[INFO]%s Saltando migración temporalmente.\n" "$C_CYN" "$C_RESET"
       ;;
   esac
 }
@@ -178,24 +335,25 @@ maybe_migrate_legacy_state() {
 usage() {
   cat <<EOF
 DJProducerTools WAX MultiScript
-Usage: $(basename "$0") [--help] [--version] [--test] [--dry-run]
-  --help       Show this help
-  --version    Print version and exit
-  --test       Light dependency check only (no menu)
-  --dry-run    Force DRYRUN_FORCE=1 (no writes)
-Default env: SAFE_MODE=1, DJ_SAFE_LOCK=1, DRYRUN_FORCE=0
+Uso: $(basename "$0") [--help] [--version] [--test] [--dry-run] [--no-interactive]
+  --help       Muestra esta ayuda
+  --version    Imprime versión y sale
+  --test       Solo chequeo ligero de dependencias (sin menú)
+  --dry-run    Fuerza DRYRUN_FORCE=1 (sin escrituras)
+  --no-interactive  Ejecuta en modo no interactivo (alias de --test)
+Entorno por defecto: SAFE_MODE=1, DJ_SAFE_LOCK=1, DRYRUN_FORCE=0
 EOF
 }
 
 check_dependencies_basic() {
   local -r deps=("bash" "find" "awk" "sed" "xargs" "python3" "ffprobe" "sox" "jq")
   local -i missing=0
-  printf "Dependency check:\n"
+  printf "Chequeo de dependencias:\n"
   for cmd in "${deps[@]}"; do
     if command -v "$cmd" >/dev/null 2>&1; then
       printf "  ✓ %s\n" "$cmd"
     else
-      printf "  ✗ %s (missing)\n" "$cmd"
+      printf "  ✗ %s (faltante)\n" "$cmd"
       missing=$((missing + 1))
     fi
   done
@@ -204,10 +362,10 @@ check_dependencies_basic() {
 
 confirm_heavy() {
   local op="$1"
-  printf "%s[WARN]%s %s might be intensive on BASE_PATH=%s\n" "$C_YLW" "$C_RESET" "$op" "$BASE_PATH"
-  printf "Type YES to continue: "
+  printf "%s[WARN]%s %s puede ser intensivo sobre BASE_PATH=%s\n" "$C_YLW" "$C_RESET" "$op" "$BASE_PATH"
+  printf "Escribe YES para continuar: "
   read -r ans
-  [ "$ans" = "YES" ] || { printf "%s[INFO]%s Cancelled.\n" "$C_CYN" "$C_RESET"; return 1; }
+  [ "$ans" = "YES" ] || { printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"; return 1; }
   return 0
 }
 
@@ -256,15 +414,24 @@ parse_args() {
         DRYRUN_FORCE=1
         shift
         ;;
+      --no-interactive|-n)
+        export DJPT_NO_INTERACTIVE=1
+        RUN_TEST_MODE=1
+        shift
+        ;;
       --run)
         RUN_ACTION="$2"
         shift 2
         ;;
       *)
-        printf "Unknown option: %s\n" "$1"
-        usage
-        exit 1
-        ;;
+        if [[ "$1" == --* ]]; then
+          printf "Opción desconocida: %s\n" "$1"
+          usage
+          exit 1
+        fi
+        # Not an option, probably a path, break loop
+        break
+      ;;
     esac
   done
 }
@@ -461,6 +628,18 @@ should_exclude_path() {
   return 1
 }
 
+maybe_reuse_file() {
+  local file="$1"
+  local name="$2"
+  if [ -s "$file" ]; then
+    printf "%s[INFO]%s Se encontró %s previo.\n" "$C_CYN" "$C_RESET" "$name"
+    printf "¿Reusar? [Y/n]: "
+    read -r ans
+    if [ -z "$ans" ] || [[ "$ans" =~ ^[Yy]$ ]]; then return 1; fi
+  fi
+  return 0
+}
+
 CONFIG_DIR=""
 STATE_DIR=""
 REPORTS_DIR=""
@@ -488,7 +667,7 @@ DJPT_ONLINE_REF=0
 PROFILES_DIR=""
 
 pause_enter() {
-  printf "%sPress ENTER to continue...%s" "$C_YLW" "$C_RESET"
+  printf "%s%s%s" "$C_YLW" "$(get_localized_string PRESS_ENTER)" "$C_RESET"
   read -r _
 }
 
@@ -498,24 +677,54 @@ ensure_safety_guard() {
   fi
   if { [ "${SAFE_MODE:-1}" -eq 0 ] || [ "${DJ_SAFE_LOCK:-1}" -eq 0 ]; }; then
     SAFETY_PROMPTED=1
-    printf "%s[WARN]%s SAFE_MODE o DJ_SAFE_LOCK están en 0. ¿Restaurar a 1/1 para proteger movimientos? [Y/n]: " "$C_YLW" "$C_RESET"
+    printf "%s[WARN]%s SAFE_MODE o DJ_SAFE_LOCK están en 0. ¿Restaurar a 1/1 para proteger movimientos? [S/n]: " "$C_YLW" "$C_RESET"
     read -r restore_safe
-    if [ -z "$restore_safe" ] || [[ "$restore_safe" =~ ^[Yy]$ ]]; then
+    if [ -z "$restore_safe" ] || [[ "$restore_safe" =~ ^[sSyY]$ ]]; then
       SAFE_MODE=1
       DJ_SAFE_LOCK=1
       save_conf
       printf "%s[OK]%s SAFE_MODE y DJ_SAFE_LOCK restaurados a 1.\n" "$C_GRN" "$C_RESET"
     else
-      printf "%s[INFO]%s Manteniendo SAFE_MODE/DJ_SAFE_LOCK en su estado actual (no se volverá a preguntar en esta sesión).\n" "$C_CYN" "$C_RESET"
+      printf "%s[INFO]%s Se mantiene el estado actual de SAFE_MODE/DJ_SAFE_LOCK (no se volverá a preguntar en esta sesión).\n" "$C_CYN" "$C_RESET"
     fi
+  fi
+}
+
+check_connectivity() {
+  printf "📡 Verificando conectividad a Internet...\n"
+  if curl -s --head --request GET https://www.google.com | grep "200" > /dev/null; then 
+      printf "✅ Conexión a Internet confirmada.\n"
+      return 0
+  else
+      printf "❌ Error: No se detecta conexión a Internet.\n"
+      return 1
   fi
 }
 
 action_install_all_python_deps() {
   print_header
   ensure_python_bin || { pause_enter; return; }
-  pkgs="numpy pandas soundfile librosa onnxruntime tflite-runtime tensorflow tensorflow_hub"
-  printf "%s[INFO]%s Installing/refreshing python deps (onnx/tflite/TF)...\n" "$C_CYN" "$C_RESET"
+  
+  check_connectivity || { pause_enter; return; }
+
+  printf "%s[INFO]%s Iniciando gestión de dependencias...\n" "$C_CYN" "$C_RESET"
+
+  # 1. Actualizar pip es CRÍTICO en macOS para descargar los 'wheels' correctos
+  printf "🔄 Actualizando pip...\n"
+  "$PYTHON_BIN" -m pip install --upgrade pip
+
+  # 2. Definir paquetes base
+  pkgs="numpy pandas soundfile librosa pyloudnorm pyserial python-osc onnxruntime tensorflow tensorflow_hub"
+
+  # 3. Lógica condicional para TFLite (Solución al error "No matching distribution" en macOS)
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+      printf "🍎 macOS detectado: Omitiendo 'tflite-runtime' (usando tensorflow completo).\n"
+  else
+      printf "🐧 Linux/Otro detectado: Añadiendo 'tflite-runtime'...\n"
+      pkgs="$pkgs tflite-runtime"
+  fi
+
+  printf "%s[INFO]%s Instalando/actualizando: %s\n" "$C_CYN" "$C_RESET" "$pkgs"
   if "$PYTHON_BIN" -m pip install --upgrade $pkgs; then
     printf "%s[OK]%s Deps instaladas.\n" "$C_GRN" "$C_RESET"
   else
@@ -539,30 +748,80 @@ ensure_dirs() {
     existed=1
     # Try to fix ownership if running as root or if writable check fails
     if [ ! -w "$STATE_DIR" ]; then
-        printf "%s[WARN]%s STATE_DIR is not writable. Attempting to fix permissions (sudo)...\n" "$C_YLW" "$C_RESET"
+        printf "%s[WARN]%s STATE_DIR no es escribible. Intentando corregir permisos (sudo)...\n" "$C_YLW" "$C_RESET"
         # Try to change ownership to SUDO_USER if available, else current user
         local target_user="${SUDO_USER:-$(id -un)}"
         if sudo chown -R "$target_user" "$STATE_DIR"; then
            chmod -R u+rw "$STATE_DIR"
-           printf "%s[OK]%s Permissions fixed for %s.\n" "$C_GRN" "$C_RESET" "$target_user"
+           printf "%s[OK]%s Permisos corregidos para %s.\n" "$C_GRN" "$C_RESET" "$target_user"
         else
-           printf "%s[ERR]%s Permission fix failed. Write operations might fail.\n" "$C_RED" "$C_RESET"
+           printf "%s[ERR]%s Falló la corrección de permisos. Es posible que falle la escritura.\n" "$C_RED" "$C_RESET"
         fi
     fi
   else
-    printf "%s[INFO]%s Creating state at %s\n" "$C_CYN" "$C_RESET" "$STATE_DIR"
+    printf "%s[INFO]%s Creando estado en %s\n" "$C_CYN" "$C_RESET" "$STATE_DIR"
   fi
-  mkdir -p "$STATE_DIR" "$CONFIG_DIR" "$REPORTS_DIR" "$PLANS_DIR" "$LOGS_DIR" "$QUAR_DIR" "$VENV_DIR" "$SHARED_CORPUS_DIR" "$SHARED_CORPUS_DIR/reports" "$SHARED_CORPUS_DIR/plans"
+  
+  if ! mkdir -p "$STATE_DIR" "$CONFIG_DIR" "$REPORTS_DIR" "$PLANS_DIR" "$LOGS_DIR" "$QUAR_DIR" "$VENV_DIR" "$SHARED_CORPUS_DIR" "$SHARED_CORPUS_DIR/reports" "$SHARED_CORPUS_DIR/plans"; then
+      printf "%s[ERR]%s Falló al crear directorios en: %s\nVerifica permisos o si existe un archivo con el mismo nombre.\n" "$C_RED" "$C_RESET" "$STATE_DIR"
+  fi
+
   if [ "$existed" -eq 1 ] && [ -d "$REPORTS_DIR" ]; then
     local repc planc logc
     repc=$(find "$REPORTS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
     planc=$(find "$PLANS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
     logc=$(find "$LOGS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
-    printf "%s[INFO]%s Reusing existing _DJProducerTools (%s reports, %s plans, %s logs).\n" "$C_CYN" "$C_RESET" "$repc" "$planc" "$logc"
+    printf "%s[INFO]%s Reutilizando _DJProducerTools existente (%s reports, %s plans, %s logs).\n" "$C_CYN" "$C_RESET" "$repc" "$planc" "$logc"
   fi
 }
 
 init_paths() {
+  # P0-PHASE: Check if DJPT environment variables are already set by bin/djpt
+  # If set, use them directly and skip legacy detection
+  if [ -n "${DJPT_BASE_DIR:-}" ] && [ -n "${DJPT_STATE_DIR:-}" ]; then
+    echo "[INFO] Using DJPT environment variables from bin/djpt"
+    # Respect explicit BASE_PATH if already validated by wrappers/entrypoints.
+    if [ -n "${BASE_PATH:-}" ] && [ -d "$BASE_PATH" ]; then
+      BASE_PATH="$(cd "$BASE_PATH" && pwd)"
+    else
+      BASE_PATH="$DJPT_BASE_DIR"
+      # Default BASE_PATH to parent of install dir for portable scanning
+      if [[ "$DJPT_BASE_DIR" == *"/Applications"* ]] || [[ "$DJPT_BASE_DIR" == *"/usr/local"* ]]; then
+          BASE_PATH="$HOME"
+      else
+          BASE_PATH="$(dirname "$DJPT_BASE_DIR")"
+      fi
+    fi
+    STATE_DIR="$DJPT_STATE_DIR"
+    CONFIG_DIR="$DJPT_STATE_DIR/config"
+    REPORTS_DIR="$DJPT_STATE_DIR/reports"
+    PLANS_DIR="$DJPT_STATE_DIR/plans"
+    LOGS_DIR="$DJPT_STATE_DIR/logs"
+    QUAR_DIR="$DJPT_STATE_DIR/quarantine"
+    VENV_DIR="$BASE_PATH/djpt_venv"
+    SHARED_CORPUS_DIR="${DJPT_SHARED_CORPUS:-${SHARED_CORPUS_DIR:-$STATE_DIR/shared}}"
+    export DJPT_SHARED_CORPUS="$SHARED_CORPUS_DIR"
+    export DJPT_MODELS_DIR="${DJPT_MODELS_DIR:-$BASE_PATH/ai/models}"
+    PROFILES_DIR="$CONFIG_DIR/profiles"
+    BASE_HISTORY_FILE="$CONFIG_DIR/base_history.txt"
+    GENERAL_HISTORY_FILE="$CONFIG_DIR/general_history.txt"
+    AUDIO_HISTORY_FILE="$CONFIG_DIR/audio_history.txt"
+    EXCLUDES_PROFILES_FILE="$CONFIG_DIR/exclude_profiles.tsv"
+    STATE_HEALTH_REPORT="$REPORTS_DIR/state_health.txt"
+    BANNER_FILE="$STATE_DIR/banner.txt"
+    CONF_FILE="$CONFIG_DIR/djpt.conf"
+    ML_MODEL_PATH="$STATE_DIR/ml_model.pkl"
+    ML_FEATURES_FILE="$STATE_DIR/ml_features.tsv"
+    ML_PRED_REPORT="$REPORTS_DIR/ml_predictions.tsv"
+    ensure_dirs
+    mkdir -p "$PROFILES_DIR"
+    touch "$BASE_HISTORY_FILE" "$GENERAL_HISTORY_FILE" "$AUDIO_HISTORY_FILE"
+    touch "$EXCLUDES_PROFILES_FILE"
+    return
+  fi
+
+  # Legacy path detection (only if DJPT variables not set)
+  echo "[INFO] DJPT environment variables not set, using legacy path detection"
   # Permite forzar HOME_OVERRIDE para no tocar librerías reales
   if [ -n "${HOME_OVERRIDE:-}" ]; then
     BASE_PATH="$HOME_OVERRIDE"
@@ -572,7 +831,12 @@ init_paths() {
   if [ -z "$BASE_PATH" ] || [ "$BASE_PATH" = "/" ]; then
      STATE_DIR="$HOME/_DJProducerTools"
   else
-     STATE_DIR="$BASE_PATH/_DJProducerTools"
+     # Evitar anidamiento: si BASE_PATH ya termina en _DJProducerTools, úsalo como STATE_DIR
+     if [[ "${BASE_PATH}" == *"_DJProducerTools" ]] || [[ "${BASE_PATH}" == *"_DJProducerTools/" ]]; then
+         STATE_DIR="${BASE_PATH%/}"
+     else
+         STATE_DIR="$BASE_PATH/_DJProducerTools"
+     fi
   fi
 
   CONFIG_DIR="$STATE_DIR/config"
@@ -580,24 +844,21 @@ init_paths() {
   PLANS_DIR="$STATE_DIR/plans"
   LOGS_DIR="$STATE_DIR/logs"
   QUAR_DIR="$STATE_DIR/quarantine"
-  VENV_DIR="$STATE_DIR/venv"
+  VENV_DIR="$BASE_PATH/djpt_venv"
   SHARED_CORPUS_DIR="${DJPT_SHARED_CORPUS:-${SHARED_CORPUS_DIR:-$STATE_DIR/shared}}"
   export DJPT_SHARED_CORPUS="$SHARED_CORPUS_DIR"
+  export DJPT_MODELS_DIR="$BASE_PATH/ai/models"
   PROFILES_DIR="$CONFIG_DIR/profiles"
   BASE_HISTORY_FILE="$CONFIG_DIR/base_history.txt"
   GENERAL_HISTORY_FILE="$CONFIG_DIR/general_history.txt"
   AUDIO_HISTORY_FILE="$CONFIG_DIR/audio_history.txt"
   EXCLUDES_PROFILES_FILE="$CONFIG_DIR/exclude_profiles.tsv"
   STATE_HEALTH_REPORT="$REPORTS_DIR/state_health.txt"
-  BANNER_FILE="$STATE_DIR/banner.txt"
-  CONF_FILE="$CONFIG_DIR/djpt.conf"
-  ML_MODEL_PATH="$STATE_DIR/ml_model.pkl"
-  ML_FEATURES_FILE="$STATE_DIR/ml_features.tsv"
-  ML_PRED_REPORT="$REPORTS_DIR/ml_predictions.tsv"
-  ensure_dirs
-  mkdir -p "$PROFILES_DIR"
-  touch "$BASE_HISTORY_FILE" "$GENERAL_HISTORY_FILE" "$AUDIO_HISTORY_FILE"
-  touch "$EXCLUDES_PROFILES_FILE"
+
+ensure_dirs
+mkdir -p "$PROFILES_DIR"
+touch "$BASE_HISTORY_FILE" "$GENERAL_HISTORY_FILE" "$AUDIO_HISTORY_FILE"
+touch "$EXCLUDES_PROFILES_FILE"
 }
 
 save_conf() {
@@ -611,6 +872,15 @@ save_conf() {
   : "${DEFAULT_EXCLUDES:=}"
   : "${PROFILES_DIR:=}"
   : "${ML_ENV_DISABLED:=0}"
+  : "${DJPT_SPOTIFY_API:=}"
+  : "${DJPT_SPOTIFY_CLIENT_ID:=}"
+  : "${DJPT_SPOTIFY_CLIENT_SECRET:=}"
+  : "${DJPT_MUSICBRAINZ:=}"
+  : "${DJPT_MUSICBRAINZ_APP:=}"
+  : "${DJPT_MUSICBRAINZ_CONTACT:=}"
+  : "${DJPT_MCP_ENABLED:=0}"
+  : "${DJPT_MCP_TRANSPORT:=stdio}"
+  : "${DJPT_MCP_SERVER_ENTRY:=}"
   {
     printf 'BASE_PATH=%q\n' "$BASE_PATH"
     printf 'AUDIO_ROOT=%q\n' "${AUDIO_ROOT:-}"
@@ -629,18 +899,306 @@ save_conf() {
     printf 'DJPT_TF_TOPN=%q\n' "$DJPT_TF_TOPN"
     printf 'DJPT_TF_BATCH=%q\n' "$DJPT_TF_BATCH"
     printf 'DJPT_ONLINE_REF=%q\n' "$DJPT_ONLINE_REF"
-    printf 'SHARED_CORPUS_DIR=%q\n' "$SHARED_CORPUS_DIR"
+    printf 'DJPT_SPOTIFY_API=%q\n' "${DJPT_SPOTIFY_API:-}"
+    printf 'DJPT_SPOTIFY_CLIENT_ID=%q\n' "${DJPT_SPOTIFY_CLIENT_ID:-}"
+    printf 'DJPT_SPOTIFY_CLIENT_SECRET=%q\n' "${DJPT_SPOTIFY_CLIENT_SECRET:-}"
+    printf 'DJPT_MUSICBRAINZ=%q\n' "${DJPT_MUSICBRAINZ:-}"
+    printf 'DJPT_MUSICBRAINZ_APP=%q\n' "${DJPT_MUSICBRAINZ_APP:-}"
+    printf 'DJPT_MUSICBRAINZ_CONTACT=%q\n' "${DJPT_MUSICBRAINZ_CONTACT:-}"
+    printf 'DJPT_MCP_ENABLED=%q\n' "${DJPT_MCP_ENABLED:-0}"
+    printf 'DJPT_MCP_TRANSPORT=%q\n' "${DJPT_MCP_TRANSPORT:-stdio}"
+    printf 'DJPT_MCP_SERVER_ENTRY=%q\n' "${DJPT_MCP_SERVER_ENTRY:-}"
+    printf 'DJPT_MPC_ENABLED=%q\n' "${DJPT_MPC_ENABLED:-}"
+    printf 'DJPT_MPC_LEARNING=%q\n' "${DJPT_MPC_LEARNING:-}"
+    printf 'DJPT_ADAPTIVE_UI=%q\n' "${DJPT_ADAPTIVE_UI:-}"
+    printf 'DJPT_MPC_THRESHOLD=%q\n' "${DJPT_MPC_THRESHOLD:-}"
+    printf 'DJPT_MPC_MODEL=%q\n' "${DJPT_MPC_MODEL:-}"
+    printf 'DJPT_NEURAL_BATCH=%q\n' "${DJPT_NEURAL_BATCH:-}"
+    printf 'DJPT_WORKER_NODES=%q\n' "${DJPT_WORKER_NODES:-}"
+    printf 'DJPT_LOAD_BALANCING=%q\n' "${DJPT_LOAD_BALANCING:-}"
+    printf 'DJPT_REALTIME_METRICS=%q\n' "${DJPT_REALTIME_METRICS:-}"
+    printf 'DJPT_AUTO_ALERTS=%q\n' "${DJPT_AUTO_ALERTS:-}"
+    printf 'DJPT_AUTO_HEALING=%q\n' "${DJPT_AUTO_HEALING:-}"
+    printf 'DJPT_ROLLBACK=%q\n' "${DJPT_ROLLBACK:-}"
+    printf 'DJPT_USER_PROFILES=%q\n' "${DJPT_USER_PROFILES:-}"
+    printf 'DJPT_CONTEXT_CONFIG=%q\n' "${DJPT_CONTEXT_CONFIG:-}"
+    printf 'SHARED_CORPUS_DIR=%q\n' "${SHARED_CORPUS_DIR:-}"
+    printf 'DJPT_CURRENT_LANG=%q\n' "${DJPT_CURRENT_LANG:-ES}"
   } >"$CONF_FILE"
 }
 
 load_conf() {
   if [ -f "$CONF_FILE" ]; then
     set +u
-    if ! . "$CONF_FILE" 2>/dev/null; then
-      printf "%s[WARN]%s No se pudo cargar %s, se regenerará.\n" "$C_YLW" "$C_RESET" "$CONF_FILE"
+    if ! source "$CONF_FILE" 2>/dev/null; then
+      printf "%s[WARN]%s Could not load %s, it will be regenerated.\n" "$C_YLW" "$C_RESET" "$CONF_FILE" # Cannot localize here
     fi
-    set -u
   fi
+  if [ -f "$CONFIG_DIR/mcp.env" ]; then
+    set +u
+    if ! source "$CONFIG_DIR/mcp.env" 2>/dev/null; then
+      printf "%s[WARN]%s Could not load %s\n" "$C_YLW" "$C_RESET" "$CONFIG_DIR/mcp.env"
+    fi
+  fi
+  set -u
+}
+
+mcp_management_menu() {
+  local mcp_mgr="$SCRIPT_DIR/mcp_env_manager.py"
+  if [ ! -f "$mcp_mgr" ]; then
+    printf "%s[ERR]%s Missing MCP manager: %s\n" "$C_RED" "$C_RESET" "$mcp_mgr"
+    pause_enter
+    return 1
+  fi
+
+  while true; do
+    clear
+    printf "%s=== MCP) Setup & Pairing ===%s\n" "$BANNER" "$C_RESET"
+    printf "Current status:\n"
+    printf -- "- MCP enabled: %s\n" "${DJPT_MCP_ENABLED:-0}"
+    printf -- "- Transport: %s\n" "${DJPT_MCP_TRANSPORT:-stdio}"
+    printf -- "- Server entry: %s\n" "${DJPT_MCP_SERVER_ENTRY:-$SCRIPT_DIR/../mcp_server_fixed.py}"
+    printf "\nOptions:\n"
+    printf "  1) MCP status\n"
+    printf "  2) Install MCP dependency (pip)\n"
+    printf "  3) Pair MCP with this environment\n"
+    printf "  4) MCP smoke test\n"
+    printf "  5) Toggle MCP enabled/disabled\n"
+    printf "  B) Back\n"
+    printf "Option: "
+    if ! read -r mcp_opt; then
+      break
+    fi
+    mcp_opt="$(echo "$mcp_opt" | xargs)"
+    [ -z "$mcp_opt" ] && continue
+
+    case "$mcp_opt" in
+      1)
+        "$PYTHON_BIN" "$mcp_mgr" status --json || true
+        pause_enter
+        ;;
+      2)
+        printf "%s[INFO]%s Installing MCP with %s\n" "$C_CYN" "$C_RESET" "$PYTHON_BIN"
+        "$PYTHON_BIN" "$mcp_mgr" install --json || true
+        pause_enter
+        ;;
+      3)
+        "$PYTHON_BIN" "$mcp_mgr" pair --write-env "$CONFIG_DIR/mcp.env" --json || true
+        DJPT_MCP_ENABLED=1
+        DJPT_MCP_TRANSPORT="${DJPT_MCP_TRANSPORT:-stdio}"
+        DJPT_MCP_SERVER_ENTRY="${DJPT_MCP_SERVER_ENTRY:-$SCRIPT_DIR/../mcp_server_fixed.py}"
+        save_conf
+        printf "%s[OK]%s MCP pairing saved.\n" "$C_GRN" "$C_RESET"
+        pause_enter
+        ;;
+      4)
+        "$PYTHON_BIN" "$mcp_mgr" smoke --json || true
+        pause_enter
+        ;;
+      5)
+        if [ "${DJPT_MCP_ENABLED:-0}" = "1" ]; then
+          DJPT_MCP_ENABLED=0
+        else
+          DJPT_MCP_ENABLED=1
+        fi
+        save_conf
+        printf "%s[OK]%s DJPT_MCP_ENABLED=%s\n" "$C_GRN" "$C_RESET" "${DJPT_MCP_ENABLED:-0}"
+        pause_enter
+        ;;
+      B|b|0)
+        break
+        ;;
+      *)
+        printf "%s[WARN]%s Invalid option.\n" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+    esac
+  done
+}
+
+submenu_I_integrations() {
+  local integration_checks_py="$SCRIPT_DIR/integration_checks.py"
+  while true; do
+    clear
+    local local_serato_root="${SERATO_ROOT:-$BASE_PATH/_Serato_}"
+    local serato_parser_status="Not available"
+    local serato_tools_status="Not available"
+    if "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
+import importlib.util, sys
+sys.exit(0 if importlib.util.find_spec("serato_crate") else 1)
+PY
+    then
+      serato_parser_status="Available"
+    fi
+    if "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
+import importlib.util, sys
+sys.exit(0 if importlib.util.find_spec("serato_tools") else 1)
+PY
+    then
+      serato_tools_status="Available"
+    fi
+    local spotify_client_id="${DJPT_SPOTIFY_CLIENT_ID:-${DJPT_SPOTIFY_API:-}}"
+    local spotify_client_secret="${DJPT_SPOTIFY_CLIENT_SECRET:-}"
+    local musicbrainz_app="${DJPT_MUSICBRAINZ_APP:-DJProducerTools}"
+    local musicbrainz_contact="${DJPT_MUSICBRAINZ_CONTACT:-${DJPT_MUSICBRAINZ:-}}"
+    local spotify_status="Not configured"
+    [ -n "$spotify_client_id" ] && [ -n "$spotify_client_secret" ] && spotify_status="Credentials configured"
+    local musicbrainz_status="$musicbrainz_app"
+    [ -n "$musicbrainz_contact" ] && musicbrainz_status="$musicbrainz_status ($musicbrainz_contact)"
+
+    printf "%s=== Integration Stack (Local/Web) ===%s\n" "$BANNER" "$C_RESET"
+    printf "Current status:\n"
+    printf -- "- Serato (local filesystem): %s\n" "$local_serato_root"
+    printf -- "- Crate parser (serato-crate): %s\n" "$serato_parser_status"
+    printf -- "- Serato tools (serato-tools): %s\n" "$serato_tools_status"
+    printf -- "- Spotify (OAuth Client Credentials): %s\n" "$spotify_status"
+    printf -- "- MusicBrainz (User-Agent): %s\n" "$musicbrainz_status"
+    if [ -f "$integration_checks_py" ]; then
+      printf -- "- Integration checker: %s\n" "$integration_checks_py"
+    else
+      printf -- "- Integration checker: %sMissing%s\n" "$C_YLW" "$C_RESET"
+    fi
+    printf "\nOptions:\n"
+    printf "  1) Configure local Serato root\n"
+    printf "  2) Configure Spotify (Client ID / Client Secret)\n"
+    printf "  3) Configure MusicBrainz (App / Contact)\n"
+    printf "  4) Full integration diagnostics\n"
+    printf "  5) Configure local MCP\n"
+    printf "  6) Test Spotify OAuth now\n"
+    printf "  7) Test MusicBrainz now\n"
+    printf "  8) Install Serato deps (serato-crate + serato-tools)\n"
+    printf "  B) Back\n"
+    printf "Option: "
+    if ! read -r api_opt; then
+      break
+    fi
+    api_opt="$(echo "$api_opt" | xargs)"
+    [ -z "$api_opt" ] && continue
+
+    case "$api_opt" in
+      1)
+        printf "Local Serato root (ENTER keeps: %s): " "${SERATO_ROOT:-$BASE_PATH/_Serato_}"
+        read -r serato_root_input
+        serato_root_input="$(echo "$serato_root_input" | xargs)"
+        if [ -n "$serato_root_input" ]; then
+          SERATO_ROOT="$serato_root_input"
+          save_conf
+        fi
+        if [ -d "${SERATO_ROOT:-$BASE_PATH/_Serato_}" ]; then
+          printf "%s[OK]%s Serato root set: %s\n" "$C_GRN" "$C_RESET" "${SERATO_ROOT:-$BASE_PATH/_Serato_}"
+        else
+          printf "%s[WARN]%s Serato root not found: %s\n" "$C_YLW" "$C_RESET" "${SERATO_ROOT:-$BASE_PATH/_Serato_}"
+        fi
+        pause_enter
+        ;;
+      2)
+        printf "Spotify Client ID (ENTER keeps): "
+        read -r spotify_client_id_input
+        spotify_client_id_input="$(echo "$spotify_client_id_input" | xargs)"
+        printf "Spotify Client Secret (ENTER keeps): "
+        read -r spotify_client_secret_input
+        spotify_client_secret_input="$(echo "$spotify_client_secret_input" | xargs)"
+        if [ -n "$spotify_client_id_input" ]; then
+          DJPT_SPOTIFY_CLIENT_ID="$spotify_client_id_input"
+          DJPT_SPOTIFY_API="$spotify_client_id_input"
+        fi
+        if [ -n "$spotify_client_secret_input" ]; then
+          DJPT_SPOTIFY_CLIENT_SECRET="$spotify_client_secret_input"
+        fi
+        save_conf
+        printf "%s[OK]%s Spotify OAuth config updated.\n" "$C_GRN" "$C_RESET"
+        pause_enter
+        ;;
+      3)
+        printf "MusicBrainz App Name (ENTER keeps: %s): " "${DJPT_MUSICBRAINZ_APP:-DJProducerTools}"
+        read -r mb_app_input
+        mb_app_input="$(echo "$mb_app_input" | xargs)"
+        printf "MusicBrainz Contact Email/URL (ENTER keeps): "
+        read -r mb_contact_input
+        mb_contact_input="$(echo "$mb_contact_input" | xargs)"
+        if [ -n "$mb_app_input" ]; then
+          DJPT_MUSICBRAINZ_APP="$mb_app_input"
+        fi
+        if [ -n "$mb_contact_input" ]; then
+          DJPT_MUSICBRAINZ_CONTACT="$mb_contact_input"
+          DJPT_MUSICBRAINZ="$mb_contact_input"
+        fi
+        save_conf
+        printf "%s[OK]%s MusicBrainz config updated.\n" "$C_GRN" "$C_RESET"
+        pause_enter
+        ;;
+      4)
+        if [ -f "$integration_checks_py" ]; then
+          "$PYTHON_BIN" "$integration_checks_py" all \
+            --serato-root "${SERATO_ROOT:-$BASE_PATH/_Serato_}" \
+            --spotify-client-id "${DJPT_SPOTIFY_CLIENT_ID:-${DJPT_SPOTIFY_API:-}}" \
+            --spotify-client-secret "${DJPT_SPOTIFY_CLIENT_SECRET:-}" \
+            --musicbrainz-app "${DJPT_MUSICBRAINZ_APP:-DJProducerTools}" \
+            --musicbrainz-contact "${DJPT_MUSICBRAINZ_CONTACT:-${DJPT_MUSICBRAINZ:-}}" \
+            --json || true
+        else
+          printf "%s[ERR]%s Missing %s\n" "$C_RED" "$C_RESET" "$integration_checks_py"
+        fi
+        pause_enter
+        ;;
+      5)
+        mcp_management_menu
+        ;;
+      6)
+        if [ -f "$integration_checks_py" ]; then
+          "$PYTHON_BIN" "$integration_checks_py" spotify \
+            --spotify-client-id "${DJPT_SPOTIFY_CLIENT_ID:-${DJPT_SPOTIFY_API:-}}" \
+            --spotify-client-secret "${DJPT_SPOTIFY_CLIENT_SECRET:-}" \
+            --json || true
+        else
+          printf "%s[ERR]%s Missing %s\n" "$C_RED" "$C_RESET" "$integration_checks_py"
+        fi
+        pause_enter
+        ;;
+      7)
+        if [ -f "$integration_checks_py" ]; then
+          "$PYTHON_BIN" "$integration_checks_py" musicbrainz \
+            --musicbrainz-app "${DJPT_MUSICBRAINZ_APP:-DJProducerTools}" \
+            --musicbrainz-contact "${DJPT_MUSICBRAINZ_CONTACT:-${DJPT_MUSICBRAINZ:-}}" \
+            --json || true
+        else
+          printf "%s[ERR]%s Missing %s\n" "$C_RED" "$C_RESET" "$integration_checks_py"
+        fi
+        pause_enter
+        ;;
+      8)
+        printf "Install optional Serato Python packages?\n"
+        printf "  - serato-crate\n"
+        printf "  - serato-tools\n"
+        printf "Continue? [y/N]: "
+        read -r install_serato_opt
+        install_serato_opt="$(echo "$install_serato_opt" | xargs)"
+        case "$install_serato_opt" in
+          y|Y|yes|YES)
+            if "$PYTHON_BIN" -m pip install --disable-pip-version-check serato-crate serato-tools; then
+              printf "%s[OK]%s Serato packages installed.\n" "$C_GRN" "$C_RESET"
+            else
+              printf "%s[ERR]%s Failed installing Serato packages.\n" "$C_RED" "$C_RESET"
+            fi
+            if [ -f "$integration_checks_py" ]; then
+              "$PYTHON_BIN" "$integration_checks_py" serato --serato-root "${SERATO_ROOT:-$BASE_PATH/_Serato_}" --json || true
+            fi
+            ;;
+          *)
+            printf "%s[INFO]%s Installation canceled.\n" "$C_CYN" "$C_RESET"
+            ;;
+        esac
+        pause_enter
+        ;;
+      B|b|0)
+        break
+        ;;
+      *)
+        printf "%s[WARN]%s Invalid option.\n" "$C_YLW" "$C_RESET"
+        pause_enter
+        ;;
+    esac
+  done
 }
 
 maybe_activate_ml_env() {
@@ -648,7 +1206,7 @@ maybe_activate_ml_env() {
   local want_tf="${2:-0}"
   local want_evo="${3:-0}"
   if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-    printf "%s[WARN]%s ML disabled globally (toggle in extras menu).\n" "$C_YLW" "$C_RESET"
+    printf "%s[WARN]%s ML deshabilitado globalmente (toggle en menú extras).\n" "$C_YLW" "$C_RESET"
     return
   fi
   if [ "$VENV_ACTIVE" -eq 1 ]; then
@@ -691,24 +1249,25 @@ maybe_activate_ml_env() {
     pkgs_arr+=("$p")
   done
 
-  printf "%s[INFO]%s %s requires isolated ML environment.\n" "$C_CYN" "$C_RESET" "$context"
-  printf "Create venv in %s and download pip + %s (~%s MB)? [y/N]: " "$VENV_DIR" "$pkgs" "$est_mb"
+  printf "%s[INFO]%s %s requiere entorno ML aislado.\n" "$C_CYN" "$C_RESET" "$context"
+  printf "Crear venv en %s y descargar pip + %s (~%s MB)? [y/N]: " "$VENV_DIR" "$pkgs" "$est_mb"
   read -r ans
   case "$ans" in
     y|Y)
+      check_connectivity || { printf "%s[ERR]%s Sin conexión a Internet.\n" "$C_RED" "$C_RESET"; ML_ENV_DISABLED=1; return; }
       if ! command -v python3 >/dev/null 2>&1; then
-        printf "%s[ERR]%s python3 not found. Install it and try again.\n" "$C_RED" "$C_RESET"
+        printf "%s[ERR]%s python3 no encontrado. Instálalo e inténtalo de nuevo.\n" "$C_RED" "$C_RESET"
         ML_ENV_DISABLED=1
         return
       fi
       # If venv exists but broken, warn/recreate
       if [ -d "$VENV_DIR" ]; then
-         printf "%s[WARN]%s Recreating existing venv at %s...\n" "$C_YLW" "$C_RESET" "$VENV_DIR"
+         printf "%s[WARN]%s Recreando venv existente en %s...\n" "$C_YLW" "$C_RESET" "$VENV_DIR"
          rm -rf "$VENV_DIR"
       fi
 
       python3 -m venv "$VENV_DIR" 2>/dev/null || {
-        printf "%s[ERR]%s Could not create venv in %s\n" "$C_RED" "$C_RESET" "$VENV_DIR"
+        printf "%s[ERR]%s No se pudo crear el venv en %s\n" "$C_RED" "$C_RESET" "$VENV_DIR"
         ML_ENV_DISABLED=1
         return
       }
@@ -716,13 +1275,17 @@ maybe_activate_ml_env() {
         # shellcheck disable=SC1090
         . "$VENV_DIR/bin/activate"
         VENV_ACTIVE=1
-        "$VENV_DIR/bin/pip" install --upgrade pip >/dev/null 2>&1 || true
-        "$VENV_DIR/bin/pip" install "${pkgs_arr[@]}" >/dev/null 2>&1 || true
+        printf "Actualizando pip...\n"
+        "$VENV_DIR/bin/pip" install --upgrade pip || printf "%s[WARN]%s Falló update pip.\n" "$C_YLW" "$C_RESET"
+        printf "Instalando paquetes ML (%s)...\n" "${pkgs_arr[*]}"
+        if ! "$VENV_DIR/bin/pip" install "${pkgs_arr[@]}"; then
+             printf "%s[ERR]%s Falló la instalación de paquetes ML. Revisa tu conexión.\n" "$C_RED" "$C_RESET"
+        fi
       fi
       ;;
     *)
       ML_ENV_DISABLED=1
-      printf "%s[WARN]%s ML environment skipped for %s. Retry later if desired.\n" "$C_YLW" "$C_RESET" "$context"
+      printf "%s[WARN]%s Entorno ML omitido para %s. Reintenta más tarde si lo deseas.\n" "$C_YLW" "$C_RESET" "$context"
       ;;
   esac
 }
@@ -799,8 +1362,11 @@ PY
         }
       fi
       PYTHON_BIN="$VENV_DIR/bin/python3"
-      "$PYTHON_BIN" -m pip install --upgrade pip >/dev/null 2>&1 || true
-      "$PYTHON_BIN" -m pip install "${modules[@]}" >/dev/null 2>&1 || {
+      check_connectivity || return 1
+      printf "Actualizando pip...\n"
+      "$PYTHON_BIN" -m pip install --upgrade pip || printf "%s[WARN]%s Falló update pip.\n" "$C_YLW" "$C_RESET"
+      printf "Instalando módulos (%s)...\n" "${modules[*]}"
+      "$PYTHON_BIN" -m pip install "${modules[@]}" || {
         printf "%s[ERR]%s Falló instalación pip de %s\n" "$C_RED" "$C_RESET" "${modules[*]}"
         return 1
       }
@@ -820,8 +1386,12 @@ print_header() {
       printf "%s%s%s\n" "$C_PURP" "$line" "$C_RESET"
     done < "$BANNER_FILE"
   else
-    # Gradient Banner (EN version: violet -> red)
-    local colors=("$C_PURP" "$C_BLU" "$C_CYN" "$C_GRN" "$C_YLW" "$C_RED")
+    local banner_colors
+    case "$DJPT_CURRENT_LANG" in
+      en) banner_colors=("${EN_BANNER_COLORS[@]}") ;;
+      *)  banner_colors=("${ES_BANNER_COLORS[@]}") ;; # Default to Spanish colors
+    esac
+
     local banner_lines
     mapfile -t banner_lines <<'EOF'
 @@@  @@@  @@@  @@@@@@  @@@  @@@  @@@@@@ @@@@@@@   @@@@@@   @@@@@@@ @@@@@@@@  @@@@@@ @@@  @@@ @@@ @@@@@@@
@@ -843,11 +1413,11 @@ print_header() {
    :     : :. :   : :. :  : ::.: :
 EOF
     for idx in "${!banner_lines[@]}"; do
-      local color="${colors[$((idx % ${#colors[@]}))]}"
+      local color="${banner_colors[$((idx % ${#banner_colors[@]}))]}"
       printf "%s%s%s\n" "$color" "${banner_lines[$idx]}" "$C_RESET"
     done
   fi
-  printf "%s⚡ By Astro One Deep 🎵%s\n\n" "$C_PURP" "$C_RESET"
+  printf "%s⚡ Por Astro One Deep 🎵%s\n\n" "$C_PURP" "$C_RESET"
 
   printf "%sWAX SPACESHIP  DJProducerTools%s\n" "$C_CYN" "$C_RESET"
   printf "%sBase:%s %s\n" "$C_YLW" "$C_RESET" "$BASE_PATH"
@@ -870,9 +1440,9 @@ EOF
   fi
 
   if [ "$DJ_SAFE_LOCK" -eq 1 ]; then
-    lock_str="${C_GRN}ACTIVE${C_RESET}"
+    lock_str="${C_GRN}ACTIVO${C_RESET}"
   else
-    lock_str="${C_RED}INACTIVE${C_RESET}"
+    lock_str="${C_RED}INACTIVO${C_RESET}"
   fi
 
   if [ "$DRYRUN_FORCE" -eq 1 ]; then
@@ -881,7 +1451,7 @@ EOF
     dryrun_str="${C_RED}OFF${C_RESET}"
   fi
 
-  printf "%sAssist:%s %sON%s | %sAutoTools:%s %sON%s | %sSafeMode:%s %s | %sDJ_SAFE_LOCK:%s %s | %sDryRunForce:%s %s\n" \
+  printf "%sAsistente:%s %sON%s | %sAutoTools:%s %sON%s | %sSafeMode:%s %s | %sDJ_SAFE_LOCK:%s %s | %sDryRunForce:%s %s\n" \
     "$C_BLU" "$C_RESET" "$C_GRN" "$C_RESET" \
     "$C_BLU" "$C_RESET" "$C_GRN" "$C_RESET" \
     "$C_BLU" "$C_RESET" "$safemode_str" \
@@ -892,176 +1462,205 @@ EOF
 }
 
 print_menu() {
-  printf "%sMenu (grouped view)%s\n" "$C_GRN" "$C_RESET"
-  printf "%s💬 Interface:%s\n" "$C_CYN" "$C_RESET"
-  printf "  %sC)%s %sChat CLI (AI Assistant & Command Center)%s\n" "$C_GRN" "$C_RESET" "$C_PURP" "$C_RESET"
+  printf "%s%s%s\n" "$C_GRN" "$(get_localized_string MENU_TITLE)" "$C_RESET"
+  printf "%s%s%s\n" "$C_CYN" "$(get_localized_string MENU_INTERFACE)" "$C_RESET"
+  printf "  %sC)%s %s%s%s\n" "$C_GRN" "$C_RESET" "$C_PURP" "$(get_localized_string MENU_C_CHAT)" "$C_RESET"
   printf "\n"
-  printf "%s⚙️  Core (1-12):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s1)%s Status / paths / locks\n" "$C_GRN" "$C_RESET"
-  printf "  %s2)%s Change Base Path\n" "$C_GRN" "$C_RESET"
-  printf "  %s3)%s Volume summary / latest reports\n" "$C_GRN" "$C_RESET"
-  printf "  %s4)%s Top folders by size\n" "$C_GRN" "$C_RESET"
-  printf "  %s5)%s Top large files\n" "$C_GRN" "$C_RESET"
-  printf "  %s6)%s Scan workspace (previous catalog)\n" "$C_GRN" "$C_RESET"
+  printf "%s%s%s\n" "$C_CYN" "$(get_localized_string MENU_CORE)" "$C_RESET"
+  printf "  %s1)%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string MENU_1_STATUS)"
+  printf "  %s2)%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string MENU_2_CHANGE_BASE)"
+  printf "  %s3)%s Resumen del volumen / últimos reportes\n" "$C_GRN" "$C_RESET"
+  printf "  %s4)%s Top carpetas por tamaño\n" "$C_GRN" "$C_RESET"
+  printf "  %s5)%s Top archivos grandes\n" "$C_GRN" "$C_RESET"
+  printf "  %s6)%s Scan workspace (catálogo previo)\n" "$C_GRN" "$C_RESET"
   printf "  %s7)%s Backup Serato (_Serato_ / _Serato_Backup)\n" "$C_GRN" "$C_RESET"
-  printf "  %s8)%s Backup DJ (metadata Serato/Traktor/Rekordbox/Ableton)\n" "$C_GRN" "$C_RESET"
-  printf "  %s9)%s SHA-256 Index (generate/reuse)\n" "$C_GRN" "$C_RESET"
-  printf "  %s10)%s EXACT duplicates report (JSON/TSV plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s11)%s Quarantine duplicates (from LAST_PLAN)\n" "$C_GRN" "$C_RESET"
-  printf "  %s12)%s Quarantine Manager (list/purge/restore)\n" "$C_GRN" "$C_RESET"
+  printf "  %s8)%s Backup DJ (metadatos Serato/Traktor/Rekordbox/Ableton)\n" "$C_GRN" "$C_RESET"
+  printf "  %s9)%s Índice SHA-256 (generar/reusar)\n" "$C_GRN" "$C_RESET"
+  printf "  %s10)%s Reporte duplicados EXACTO (plan JSON/TSV)\n" "$C_GRN" "$C_RESET"
+  printf "  %s11)%s Quarantine duplicados (desde LAST_PLAN)\n" "$C_GRN" "$C_RESET"
+  printf "  %s12)%s Quarantine Manager (listar/purgar/restaurar)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🎛️  Media / organization (13-24):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s13)%s Detect corrupt media (ffprobe) -> TSV\n" "$C_GRN" "$C_RESET"
-  printf "  %s14)%s Create .m3u8 playlists per folder\n" "$C_GRN" "$C_RESET"
-  printf "  %s15)%s Doctor: Relink Helper (non-destructive TSV)\n" "$C_GRN" "$C_RESET"
-  printf "  %s16)%s Mirror by genre (hardlink/copy/move) (safe plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s17)%s Find DJ libraries\n" "$C_GRN" "$C_RESET"
-  printf "  %s18)%s Intelligent Rescan (match + ULTRA)\n" "$C_GRN" "$C_RESET"
-  printf "  %s19)%s Tools: diagnostics/recommended install\n" "$C_GRN" "$C_RESET"
-  printf "  %s20)%s Fix ownership/flags (plan + optional execution)\n" "$C_GRN" "$C_RESET"
-  printf "  %s21)%s Install universal command: djproducertool\n" "$C_GRN" "$C_RESET"
-  printf "  %s22)%s Uninstall command: djproducertool\n" "$C_GRN" "$C_RESET"
+  printf "%s%s%s\n" "$C_CYN" "$(get_localized_string MENU_MEDIA)" "$C_RESET"
+  printf "  %s13)%s Detectar media corrupta (ffprobe) -> TSV\n" "$C_GRN" "$C_RESET"
+  printf "  %s14)%s Crear playlists .m3u8 por carpeta\n" "$C_GRN" "$C_RESET"
+  printf "  %s15)%s Doctor: Relink Helper (TSV no destructivo)\n" "$C_GRN" "$C_RESET"
+  printf "  %s16)%s Mirror por género (hardlink/copy/move) (plan seguro)\n" "$C_GRN" "$C_RESET"
+  printf "  %s17)%s Buscar librerías DJ\n" "$C_GRN" "$C_RESET"
+  printf "  %s18)%s Rescan inteligente (match + ULTRA)\n" "$C_GRN" "$C_RESET"
+  printf "  %s19)%s Tools: diagnóstico/instalación recomendada\n" "$C_GRN" "$C_RESET"
+  printf "  %s20)%s Fix ownership/flags (plan + ejecución opcional)\n" "$C_GRN" "$C_RESET"
+  printf "  %s21)%s Instalar comando universal: djproducertool\n" "$C_GRN" "$C_RESET"
+  printf "  %s22)%s Desinstalar comando: djproducertool\n" "$C_GRN" "$C_RESET"
   printf "  %s23)%s Toggle SafeMode (ON/OFF)\n" "$C_GRN" "$C_RESET"
   printf "  %s24)%s Toggle DJ_SAFE_LOCK (ACTIVE/INACTIVE)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧹 Processes / cleanup (25-39):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s25)%s Quick help (process guide)\n" "$C_GRN" "$C_RESET"
-  printf "  %s26)%s State: Export/Import (bundle)\n" "$C_GRN" "$C_RESET"
-  printf "  %s27)%s Integrity snapshot (fast hash) with progress\n" "$C_GRN" "$C_RESET"
-  printf "  %s28)%s Logs viewer (selector)\n" "$C_GRN" "$C_RESET"
+  printf "%s%s%s\n" "$C_CYN" "$(get_localized_string MENU_CLEANUP)" "$C_RESET"
+  printf "  %s25)%s Ayuda rápida (guía de procesos)\n" "$C_GRN" "$C_RESET"
+  printf "  %s26)%s Estado: Export/Import (bundle)\n" "$C_GRN" "$C_RESET"
+  printf "  %s27)%s Snapshot integridad (hash rápido) con progreso\n" "$C_GRN" "$C_RESET"
+  printf "  %s28)%s Visor de logs (selector)\n" "$C_GRN" "$C_RESET"
   printf "  %s29)%s Toggle DryRunForce (ON/OFF)\n" "$C_GRN" "$C_RESET"
-  printf "  %s30)%s Organize audio by TAGS (genre) -> TSV plan\n" "$C_GRN" "$C_RESET"
-  printf "  %s31)%s Audio tags report -> TSV\n" "$C_GRN" "$C_RESET"
-  printf "  %s32)%s Serato Video: REPORT (no transcode)\n" "$C_GRN" "$C_RESET"
-  printf "  %s33)%s Serato Video: PREP (transcode plan only)\n" "$C_GRN" "$C_RESET"
-  printf "  %s34)%s Normalize names (TSV plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s35)%s Organize samples by TYPE (TSV plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s36)%s Clean WEB (submenu)\n" "$C_GRN" "$C_RESET"
-  printf "  %s37)%s WEB: Whitelist Manager (allowed domains)\n" "$C_GRN" "$C_RESET"
-  printf "  %s38)%s Clean WEB in Playlists (.m3u/.m3u8)\n" "$C_GRN" "$C_RESET"
-  printf "  %s39)%s Clean WEB in TAGS (mutagen) (plan)\n" "$C_GRN" "$C_RESET"
+  printf "  %s30)%s Organizar audio por TAGS (genre) -> plan TSV\n" "$C_GRN" "$C_RESET"
+  printf "  %s31)%s Reporte tags audio -> TSV\n" "$C_GRN" "$C_RESET"
+  printf "  %s32)%s Serato Video: REPORT (sin transcode)\n" "$C_GRN" "$C_RESET"
+  printf "  %s33)%s Serato Video: PREP (solo plan de transcode)\n" "$C_GRN" "$C_RESET"
+  printf "  %s34)%s Normalizar nombres (plan TSV)\n" "$C_GRN" "$C_RESET"
+  printf "  %s35)%s Organizar samples por TIPO (plan TSV)\n" "$C_GRN" "$C_RESET"
+  printf "  %sAI)%s AI STATUS (MLX/Ollama/Embeddings)\n" "$C_GRN" "$C_RESET"
+  printf "  %s36)%s Limpiar WEB (submenú)\n" "$C_GRN" "$C_RESET"
+  printf "  %s37)%s WEB: Whitelist Manager (dominios permitidos)\n" "$C_GRN" "$C_RESET"
+  printf "  %s38)%s Limpiar WEB en Playlists (.m3u/.m3u8)\n" "$C_GRN" "$C_RESET"
+  printf "  %s39)%s Limpiar WEB en TAGS (mutagen) (plan)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧠 Deep/ML (40-52):%s\n" "$C_CYN" "$C_RESET"
+  printf "%s%s%s\n" "$C_CYN" "$(get_localized_string MENU_DEEP_ML)" "$C_RESET"
   printf "  %s40)%s Deep Thinking: Smart Analysis (JSON)\n" "$C_GRN" "$C_RESET"
-  printf "  %s41)%s Machine Learning: Problem Predictor\n" "$C_GRN" "$C_RESET"
-  printf "  %s42)%s Deep Thinking: Efficiency Optimizer\n" "$C_GRN" "$C_RESET"
-  printf "  %s43)%s Deep Thinking: Smart Workflow\n" "$C_GRN" "$C_RESET"
-  printf "  %s44)%s Deep Thinking: Integrated Deduplication\n" "$C_GRN" "$C_RESET"
-  printf "  %s45)%s ML: Automatic Organization (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s46)%s Deep Thinking: Metadata Harmonizer (plan)\n" "$C_GRN" "$C_RESET"
-  printf "  %s47)%s ML: Predictive Backup\n" "$C_GRN" "$C_RESET"
-  printf "  %s48)%s Deep Thinking: Multi-platform Synchronization\n" "$C_GRN" "$C_RESET"
+  printf "  %s41)%s Machine Learning: Predictor de problemas\n" "$C_GRN" "$C_RESET"
+  printf "  %s42)%s Deep Thinking: Optimizador de eficiencia\n" "$C_GRN" "$C_RESET"
+  printf "  %s43)%s Deep Thinking: Flujo de trabajo inteligente\n" "$C_GRN" "$C_RESET"
+  printf "  %s44)%s Deep Thinking: Deduplicación integrada\n" "$C_GRN" "$C_RESET"
+  printf "  %s45)%s ML: Organización automática (plan)\n" "$C_GRN" "$C_RESET"
+  printf "  %s46)%s Deep Thinking: Armonizador de metadatos (plan)\n" "$C_GRN" "$C_RESET"
+  printf "  %s47)%s ML: Backup predictivo\n" "$C_GRN" "$C_RESET"
+  printf "  %s48)%s Deep Thinking: Sincronización multi-plataforma\n" "$C_GRN" "$C_RESET"
   printf "  %s49)%s Audio BPM (tags/librosa) -> TSV\n" "$C_GRN" "$C_RESET"
   printf "  %s50)%s API/OSC server (start/stop)\n" "$C_GRN" "$C_RESET"
-  printf "  %s51)%s ML: Adaptive Recommendations\n" "$C_GRN" "$C_RESET"
-  printf "  %s52)%s Deep Thinking: Automated Cleanup Pipeline\n" "$C_GRN" "$C_RESET"
-  printf "  %s62)%s Evolutionary ML (train/local predict)\n" "$C_GRN" "$C_RESET"
-  printf "  %s63)%s Toggle ML ON/OFF (avoids activating ML venv)\n" "$C_GRN" "$C_RESET"
-  printf "  %s64)%s Optional TensorFlow (install/advanced ideas)\n" "$C_GRN" "$C_RESET"
-  printf "  %s65)%s TensorFlow Lab (auto-tagging/similarity/etc.)\n" "$C_GRN" "$C_RESET"
+  printf "  %s51)%s ML: Recomendaciones adaptativas\n" "$C_GRN" "$C_RESET"
+  printf "  %s52)%s Deep Thinking: Pipeline de limpieza automatizado\n" "$C_GRN" "$C_RESET"
+  printf "  %s62)%s ML Evolutivo (entrenar/predicción local)\n" "$C_GRN" "$C_RESET"
+  printf "  %s63)%s Toggle ML ON/OFF (evita activar venv ML)\n" "$C_GRN" "$C_RESET"
+  printf "  %s64)%s TensorFlow opcional (instalar/ideas avanzadas)\n" "$C_GRN" "$C_RESET"
+  printf "  %s65)%s TensorFlow Lab (auto-tagging/similitud/etc.)\n" "$C_GRN" "$C_RESET"
   printf "\n"
 
-  printf "%s🧰 Extras / utilities (53-68):%s\n" "$C_CYN" "$C_RESET"
-  printf "  %s53)%s Reset state / clean extras\n" "$C_GRN" "$C_RESET"
-  printf "  %s54)%s Profile Manager (save/load paths)\n" "$C_GRN" "$C_RESET"
-  printf "  %s55)%s Ableton Tools (basic analytics)\n" "$C_GRN" "$C_RESET"
+  printf "%s%s%s\n" "$C_CYN" "$(get_localized_string MENU_EXTRAS)" "$C_RESET"
+  printf "  %s53)%s Reset estado / limpiar extras\n" "$C_GRN" "$C_RESET"
+  printf "  %s54)%s Gestor de perfiles (guardar/cargar rutas)\n" "$C_GRN" "$C_RESET"
+  printf "  %s55)%s Ableton Tools (analítica básica)\n" "$C_GRN" "$C_RESET"
   printf "  %s56)%s Importers: Rekordbox/Traktor cues\n" "$C_GRN" "$C_RESET"
-  printf "  %s57)%s Exclusion Manager (profiles)\n" "$C_GRN" "$C_RESET"
-  printf "  %s58)%s Compare hash_index between drives (no rehash)\n" "$C_GRN" "$C_RESET"
-  printf "  %s59)%s State Health-check (_DJProducerTools)\n" "$C_GRN" "$C_RESET"
-  printf "  %s60)%s Export/Import config/profiles only\n" "$C_GRN" "$C_RESET"
-  printf "  %s61)%s Mirror check between hash_index (missing/corruption)\n" "$C_GRN" "$C_RESET"
-  printf "  %s66)%s LUFS Plan (analysis, no normalization)\n" "$C_GRN" "$C_RESET"
-  printf "  %s67)%s Auto-cues by onsets (librosa)\n" "$C_GRN" "$C_RESET"
-  printf "  %s68)%s Install Python deps in venv (pyserial, python-osc, librosa, soundfile)\n" "$C_GRN" "$C_RESET"
-  printf "  %s69)%s Sync shared corpus (hashes/ML between drives)\n" "$C_GRN" "$C_RESET"
+  printf "  %s57)%s Gestor de exclusiones (perfiles)\n" "$C_GRN" "$C_RESET"
+  printf "  %s58)%s Comparar hash_index entre discos (sin rehash)\n" "$C_GRN" "$C_RESET"
+  printf "  %s59)%s Health-check de estado (_DJProducerTools)\n" "$C_GRN" "$C_RESET"
+  printf "  %s60)%s Export/Import solo config/perfiles\n" "$C_GRN" "$C_RESET"
+  printf "  %s61)%s Mirror check entre hash_index (faltantes/corrupción)\n" "$C_GRN" "$C_RESET"
+  printf "  %s66)%s Plan LUFS (análisis, sin normalizar)\n" "$C_GRN" "$C_RESET"
+  printf "  %s67)%s Auto-cues por onsets (librosa)\n" "$C_GRN" "$C_RESET"
+  printf "  %s68)%s Instalar deps Python en venv (pyserial, python-osc, librosa, soundfile)\n" "$C_GRN" "$C_RESET"
+  printf "  %s69)%s Sincronizar corpus compartido (hashes/ML entre discos)\n" "$C_GRN" "$C_RESET"
+  printf "\n"
+
+  printf "%s🤖 AI / Chat / Config (70-90)%s\n" "$C_CYN" "$C_RESET"
+  printf "  %s70)%s Estado IA (MLX/Ollama/Embeddings)\n" "$C_GRN" "$C_RESET"
+  printf "  %s71)%s Gestor de backends IA (multi-backend)\n" "$C_GRN" "$C_RESET"
+  printf "  %s72)%s Instalar deps IA (stack)\n" "$C_GRN" "$C_RESET"
+  printf "  %s73)%s Chat IA (CLI)\n" "$C_GRN" "$C_RESET"
+  printf "  %s74)%s Config avanzada IA (ai_model_params.toml)\n" "$C_GRN" "$C_RESET"
+  printf "  %s75)%s Entrenar modelos IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s76)%s Base de conocimiento IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s77)%s Config UI IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s78)%s Escaneo inteligente (IA)\n" "$C_GRN" "$C_RESET"
+  printf "  %s79)%s Recuperación / diagnóstico IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s80)%s Menú IA avanzado\n" "$C_GRN" "$C_RESET"
+  printf "  %s81)%s IA Lab (experimentos)\n" "$C_GRN" "$C_RESET"
+  printf "  %s82)%s Optimización IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s83)%s Config global IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s84)%s Sistema de aprendizaje IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s85)%s Educador IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s86)%s Análisis de documentos IA\n" "$C_GRN" "$C_RESET"
+  printf "  %s87)%s Install Local Models\n" "$C_GRN" "$C_RESET"
+  printf "  %s88)%s Local Models Manager\n" "$C_GRN" "$C_RESET"
+  printf "  %s89)%s Enhanced Chat CLI\n" "$C_GRN" "$C_RESET"
+  printf "  %s90)%s Launch SERATO Organizer\n" "$C_GRN" "$C_RESET"
 
   printf "\n"
-  printf "%sL)%s DJ Libraries & Cues (submenu)\n" "$C_GRN" "$C_RESET"
-  printf "%sD)%s General Duplicates (submenu)\n" "$C_GRN" "$C_RESET"
-  printf "%sV)%s Visuals / DAW / OSC (submenu)\n" "$C_GRN" "$C_RESET"
-  printf "%sH)%s Help & INFO\n" "$C_GRN" "$C_RESET"
-  printf "%s0)%s Exit\n" "$C_GRN" "$C_RESET"
+  printf "%sL)%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string MENU_L_LIBS)"
+  printf "%sI)%s Integration Stack (Serato/Spotify/MusicBrainz/MCP)\n" "$C_GRN" "$C_RESET"
+  printf "%sD)%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string MENU_D_DUPES)"
+  printf "%sV)%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string MENU_V_VISUALS)"
+  printf "%sH)%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string MENU_H_HELP)"
+  printf "%s0)%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string MENU_0_EXIT)"
 }
 
 invalid_option() {
-  printf "%s[ERR]%s Invalid option.\n" "$C_RED" "$C_RESET"
+  printf "%s[ERR]%s %s\n" "$C_RED" "$C_RESET" "$(get_localized_string INVALID_OPTION)"
   pause_enter
 }
 
 action_chat_cli() {
   print_header
   if ! command -v python3 >/dev/null 2>&1; then
-    printf "%s[ERR]%s Python3 is required for Chat CLI.\n" "$C_RED" "$C_RESET"
+    printf "%s[ERR]%s Se requiere Python3 para el Chat CLI.\n" "$C_RED" "$C_RESET"
     pause_enter
     return
   fi
   
-  chat_script="$SCRIPT_DIR/djpt_chat_cli.py"
+  chat_script="$ROOT_DIR/scripts/djpt_chat_cli.py"
   if [ ! -f "$chat_script" ]; then
-     # Fallback search
-     chat_script="$(dirname "$0")/djpt_chat_cli.py"
+    chat_script="$LIB_DIR/djpt_chat_cli.py"
+  fi
+  if [ ! -f "$chat_script" ]; then
+    chat_script="$(dirname "$0")/djpt_chat_cli.py"
   fi
   
   if [ ! -f "$chat_script" ]; then
-    printf "%s[ERR]%s Chat CLI script not found at %s\n" "$C_RED" "$C_RESET" "$chat_script"
-    pause_enter
-    return
+    printf "%s[ERR]%s Script de Chat CLI no encontrado en %s\n" "$C_RED" "$C_RESET" "$chat_script"
+    pause_enter; return
   fi
 
-  # Launch Chat CLI interactively
-  printf "%s[INFO]%s Launching DJPT Chat CLI...\n" "$C_CYN" "$C_RESET"
-  BASE_PATH="$BASE_PATH" VENV_DIR="$VENV_DIR" python3 "$chat_script"
+  printf "%s[INFO]%s Iniciando DJPT Chat CLI...\n" "$C_CYN" "$C_RESET"
+  BASE_PATH="$BASE_PATH" VENV_DIR="$VENV_DIR" SCRIPT_DIR="$SCRIPT_DIR" python3 "$chat_script"
   
-  # When python script exits, we return to this menu loop automatically
-  printf "\n%s[INFO]%s Returned from Chat CLI.\n" "$C_CYN" "$C_RESET"
+  printf "\n%s[INFO]%s Regreso desde Chat CLI.\n" "$C_CYN" "$C_RESET"
   pause_enter
 }
 
 action_1_status() {
   print_header
-  printf "%s[INFO]%s Current status:\n" "$C_CYN" "$C_RESET"
-  printf "  BASE_PATH: %s\n" "$BASE_PATH"
-  printf "  STATE_DIR: %s\n" "$STATE_DIR"
-  printf "  REPORTS_DIR: %s\n" "$REPORTS_DIR"
-  printf "  PLANS_DIR: %s\n" "$PLANS_DIR"
-  printf "  QUAR_DIR: %s\n" "$QUAR_DIR"
-  printf "  VENV_DIR: %s (optional ML)\n" "$VENV_DIR"
-  printf "  SHARED_CORPUS_DIR: %s (share hashes/ML between disks)\n" "$SHARED_CORPUS_DIR"
-  if [ -n "${EXTRA_SOURCE_ROOTS:-}" ]; then
-    printf "  EXTRA_SOURCE_ROOTS (auto-detected at startup): %s\n" "$EXTRA_SOURCE_ROOTS"
+  printf "%s[INFO]%s Obteniendo estado desde el módulo Python...\n" "$C_CYN" "$C_RESET"
+  
+  local system_actions_script="$LIB_DIR/system_actions.py"
+  if [ ! -f "$system_actions_script" ]; then
+    printf "%s[ERR]%s No se encuentra el script de acciones del sistema: %s\n" "$C_RED" "$C_RESET" "$system_actions_script"
+    pause_enter
+    return
   fi
-  local safe_disp lock_disp dry_disp
-  if [ "$SAFE_MODE" -eq 1 ]; then safe_disp="ON"; else safe_disp="OFF"; fi
-  if [ "$DJ_SAFE_LOCK" -eq 1 ]; then lock_disp="ACTIVE"; else lock_disp="INACTIVE"; fi
-  if [ "$DRYRUN_FORCE" -eq 1 ]; then dry_disp="ON"; else dry_disp="OFF"; fi
-  printf "  SAFE_MODE: %s\n" "$safe_disp"
-  printf "  DJ_SAFE_LOCK: %s\n" "$lock_disp"
-  printf "  DRYRUN_FORCE: %s\n" "$dry_disp"
+
+  "$PYTHON_BIN" "$system_actions_script" status \
+    --base-path "$BASE_PATH" \
+    --state-dir "$STATE_DIR" \
+    --reports-dir "$REPORTS_DIR" \
+    --plans-dir "$PLANS_DIR" \
+    --quar-dir "$QUAR_DIR" \
+    --venv-dir "$VENV_DIR" \
+    --shared-corpus-dir "$SHARED_CORPUS_DIR" \
+    --extra-source-roots "${EXTRA_SOURCE_ROOTS:-}" \
+    --safe-mode "$SAFE_MODE" \
+    --dj-safe-lock "$DJ_SAFE_LOCK" \
+    --dryrun-force "$DRYRUN_FORCE"
+
   pause_enter
 }
 
 action_2_change_base() {
   print_header
-  printf "%s[INFO]%s Current BASE_PATH: %s\n" "$C_CYN" "$C_RESET" "$BASE_PATH"
-  printf "New BASE_PATH (ENTER to cancel, accepts paths with spaces/drag & drop): "
+  printf "%s[INFO]%s BASE_PATH actual: %s\n" "$C_CYN" "$C_RESET" "$BASE_PATH"
+  printf "Nuevo BASE_PATH (ENTER para cancelar, acepta rutas con espacios/drag & drop): "
   read -e -r new_base
   if [ -z "$new_base" ]; then
     return
   fi
   new_base=$(strip_quotes "$new_base")
   if [ ! -d "$new_base" ]; then
-    printf "%s[ERR]%s Invalid path.\n" "$C_RED" "$C_RESET"
+    printf "%s[ERR]%s Ruta no válida.\n" "$C_RED" "$C_RESET"
     pause_enter
     return
   fi
   BASE_PATH="$new_base"
   init_paths
   save_conf
-  printf "%s[OK]%s BASE_PATH updated.\n" "$C_GRN" "$C_RESET"
+  printf "%s[OK]%s BASE_PATH actualizado.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
 
@@ -1091,6 +1690,17 @@ action_5_top_files() {
 action_6_scan_workspace() {
   print_header
   out="$REPORTS_DIR/workspace_scan.tsv"
+  if [ -s "$out" ]; then
+    printf "%s[INFO]%s Se encontró un scan previo (%s).\n" "$C_CYN" "$C_RESET" "$out"
+    printf "¿Deseas REUSAR el archivo existente? [Y/n] (n = regenerar): "
+    read -r reuse
+    if [ -z "$reuse" ] || [[ "$reuse" =~ ^[Yy]$ ]]; then
+      printf "%s[OK]%s Reusando workspace_scan.tsv existente.\n" "$C_GRN" "$C_RESET"
+      pause_enter
+      return
+    fi
+  fi
+
   printf "%s[INFO]%s Scan workspace -> %s\n" "$C_CYN" "$C_RESET" "$out"
   total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
   if [ "$total" -eq 0 ]; then
@@ -1128,6 +1738,10 @@ action_7_backup_serato() {
     rsync -a "$src2"/ "$dest/_Serato_Backup"/ 2>/dev/null || true
   fi
   printf "%s[OK]%s Backup Serato completado (si había fuentes).\n" "$C_GRN" "$C_RESET"
+  
+  # Verify backup integrity
+  verify_backup_integrity "$dest" "serato"
+  
   pause_enter
 }
 
@@ -1168,14 +1782,104 @@ action_8_backup_dj() {
   rm -f "$paths_tmp"
 
   printf "%s[OK]%s Backup DJ metadatos completado (%s rutas).\n" "$C_GRN" "$C_RESET" "$total"
+  
+  # Verify backup integrity
+  verify_backup_integrity "$dest" "dj_metadata"
+  
   pause_enter
 }
 
+verify_backup_integrity() {
+  local backup_dir="$1"
+  local backup_name="$2"
+  
+  if [ ! -d "$backup_dir" ]; then
+    printf "%s[ERR]%s Directorio de backup no encontrado: %s\n" "$C_RED" "$C_RESET" "$backup_dir"
+    return 1
+  fi
+  
+  printf "%s[INFO]%s Verificando integridad del backup %s...\n" "$C_CYN" "$C_RESET" "$backup_name"
+  
+  # Count files and directories
+  local file_count=$(find "$backup_dir" -type f | wc -l | tr -d ' ')
+  local dir_count=$(find "$backup_dir" -type d | wc -l | tr -d ' ')
+  local total_size=$(du -sh "$backup_dir" 2>/dev/null | cut -f1)
+  
+  # Check for empty files (potential corruption indicators)
+  local empty_files=$(find "$backup_dir" -type f -size 0 | wc -l | tr -d ' ')
+  
+  # Check for recent modifications (might indicate incomplete backup)
+  local recent_files=$(find "$backup_dir" -type f -mtime -1 2>/dev/null | wc -l | tr -d ' ')
+  
+  printf "%s[INFO]%s Estadísticas del backup:\n" "$C_CYN" "$C_RESET"
+  printf "  - Archivos: %s\n" "$file_count"
+  printf "  - Directorios: %s\n" "$dir_count"
+  printf "  - Tamaño total: %s\n" "$total_size"
+  printf "  - Archivos vacíos: %s\n" "$empty_files"
+  printf "  - Archivos modificados recientemente (últimas 24h): %s\n" "$recent_files"
+  
+  # Basic integrity checks
+  local issues=0
+  
+  if [ "$file_count" -eq 0 ]; then
+    printf "%s[WARN]%s No se encontraron archivos en el backup.\n" "$C_YLW" "$C_RESET"
+    issues=$((issues + 1))
+  fi
+  
+  if [ "$empty_files" -gt 10 ]; then
+    printf "%s[WARN]%s Se encontraron %s archivos vacíos (posible corrupción).\n" "$C_YLW" "$C_RESET" "$empty_files"
+    issues=$((issues + 1))
+  fi
+  
+  if [ "$recent_files" -gt "$((file_count / 10))" ]; then
+    printf "%s[WARN]%s Muchos archivos modificados recientemente (backup posiblemente incompleto).\n" "$C_YLW" "$C_RESET"
+    issues=$((issues + 1))
+  fi
+  
+  # Generate integrity report
+  local integrity_report="$REPORTS_DIR/backup_integrity_${backup_name}_$(date +%s).tsv"
+  mkdir -p "$REPORTS_DIR"
+  
+  {
+    echo "metric\tvalue"
+    echo "backup_name\t$backup_name"
+    echo "backup_path\t$backup_dir"
+    echo "file_count\t$file_count"
+    echo "directory_count\t$dir_count"
+    echo "total_size\t$total_size"
+    echo "empty_files\t$empty_files"
+    echo "recent_files\t$recent_files"
+    echo "issues_found\t$issues"
+    echo "timestamp\t$(date -Iseconds)"
+  } > "$integrity_report"
+  
+  if [ "$issues" -eq 0 ]; then
+    printf "%s[OK]%s Integridad del backup verificada sin problemas.\n" "$C_GRN" "$C_RESET"
+    printf "%s[INFO]%s Reporte guardado en: %s\n" "$C_CYN" "$C_RESET" "$integrity_report"
+    return 0
+  else
+    printf "%s[WARN]%s Se encontraron %s posibles problemas en el backup.\n" "$C_YLW" "$C_RESET" "$issues"
+    printf "%s[INFO]%s Reporte guardado en: %s\n" "$C_CYN" "$C_RESET" "$integrity_report"
+    return 1
+  fi
+}
+
 action_9_hash_index() {
+  out="$REPORTS_DIR/hash_index.tsv"
+  if [ -s "$out" ]; then
+    printf "%s[INFO]%s Se encontró un índice previo (%s).\n" "$C_CYN" "$C_RESET" "$out"
+    printf "¿Deseas REUSAR el archivo existente? [Y/n] (n = regenerar): "
+    read -r reuse
+    if [ -z "$reuse" ] || [[ "$reuse" =~ ^[Yy]$ ]]; then
+      printf "%s[OK]%s Reusando hash_index.tsv existente.\n" "$C_GRN" "$C_RESET"
+      pause_enter
+      return
+    fi
+  fi
+
   confirm_heavy "Hash index completo (SHA-256)" || return
   print_header
-  out="$REPORTS_DIR/hash_index.tsv"
-  printf "%s[INFO]%s Generating SHA-256 index -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  printf "%s[INFO]%s Generando índice SHA-256 -> %s\n" "$C_CYN" "$C_RESET" "$out"
   total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
   if [ "$total" -eq 0 ]; then
     >"$out"
@@ -1202,7 +1906,7 @@ action_10_dupes_plan() {
   print_header
   hash_file="$REPORTS_DIR/hash_index.tsv"
   if [ ! -f "$hash_file" ]; then
-    printf "%s[WARN]%s No hash_index.tsv found, generating first.\n" "$C_YLW" "$C_RESET"
+    printf "%s[WARN]%s No hay hash_index.tsv, generando primero.\n" "$C_YLW" "$C_RESET"
     action_9_hash_index
   fi
   hash_file="$REPORTS_DIR/hash_index.tsv"
@@ -1213,154 +1917,143 @@ action_10_dupes_plan() {
   fi
   plan_tsv="$PLANS_DIR/dupes_plan.tsv"
   plan_json="$PLANS_DIR/dupes_plan.json"
-  printf "%s[INFO]%s Generating EXACT duplicates plan.\n" "$C_CYN" "$C_RESET"
-  awk '
-  {
-    h=$1
-    rel=$2
-    full=$3
-    key=h
-    count[key]++
-    path[key, count[key]] = full
-  }
-  END {
-    for (k in count) {
-      if (count[k] > 1) {
-        keep_done=0
-        for (i=1; i<=count[k]; i++) {
-          f = path[k,i]
-          if (keep_done==0) {
-            action="KEEP"
-            keep_done=1
-          } else {
-            action="QUARANTINE"
-          }
-          printf "%s\t%s\t%s\n", k, action, f
-        }
-      }
-    }
-  }' "$hash_file" >"$plan_tsv"
-  {
-    echo "{"
-    echo "  \"type\": \"dupes_plan\","
-    echo "  \"entries\": ["
-    first=1
-    while IFS=$'\t' read -r h action f; do
-      if [ "$first" -eq 0 ]; then
-        echo "    ,"
-      fi
-      first=0
-      printf "    {\"hash\": \"%s\", \"action\": \"%s\", \"path\": \"%s\"}" "$h" "$action" "$f"
-    done <"$plan_tsv"
-    echo
-    echo "  ]"
-    echo "}"
-  } >"$plan_json"
-  printf "%s[OK]%s Plan generado: %s y %s\n" "$C_GRN" "$C_RESET" "$plan_tsv" "$plan_json"
+  dupes_builder_script="$LIB_DIR/dupes_plan_builder.py"
+
+  printf "%s[INFO]%s Generando plan de duplicados EXACTO vía script Python...\n" "$C_CYN" "$C_RESET"
+  
+  if ! ensure_python_bin; then
+      printf "%s[ERR]%s Se necesita Python para generar el plan de duplicados.\n" "$C_RED" "$C_RESET"
+      pause_enter
+      return
+  fi
+
+  if [ ! -f "$dupes_builder_script" ]; then
+      printf "%s[ERR]%s No se encuentra el script constructor: %s\n" "$C_RED" "$C_RESET" "$dupes_builder_script"
+      pause_enter
+      return
+  fi
+
+  if "$PYTHON_BIN" "$dupes_builder_script" \
+      --input "$hash_file" \
+      --out-tsv "$plan_tsv" \
+      --out-json "$plan_json"; then
+    printf "%s[OK]%s Plan generado: %s y %s\n" "$C_GRN" "$C_RESET" "$plan_tsv" "$plan_json"
+  else
+    printf "%s[ERR]%s Falló la generación del plan de duplicados.\n" "$C_RED" "$C_RESET"
+  fi
+  
   pause_enter
 }
 
 action_11_quarantine_from_plan() {
-  ensure_safety_guard
-  if [ "$DRYRUN_FORCE" -eq 1 ]; then
+    ensure_safety_guard
     print_header
-    printf "%s[WARN]%s DRYRUN_FORCE=1, se omite quarantine (no se moverá nada).\n" "$C_YLW" "$C_RESET"
-    pause_enter
-    return
-  fi
-  print_header
-  plan_tsv="$PLANS_DIR/dupes_plan.tsv"
-  if [ ! -f "$plan_tsv" ]; then
-    printf "%s[ERR]%s No existe dupes_plan.tsv.\n" "$C_RED" "$C_RESET"
-    pause_enter
-    return
-  fi
-  printf "%s[INFO]%s Aplicando quarantine desde plan (SAFE_MODE=%s).\n" "$C_CYN" "$C_RESET" "$SAFE_MODE"
-  sample_count=$(awk -F'\t' '$2=="QUARANTINE"{c++} END {print c+0}' "$plan_tsv")
-  printf "Acciones QUARANTINE: %s\n" "$sample_count"
-  if [ "$sample_count" -gt 0 ]; then
-    printf "Muestra de las primeras 10 entradas:\n"
-    awk -F'\t' '$2=="QUARANTINE"{print NR": "$3}' "$plan_tsv" | head -10
-  fi
-  printf "Confirmar mover archivos marcados como QUARANTINE? (y/N): "
-  read -r ans
-  case "$ans" in
-    y|Y) ;;
-    *) printf "%s[INFO]%s Cancelled.\n" "$C_CYN" "$C_RESET"; pause_enter; return ;;
-  esac
-  while IFS=$'\t' read -r h action f; do
-    if [ "$action" != "QUARANTINE" ]; then
-      continue
+    local plan_tsv="$PLANS_DIR/dupes_plan.tsv"
+    local executor_script="$LIB_DIR/quarantine_executor.py"
+
+    if [ ! -f "$plan_tsv" ]; then
+        printf "%s[ERR]%s No existe dupes_plan.tsv. Ejecuta la opción 10 primero.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
     fi
-    rel="${f#$BASE_PATH/}"
-    dest_dir="$QUAR_DIR/$h"
-    dest="$dest_dir/$(basename "$f")"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para ejecutar el plan de cuarentena.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    printf "%s[INFO]%s Aplicando quarantine desde plan (SAFE_MODE=%s, DRYRUN_FORCE=%s).\n" "$C_CYN" "$C_RESET" "$SAFE_MODE" "$DRYRUN_FORCE"
+    local sample_count
+    sample_count=$(awk -F'\t' '$2=="QUARANTINE"{c++} END {print c+0}' "$plan_tsv")
+    printf "Acciones QUARANTINE a ejecutar: %s\n" "$sample_count"
+
+    if [ "$sample_count" -gt 0 ]; then
+        printf "Muestra de las primeras 5 entradas a poner en cuarentena:\n"
+        awk -F'\t' '$2=="QUARANTINE"{print "  - " $3}' "$plan_tsv" | head -5
+    fi
+
+    local dry_run_flag=""
     if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ] || [ "$DRYRUN_FORCE" -eq 1 ]; then
-      printf "[DRY] mover \"%s\" -> \"%s\"\n" "$f" "$dest"
+        printf "\n%s[WARN]%s SAFE_MODE/DJ_SAFE_LOCK/DRYRUN_FORCE activos. Se ejecutará en modo simulación (dry-run).\n" "$C_YLW" "$C_RESET"
+        dry_run_flag="--dry-run"
     else
-      mkdir -p "$dest_dir"
-      if [ -f "$f" ]; then
-        mv "$f" "$dest"
-        printf "[MOVE] \"%s\" -> \"%s\"\n" "$f" "$dest"
-      fi
+        printf "\n%s[WARN]%s Estás a punto de MOVER %s archivos a la cuarentena. Esta acción es reversible desde el menú 12.\n" "$C_RED" "$C_RESET" "$sample_count"
+        printf "%s[CRITICAL]%s ¡ESTA ACCIÓN AFECTARÁ TUS ARCHIVOS! Los archivos serán movidos a %s\n" "$C_RED" "$C_RESET" "$QUAR_DIR"
+        printf "Para confirmar, escribe EXACTAMENTE 'YES' en mayúsculas: "
+        read -r ans
+        if [ "$ans" != "YES" ]; then
+            printf "%s[INFO]%s Cancelado. Respuesta: '%s' (se requería 'YES')\n" "$C_CYN" "$C_RESET" "$ans"
+            pause_enter
+            return
+        fi
+        printf "%s[OK]%s Confirmación recibida. Procediendo con la cuarentena...\n" "$C_GRN" "$C_RESET"
     fi
-  done <"$plan_tsv"
-  pause_enter
+
+    "$PYTHON_BIN" "$executor_script" --plan "$plan_tsv" --quar-dir "$QUAR_DIR" ${dry_run_flag}
+
+    pause_enter
 }
 
 action_12_quarantine_manager() {
+  local manager_script="$LIB_DIR/quarantine_manager.py"
+
   while true; do
     clear
     printf "%s=== Quarantine Manager ===%s\n" "$C_CYN" "$C_RESET"
     printf "QUAR_DIR: %s\n\n" "$QUAR_DIR"
     printf "%s1)%s Listar archivos en quarantine\n" "$C_YLW" "$C_RESET"
-    printf "%s2)%s Restaurar todo (si SAFE_MODE=0 y DJ_SAFE_LOCK=0)\n" "$C_YLW" "$C_RESET"
-    printf "%s3)%s Borrar definitivamente todo (si SAFE_MODE=0 y DJ_SAFE_LOCK=0)\n" "$C_YLW" "$C_RESET"
+    printf "%s2)%s Restaurar todo\n" "$C_YLW" "$C_RESET"
+    printf "%s3)%s Borrar definitivamente todo\n" "$C_YLW" "$C_RESET"
     printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
     printf "%sOpción:%s " "$C_BLU" "$C_RESET"
     read -r qop
     case "$qop" in
       1)
-        printf "%s[INFO]%s Contenido de quarantine:\n" "$C_CYN" "$C_RESET"
-        find "$QUAR_DIR" -type f 2>/dev/null || true
+        if ensure_python_bin; then
+            "$PYTHON_BIN" "$manager_script" list --quar-dir "$QUAR_DIR"
+        else
+            printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        fi
         pause_enter
         ;;
       2)
         ensure_safety_guard
-        if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
-          printf "%s[ERR]%s SAFE_MODE o DJ_SAFE_LOCK activos. No se restaurará nada.\n" "$C_RED" "$C_RESET"
-          pause_enter
+        local dry_run_flag=""
+        if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ] || [ "$DRYRUN_FORCE" -eq 1 ]; then
+            printf "%s[WARN]%s SAFE_MODE/DJ_SAFE_LOCK/DRYRUN_FORCE activos. Se ejecutará en modo simulación (dry-run).\n" "$C_YLW" "$C_RESET"
+            dry_run_flag="--dry-run"
         else
-          printf "%s[WARN]%s Restaurar TODO desde quarantine al BASE_PATH.\n" "$C_YLW" "$C_RESET"
-          printf "Confirm (YES to continue): "
-          read -r ans
-          if [ "$ans" = "YES" ]; then
-            find "$QUAR_DIR" -type f 2>/dev/null | while IFS= read -r f; do
-              rel="${f#$QUAR_DIR/}"
-              dest="$BASE_PATH/_RESTORED_FROM_QUARANTINE/$rel"
-              mkdir -p "$(dirname "$dest")"
-              mv "$f" "$dest"
-              printf "[RESTORE] %s -> %s\n" "$f" "$dest"
-            done
-            pause_enter
-          fi
+            printf "%s[WARN]%s Restaurar TODO desde quarantine a %s/_RESTORED_FROM_QUARANTINE/.\n" "$C_YLW" "$C_RESET" "$BASE_PATH"
+            printf "Confirmar (escribe YES para continuar): "
+            read -r ans
+            if [ "$ans" != "YES" ]; then
+                printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"; pause_enter; continue
+            fi
         fi
+        if ensure_python_bin; then
+            "$PYTHON_BIN" "$manager_script" restore --quar-dir "$QUAR_DIR" --base-path "$BASE_PATH" ${dry_run_flag}
+        fi
+        pause_enter
         ;;
       3)
         ensure_safety_guard
-        if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ]; then
-          printf "%s[ERR]%s SAFE_MODE o DJ_SAFE_LOCK activos. No se borrará nada.\n" "$C_RED" "$C_RESET"
-          pause_enter
+        local dry_run_flag_purge=""
+        if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ] || [ "$DRYRUN_FORCE" -eq 1 ]; then
+            printf "%s[WARN]%s SAFE_MODE/DJ_SAFE_LOCK/DRYRUN_FORCE activos. Se ejecutará en modo simulación (dry-run).\n" "$C_YLW" "$C_RESET"
+            dry_run_flag_purge="--dry-run"
         else
-          printf "%s[WARN]%s Borrar TODO el contenido de quarantine.\n" "$C_YLW" "$C_RESET"
-          printf "Confirm (YES to continue): "
-          read -r ans2
-          if [ "$ans2" = "YES" ]; then
-            rm -rf "$QUAR_DIR"/*
-            printf "%s[OK]%s Quarantine vaciado.\n" "$C_GRN" "$C_RESET"
-            pause_enter
-          fi
+            printf "%s[WARN]%s Borrar TODO el contenido de quarantine. ¡ESTA ACCIÓN NO SE PUEDE DESHACER!\n" "$C_RED" "$C_RESET"
+            printf "Confirmar (escribe YES para continuar): "
+            read -r ans2
+            if [ "$ans2" != "YES" ]; then
+                printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"; pause_enter; continue
+            fi
         fi
+        if ensure_python_bin; then
+            "$PYTHON_BIN" "$manager_script" purge --quar-dir "$QUAR_DIR" ${dry_run_flag_purge}
+        fi
+        pause_enter
         ;;
       B|b)
         break ;;
@@ -1372,89 +2065,136 @@ action_12_quarantine_manager() {
 }
 
 action_13_ffprobe_report() {
-  print_header
-  out="$REPORTS_DIR/media_corrupt.tsv"
-  printf "%s[INFO]%s Detectando media corrupta (ffprobe) -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  if ! command -v ffprobe >/dev/null 2>&1; then
-    printf "%s[ERR]%s ffprobe no está instalado.\n" "$C_RED" "$C_RESET"
+    print_header
+    local out="$REPORTS_DIR/media_corrupt.tsv"
+    if [ -s "$out" ]; then
+        printf "%s[INFO]%s Se encontró un reporte previo (%s).\n" "$C_CYN" "$C_RESET" "$out"
+        printf "¿Deseas REUSAR el archivo existente? [Y/n] (n = regenerar): "
+        read -r reuse
+        if [ -z "$reuse" ] || [[ "$reuse" =~ ^[Yy]$ ]]; then
+            printf "%s[OK]%s Reusando media_corrupt.tsv existente.\n" "$C_GRN" "$C_RESET"
+            pause_enter
+            return
+        fi
+    fi
+
+    local validator_script="$LIB_DIR/media_validator.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para ejecutar el validador de medios.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    printf "%s[INFO]%s Detectando media corrupta (ffprobe) vía script Python -> %s\n" "$C_CYN" "$C_RESET" "$out"
+    if ! "$PYTHON_BIN" "$validator_script" --base "$BASE_PATH" --out "$out"; then
+        printf "%s[ERR]%s Falló la validación de medios. Revisa si 'ffprobe' está instalado.\n" "$C_RED" "$C_RESET"
+    fi
+    
     pause_enter
-    return
-  fi
-  >"$out"
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
-    status_line "FFPROBE" 0 "$f"
-    ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$f" >/dev/null 2>&1 || printf "%s\tCORRUPT\n" "$f" >>"$out"
-  done
-  finish_status_line
-  printf "%s[OK]%s Reporte generado (si hay corruptos) en %s\n" "$C_GRN" "$C_RESET" "$out"
-  pause_enter
 }
 
 action_14_playlists_per_folder() {
-  print_header
-  printf "%s[INFO]%s Crear playlists .m3u8 por carpeta.\n" "$C_CYN" "$C_RESET"
-  find "$BASE_PATH" -type d 2>/dev/null | while IFS= read -r d; do
-    playlist="$d/playlist.m3u8"
-    find "$d" -maxdepth 1 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.m4a" \) 2>/dev/null >"$playlist"
-  done
-  printf "%s[OK]%s Playlists generadas.\n" "$C_GRN" "$C_RESET"
-  pause_enter
+    print_header
+    printf "%s[INFO]%s Crear playlists .m3u8 por carpeta (vía script Python).\n" "$C_CYN" "$C_RESET"
+    
+    local playlist_builder_script="$LIB_DIR/playlist_builder.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if ! "$PYTHON_BIN" "$playlist_builder_script" --base "$BASE_PATH"; then
+        printf "%s[ERR]%s Falló la generación de playlists.\n" "$C_RED" "$C_RESET"
+    fi
+
+    pause_enter
 }
 
 action_15_relink_helper() {
-  print_header
-  out="$REPORTS_DIR/relink_helper.tsv"
-  printf "%s[INFO]%s Generating Relink Helper TSV: %s\n" "$C_CYN" "$C_RESET" "$out"
-  >"$out"
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
-    rel="${f#$BASE_PATH/}"
-    printf "%s\t%s\n" "$rel" "$f" >>"$out"
-  done
-  printf "%s[OK]%s Relink Helper generado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
+    print_header
+    local out="$REPORTS_DIR/relink_helper.tsv"
+    printf "%s[INFO]%s Generando Relink Helper TSV (vía script Python): %s\n" "$C_CYN" "$C_RESET" "$out"
+
+    local relink_builder_script="$LIB_DIR/relink_helper_builder.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if ! "$PYTHON_BIN" "$relink_builder_script" --base "$BASE_PATH" --out "$out"; then
+        printf "%s[ERR]%s Falló la generación del Relink Helper.\n" "$C_RED" "$C_RESET"
+    fi
+
+    pause_enter
 }
 
 action_16_mirror_by_genre() {
   print_header
   printf "%s[INFO]%s Mirror por género (plan seguro básico).\n" "$C_CYN" "$C_RESET"
   out="$PLANS_DIR/mirror_by_genre.tsv"
+  if ! maybe_reuse_file "$out" "mirror_by_genre.tsv"; then return; fi
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null | while IFS= read -r f; do
+  printf "Indexando colección de audio...\r"
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null)
+  total=${#files[@]}
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count+1))
+    percent=$((count*100/total))
+    status_line "MIRROR_GENRE" "$percent" "$(basename "$f")"
     printf "%s\tGENRE_UNKNOWN\t%s\n" "$f" "$BASE_PATH/_MIRROR_BY_GENRE/GENRE_UNKNOWN/$(basename "$f")" >>"$out"
   done
+  finish_status_line
   printf "%s[OK]%s Plan espejo por género generado: %s\n" "$C_GRN" "$C_RESET" "$out"
   pause_enter
 }
 
 action_17_find_dj_libs() {
-  print_header
-  printf "%s[INFO]%s Searching DJ libraries in %s\n" "$C_CYN" "$C_RESET" "$BASE_PATH"
-  find "$BASE_PATH" -type d \( -iname "*Serato*" -o -iname "*Traktor*" -o -iname "*Rekordbox*" -o -iname "*Ableton*" \) 2>/dev/null || true
-  pause_enter
+    print_header
+    local finder_script="$LIB_DIR/dj_lib_finder.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if [ ! -f "$finder_script" ]; then
+        printf "%s[ERR]%s No se encuentra el script de búsqueda: %s\n" "$C_RED" "$C_RESET" "$finder_script"
+        pause_enter
+        return
+    fi
+
+    "$PYTHON_BIN" "$finder_script" --base "$BASE_PATH"
+
+    pause_enter
 }
 
 action_18_rescan_intelligent() {
-  print_header
-  printf "%s[INFO]%s Rescan inteligente.\n" "$C_CYN" "$C_RESET"
-  out="$REPORTS_DIR/rescan_intelligent.tsv"
-  total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$total" -eq 0 ]; then
-    >"$out"
-    printf "%s[WARN]%s No se encontraron archivos.\n" "$C_YLW" "$C_RESET"
+    print_header
+    printf "%s[INFO]%s Rescan inteligente (vía script Python).\n" "$C_CYN" "$C_RESET"
+    local out="$REPORTS_DIR/rescan_intelligent.tsv"
+    local scanner_script="$LIB_DIR/intelligent_scanner.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if [ ! -f "$scanner_script" ]; then
+        printf "%s[ERR]%s No se encuentra el script de escaneo: %s\n" "$C_RED" "$C_RESET" "$scanner_script"
+        pause_enter
+        return
+    fi
+
+    "$PYTHON_BIN" "$scanner_script" --base "$BASE_PATH" --out "$out"
     pause_enter
-    return
-  fi
-  count=0
-  >"$out"
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
-    count=$((count + 1))
-    percent=$((count * 100 / total))
-    status_line "RESCAN" "$percent" "$f"
-    printf "%s\n" "$f" >>"$out"
-  done
-  finish_status_line
-  printf "%s[OK]%s Rescan inteligente completado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
 }
 
 action_19_tools_diag() {
@@ -1468,6 +2208,26 @@ action_19_tools_diag() {
     fi
   done
   pause_enter
+  
+  print_header
+  printf "%s[INFO]%s Diagnóstico de herramientas (vía script Python).\n" "$C_CYN" "$C_RESET"
+  
+  local diag_script="$LIB_DIR/tools_diagnostics.py"
+
+  if ! ensure_python_bin; then
+    printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  if [ ! -f "$diag_script" ]; then
+    printf "%s[ERR]%s No se encuentra el script de diagnóstico: %s\n" "$C_RED" "$C_RESET" "$diag_script"
+    pause_enter
+    return
+  fi
+
+  "$PYTHON_BIN" "$diag_script"
+  pause_enter
 }
 
 action_20_fix_ownership_flags() {
@@ -1475,9 +2235,17 @@ action_20_fix_ownership_flags() {
   out="$PLANS_DIR/fix_ownership_flags.tsv"
   printf "%s[INFO]%s Plan de fix ownership/flags -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
+  printf "Analizando estructura de archivos...\r"
+  mapfile -t files < <(find "$BASE_PATH" -type f 2>/dev/null)
+  total=${#files[@]}
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count+1))
+    percent=$((count*100/total))
+    status_line "FIX_OWNER" "$percent" "$(basename "$f")"
     printf "%s\tchown-KEEP\tchmod-KEEP\n" "$f" >>"$out"
   done
+  finish_status_line
   printf "%s[OK]%s Plan generado (no ejecutado).\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -1487,31 +2255,29 @@ action_21_install_cmd() {
   target="/usr/local/bin/djproducertool"
   
   # Determine the best source script to link
-  src_script="$BASE_PATH/DJProducerTools_MultiScript_EN.sh"
-  if [ ! -f "$src_script" ]; then
-     src_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/DJProducerTools_MultiScript_EN.sh"
-  fi
+  # Use the current script path
+  src_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 
-  printf "%s[INFO]%s Install universal command: %s -> %s\n" "$C_CYN" "$C_RESET" "$src_script" "$target"
+  printf "%s[INFO]%s Instalar comando universal: %s -> %s\n" "$C_CYN" "$C_RESET" "$src_script" "$target"
   
   if [ "$SAFE_MODE" -eq 1 ]; then
-    printf "%s[WARN]%s SAFE_MODE=1, action displayed only.\n" "$C_YLW" "$C_RESET"
+    printf "%s[WARN]%s SAFE_MODE=1, solo se mostrará la acción.\n" "$C_YLW" "$C_RESET"
     printf "ln -s \"%s\" \"%s\"\n" "$src_script" "$target"
   else
     if ln -sf "$src_script" "$target" 2>/dev/null; then
-        printf "%s[OK]%s Link created successfully.\n" "$C_GRN" "$C_RESET"
+        printf "%s[OK]%s Enlace creado exitosamente.\n" "$C_GRN" "$C_RESET"
     else
-        printf "%s[WARN]%s Direct link failed (permission denied).\n" "$C_YLW" "$C_RESET"
-        printf "Retry with sudo? [Y/n]: "
+        printf "%s[WARN]%s Falló el enlace directo (permiso denegado).\n" "$C_YLW" "$C_RESET"
+        printf "¿Intentar con sudo? [Y/n]: "
         read -r ans
         if [ -z "$ans" ] || [[ "$ans" =~ ^[Yy]$ ]]; then
             if sudo ln -sf "$src_script" "$target"; then
-                printf "%s[OK]%s Link created with sudo.\n" "$C_GRN" "$C_RESET"
+                printf "%s[OK]%s Enlace creado con sudo.\n" "$C_GRN" "$C_RESET"
             else
-                printf "%s[ERR]%s Failed even with sudo.\n" "$C_RED" "$C_RESET"
+                printf "%s[ERR]%s Falló incluso con sudo.\n" "$C_RED" "$C_RESET"
             fi
         else
-            printf "%s[INFO]%s Skipped.\n" "$C_CYN" "$C_RESET"
+            printf "%s[INFO]%s Omitido.\n" "$C_CYN" "$C_RESET"
         fi
     fi
   fi
@@ -1521,30 +2287,30 @@ action_21_install_cmd() {
 action_22_uninstall_cmd() {
   print_header
   target="/usr/local/bin/djproducertool"
-  printf "%s[INFO]%s Uninstall universal command: %s\n" "$C_CYN" "$C_RESET" "$target"
+  printf "%s[INFO]%s Desinstalar comando universal: %s\n" "$C_CYN" "$C_RESET" "$target"
   if [ -L "$target" ] || [ -f "$target" ]; then
     if [ "$SAFE_MODE" -eq 1 ]; then
-      printf "%s[WARN]%s SAFE_MODE=1, action displayed only (will not delete).\n" "$C_YLW" "$C_RESET"
+      printf "%s[WARN]%s SAFE_MODE=1, no se borrará.\n" "$C_YLW" "$C_RESET"
     else
       if rm -f "$target" 2>/dev/null; then
-        printf "%s[OK]%s Deleted successfully.\n" "$C_GRN" "$C_RESET"
+        printf "%s[OK]%s Eliminado exitosamente.\n" "$C_GRN" "$C_RESET"
       else
-        printf "%s[WARN]%s Deletion failed (permission denied).\n" "$C_YLW" "$C_RESET"
-        printf "Retry with sudo? [Y/n]: "
+        printf "%s[WARN]%s Falló el borrado (permiso denegado).\n" "$C_YLW" "$C_RESET"
+        printf "¿Intentar con sudo? [Y/n]: "
         read -r ans
         if [ -z "$ans" ] || [[ "$ans" =~ ^[Yy]$ ]]; then
             if sudo rm -f "$target"; then
-                printf "%s[OK]%s Deleted with sudo.\n" "$C_GRN" "$C_RESET"
+                printf "%s[OK]%s Eliminado con sudo.\n" "$C_GRN" "$C_RESET"
             else
-                printf "%s[ERR]%s Failed even with sudo.\n" "$C_RED" "$C_RESET"
+                printf "%s[ERR]%s Falló incluso con sudo.\n" "$C_RED" "$C_RESET"
             fi
         else
-            printf "%s[INFO]%s Skipped.\n" "$C_CYN" "$C_RESET"
+            printf "%s[INFO]%s Omitido.\n" "$C_CYN" "$C_RESET"
         fi
       fi
     fi
   else
-    printf "%s[INFO]%s Command does not exist.\n" "$C_CYN" "$C_RESET"
+    printf "%s[INFO]%s No existe el comando.\n" "$C_CYN" "$C_RESET"
   fi
   pause_enter
 }
@@ -1606,29 +2372,35 @@ action_26_export_import_state() {
 }
 
 action_27_snapshot() {
-  confirm_heavy "Snapshot integridad (hash rápido)" || return
-  print_header
-  out="$REPORTS_DIR/snapshot_hash_fast.tsv"
-  printf "%s[INFO]%s Generating fast snapshot -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  total=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$total" -eq 0 ]; then
-    >"$out"
-    printf "%s[WARN]%s No se encontraron archivos.\n" "$C_YLW" "$C_RESET"
+    local out="$REPORTS_DIR/snapshot_hash_fast.tsv"
+    if [ -s "$out" ]; then
+        printf "%s[INFO]%s Se encontró un snapshot previo (%s).\n" "$C_CYN" "$C_RESET" "$out"
+        printf "¿Deseas REUSAR el archivo existente? [Y/n] (n = regenerar): "
+        read -r reuse
+        if [ -z "$reuse" ] || [[ "$reuse" =~ ^[Yy]$ ]]; then
+            printf "%s[OK]%s Reusando snapshot_hash_fast.tsv existente.\n" "$C_GRN" "$C_RESET"
+            pause_enter
+            return
+        fi
+    fi
+
+    confirm_heavy "Snapshot integridad (hash rápido)" || return
+    print_header
+    
+    local builder_script="$LIB_DIR/snapshot_builder.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    printf "%s[INFO]%s Generando snapshot rápido (vía script Python) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+    if ! "$PYTHON_BIN" "$builder_script" --base "$BASE_PATH" --out "$out"; then
+        printf "%s[ERR]%s Falló la generación del snapshot.\n" "$C_RED" "$C_RESET"
+    fi
+
     pause_enter
-    return
-  fi
-  count=0
-  >"$out"
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
-    count=$((count + 1))
-    percent=$((count * 100 / total))
-    status_line "SNAP" "$percent" "$f"
-    h=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')
-    printf "%s\t%s\n" "$h" "$f" >>"$out"
-  done
-  finish_status_line
-  printf "%s[OK]%s Snapshot generado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
 }
 
 action_28_logs_viewer() {
@@ -1667,14 +2439,18 @@ action_53_reset_state() {
     pause_enter
     return
   fi
+  printf "%s[CRITICAL]%s ¡ESTA ACCIÓN ELIMINARÁ TODO EL ESTADO DEL SISTEMA!\n" "$C_RED" "$C_RESET"
+  printf "Directorios a eliminar: %s\n" "$STATE_DIR"
+  printf "Esto incluye: configuración, reportes, planes, cuarentena, logs, base de datos\n"
   printf "Escribe RESET para borrar, CLEAR para solo limpiar EXTRA_SOURCE_ROOTS, DRY para simular, o ENTER para cancelar: "
   read -r ans
   case "$ans" in
     RESET)
-      printf "Confirma escribiendo YES para borrar %s: " "$STATE_DIR"
+      printf "%s[CRITICAL]%s ¡PELIGRO! Esta acción es IRREVERSIBLE y eliminará: %s\n" "$C_RED" "$C_RESET" "$STATE_DIR"
+      printf "Para confirmar la eliminación IRREVERSIBLE, escribe EXACTAMENTE 'YES' en mayúsculas: "
       read -r confirm
       if [ "$confirm" != "YES" ]; then
-        printf "%s[INFO]%s Cancelado.\n" "$C_CYN" "$C_RESET"
+        printf "%s[INFO]%s Cancelado. Respuesta: '%s' (se requería 'YES')\n" "$C_CYN" "$C_RESET" "$confirm"
         pause_enter
         return
       fi
@@ -1808,7 +2584,7 @@ action_export_import_config() {
 }
 
 shared_corpus_copy() {
-  # $1: source dir, $2: dest dir
+  # $1: origen, $2: destino
   local src="$1" dest="$2"
   mkdir -p "$dest"
   rsync -av --include='*.tsv' --include='*.json' --include='*.txt' --exclude='*' "$src"/ "$dest"/ >/dev/null 2>&1 || true
@@ -1873,12 +2649,12 @@ action_toggle_ml() {
 
 action_ml_evo_manager() {
   print_header
-  maybe_activate_ml_env "ML Evolutivo (local training)" 0 1
-  printf "%s[INFO]%s Evolutionary ML (local lightweight model).\n" "$C_CYN" "$C_RESET"
-  printf "1) Train/retrain with local data\n"
-  printf "2) Predict on BASE_PATH using saved model\n"
-  printf "3) Reset (delete model and features)\n"
-  printf "Option: "
+  maybe_activate_ml_env "ML Evolutivo (entrenamiento local)" 0 1
+  printf "%s[INFO]%s ML Evolutivo local (modelo ligero, sin enviar datos).\n" "$C_CYN" "$C_RESET"
+  printf "1) Entrenar/reentrenar con datos locales\n"
+  printf "2) Predecir sobre BASE_PATH usando el modelo guardado\n"
+  printf "3) Reset (borrar modelo y features)\n"
+  printf "Opción: "
   read -r mlop
   case "$mlop" in
     1)
@@ -1890,30 +2666,30 @@ action_ml_evo_manager() {
       PLAN_HASH="$PLANS_DIR/general_hash_dupes_plan.tsv"
       PLAN_NAME="$PLANS_DIR/general_dupes_plan.tsv"
       
-      printf "%s[INFO]%s Training model...\n" "$C_CYN" "$C_RESET"
-      "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_evolutionary.py" train \
+      printf "%s[INFO]%s Entrenando modelo...\n" "$C_CYN" "$C_RESET"
+      "$PYTHON_BIN" "$SCRIPT_DIR/ml_evolutionary.py" train \
         --base "$BASE_PATH" \
         --plan-hash "$PLAN_HASH" \
         --plan-name "$PLAN_NAME" \
         --features-out "$ML_FEATURES_FILE" \
         --model-out "$ML_MODEL_PATH"
-      
+        
       if [ $? -eq 0 ]; then
-        printf "%s[OK]%s Training complete.\n" "$C_GRN" "$C_RESET"
+        printf "%s[OK]%s Entrenamiento completado.\n" "$C_GRN" "$C_RESET"
       else
-        printf "%s[ERR]%s Training failed.\n" "$C_RED" "$C_RESET"
+        printf "%s[ERR]%s Falló el entrenamiento.\n" "$C_RED" "$C_RESET"
       fi
       pause_enter
       ;;
     2)
       if [ ! -f "$ML_MODEL_PATH" ]; then
-        printf "%s[ERR]%s No trained model found (run option 1 first).\n" "$C_RED" "$C_RESET"
+        printf "%s[ERR]%s No hay modelo entrenado (ejecuta opción 1 primero).\n" "$C_RED" "$C_RESET"
         pause_enter
         return
       fi
       
-      printf "%s[INFO]%s Predicting suspects...\n" "$C_CYN" "$C_RESET"
-      "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_evolutionary.py" predict \
+      printf "%s[INFO]%s Prediciendo sospechosos...\n" "$C_CYN" "$C_RESET"
+      "$PYTHON_BIN" "$SCRIPT_DIR/ml_evolutionary.py" predict \
         --base "$BASE_PATH" \
         --model-in "$ML_MODEL_PATH" \
         --report-out "$ML_PRED_REPORT"
@@ -1922,7 +2698,7 @@ action_ml_evo_manager() {
       ;;
     3)
       rm -f "$ML_MODEL_PATH" "$ML_FEATURES_FILE" "$ML_PRED_REPORT"
-      printf "%s[OK]%s Model and ML data deleted.\n" "$C_GRN" "$C_RESET"
+      printf "%s[OK]%s Modelo y datos ML eliminados.\n" "$C_GRN" "$C_RESET"
       pause_enter
       ;;
     *)
@@ -1934,7 +2710,7 @@ action_ml_evo_manager() {
 action_tensorflow_manager() {
   print_header
   if [ "${ML_ENV_DISABLED:-0}" -eq 1 ]; then
-    printf "%s[WARN]%s ML is disabled (use 63 to enable).\n" "$C_YLW" "$C_RESET"
+    printf "%s[WARN]%s ML está deshabilitado (usa 63 para habilitarlo).\n" "$C_YLW" "$C_RESET"
     pause_enter
     return
   fi
@@ -1948,94 +2724,38 @@ action_tensorflow_manager() {
   fi
 
   if [ "$tf_installed" -eq 1 ]; then
-      printf "%s[OK]%s TensorFlow is already installed and detected in %s\n" "$C_GRN" "$C_RESET" "$VENV_DIR"
-      printf "Do you want to REINSTALL/RESET? (y/N): "
+      printf "%s[OK]%s TensorFlow ya está instalado y detectado en %s\n" "$C_GRN" "$C_RESET" "$VENV_DIR"
+      printf "¿Deseas REINSTALAR/RESET? (y/N): "
       read -r reset_tf
       if [[ ! "$reset_tf" =~ ^[yY] ]]; then
-          printf "%s[INFO]%s Keeping current installation.\n" "$C_CYN" "$C_RESET"
+          printf "%s[INFO]%s Manteniendo instalación actual.\n" "$C_CYN" "$C_RESET"
           pause_enter
           return
       fi
-      printf "%s[WARN]%s Reinstalling TensorFlow...\n" "$C_YLW" "$C_RESET"
+      printf "%s[WARN]%s Reinstalando TensorFlow...\n" "$C_YLW" "$C_RESET"
   fi
 
-  printf "%s[INFO]%s Optional TensorFlow (advanced auto-tagging, similarity embeddings, deep classifiers).\n" "$C_CYN" "$C_RESET"
-  printf "Estimated additional download: ~%s MB. Install now in ML venv? [y/N]: " "$ML_PKG_TF_MB"
+  printf "%s[INFO]%s TensorFlow opcional (auto-tagging avanzado, embeddings de similitud, clasificadores profundos).\n" "$C_CYN" "$C_RESET"
+  printf "Descarga estimada adicional: ~%s MB. ¿Instalar ahora en el venv ML? [y/N]: " "$ML_PKG_TF_MB"
   read -r tfa
   case "$tfa" in
     y|Y)
-      maybe_activate_ml_env "TensorFlow optional" 1 1
+      check_connectivity || { pause_enter; return; }
+      maybe_activate_ml_env "TensorFlow opcional" 1 1
       if "$PYTHON_BIN" -c "import tensorflow as tf; print('TF_OK')" >/dev/null 2>&1; then
-        printf "%s[OK]%s TensorFlow available in venv.\n" "$C_GRN" "$C_RESET"
+        printf "%s[OK]%s TensorFlow disponible en el venv.\n" "$C_GRN" "$C_RESET"
       else
-        printf "%s[ERR]%s TensorFlow could not be imported (check installation).\n" "$C_RED" "$C_RESET"
+        printf "%s[ERR]%s TensorFlow no se pudo importar (revisa instalación).\n" "$C_RED" "$C_RESET"
       fi
       ;;
     *)
-      printf "%s[INFO]%s Installation cancelled.\n" "$C_CYN" "$C_RESET"
+      printf "%s[INFO]%s Instalación cancelada.\n" "$C_CYN" "$C_RESET"
       ;;
   esac
-  printf "Potential future modules with TF:\n"
-  printf " - Audio auto-tagging with pre-trained embeddings.\n"
-  printf " - Audio similarity detection (duplicate recommendations by sound).\n"
-  printf " - Deep classifiers for advanced cleanup/organization.\n"
-  pause_enter
-}
-
-action_ml_param_tuning() {
-  print_header
-  printf "%s[INFO]%s Parámetros ML/TF lab actuales:\n" "$C_CYN" "$C_RESET"
-  printf "  Batch limit: %s\n" "$DJPT_TF_BATCH"
-  printf "  Similarity threshold: %s\n" "$DJPT_TF_THRESHOLD"
-  printf "  Similarity top-N: %s\n" "$DJPT_TF_TOPN"
-  printf "\nIntroduce nuevos valores (ENTER para conservar):\n"
-  printf "  Batch limit (audio files): "
-  read -r batch
-  printf "  Threshold (0.1-0.99): "
-  read -r threshold
-  printf "  Top N pairs: "
-  read -r topn
-  [[ "$batch" =~ ^[0-9]+$ ]] && DJPT_TF_BATCH="$batch"
-  if [[ "$threshold" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-    DJPT_TF_THRESHOLD="$threshold"
-  fi
-  [[ "$topn" =~ ^[0-9]+$ ]] && DJPT_TF_TOPN="$topn"
-  save_conf
-  printf "%s[OK]%s Parámetros actualizados.\n" "$C_GRN" "$C_RESET"
-  pause_enter
-}
-
-action_ml_master_report() {
-  print_header
-  ensure_python_bin || { pause_enter; return; }
-  local default_query
-  default_query=$(basename "$BASE_PATH")
-  printf "%s[INFO]%s Generating ML master report (MusicBrainz online=%s).\n" "$C_CYN" "$C_RESET" "${DJPT_ONLINE_REF:-0}"
-  printf "List: %s/ml_master_report.tsv\n" "$REPORTS_DIR"
-  printf "Consulta online (ENTER usa '%s'): " "$default_query"
-  read -r query
-  query=${query:-$default_query}
-  flags=()
-  [ "${DJPT_ONLINE_REF:-0}" -eq 1 ] && flags+=(--online)
-  local offline_flag=()
-  [ "${DJPT_OFFLINE:-0}" -eq 1 ] && offline_flag=(--offline)
-  if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" master --base "$BASE_PATH" --out "$REPORTS_DIR/ml_master_report.tsv" --query "$query" "${flags[@]}" "${offline_flag[@]}"; then
-    printf "%s[OK]%s Master report listo: %s/ml_master_report.tsv\n" "$C_GRN" "$C_RESET" "$REPORTS_DIR"
-  else
-    printf "%s[ERR]%s Falló master report.\n" "$C_RED" "$C_RESET"
-  fi
-  pause_enter
-}
-
-action_toggle_online_reference() {
-  if [ "${DJPT_ONLINE_REF:-0}" -eq 1 ]; then
-    DJPT_ONLINE_REF=0
-    printf "%s[INFO]%s MusicBrainz offline (Greedy local) seguirá activo.\n" "$C_CYN" "$C_RESET"
-  else
-    DJPT_ONLINE_REF=1
-    printf "%s[INFO]%s MusicBrainz online activado (requiere conexión).\n" "$C_CYN" "$C_RESET"
-  fi
-  save_conf
+  printf "Posibles módulos futuros al tener TF:\n"
+  printf " - Auto-tagging de audio con embeddings pre-entrenados.\n"
+  printf " - Detección de similitud audio (recomendaciones de duplicados por sonido).\n"
+  printf " - Clasificadores profundos para limpieza/organización avanzada.\n"
   pause_enter
 }
 
@@ -2044,26 +2764,26 @@ submenu_T_tensorflow_lab() {
   while true; do
     clear
     print_header
-    printf "%s=== TensorFlow Lab (requires TF installed) ===%s\n" "$C_CYN" "$C_RESET"
-    printf "%s[INFO]%s Deps: python3 + tensorflow + tensorflow_hub + soundfile + numpy. Limit: ~150 files; sim uses thresh >=0.60 (top 200 pairs).\n" "$C_CYN" "$C_RESET"
-    printf "%s1)%s Auto-tagging audio (embeddings/tags)\n" "$C_YLW" "$C_RESET"
-    printf "%s2)%s Similarity by content (audio) from embeddings\n" "$C_YLW" "$C_RESET"
-    printf "%s3)%s Repeated fragments/loops detection\n" "$C_YLW" "$C_RESET"
-    printf "%s4)%s Suspicious classifier (garbage/silence)\n" "$C_YLW" "$C_RESET"
-    printf "%s5)%s Estimate loudness (normalization plan) [target env DJPT_LUFS_TARGET]\n" "$C_YLW" "$C_RESET"
-    printf "%s6)%s Auto-segmentation (preliminary cues)\n" "$C_YLW" "$C_RESET"
-    printf "%s7)%s Cross-platform matching (intelligent relink)\n" "$C_YLW" "$C_RESET"
-    printf "%s8)%s Auto-tagging video (keyframes + CLIP tags)\n" "$C_YLW" "$C_RESET"
-    printf "%s9)%s Music Tagging (multi-label, TF Hub model)\n" "$C_YLW" "$C_RESET"
+    printf "%s=== TensorFlow Lab (requiere TF instalado) ===%s\n" "$C_CYN" "$C_RESET"
+    printf "%s[INFO]%s Dependencias: python3 + tensorflow + tensorflow_hub + soundfile + numpy. Límite: ~150 archivos; similitud usa umbral >=0.60 (top 200 pares).\n" "$C_CYN" "$C_RESET"
+    printf "%s1)%s Auto-tagging de audio (embeddings/tags)\n" "$C_YLW" "$C_RESET"
+    printf "%s2)%s Similitud por contenido (audio) desde embeddings\n" "$C_YLW" "$C_RESET"
+    printf "%s3)%s Detección de fragmentos repetidos/loops\n" "$C_YLW" "$C_RESET"
+    printf "%s4)%s Clasificador de sospechosos (basura/silencio)\n" "$C_YLW" "$C_RESET"
+    printf "%s5)%s Estimar loudness (plan de normalización) [target env DJPT_LUFS_TARGET]\n" "$C_YLW" "$C_RESET"
+    printf "%s6)%s Auto-segmentación (cues preliminares)\n" "$C_YLW" "$C_RESET"
+    printf "%s7)%s Matching cross-platform (relink inteligente)\n" "$C_YLW" "$C_RESET"
+    printf "%s8)%s Auto-tagging de vídeo (keyframes)\n" "$C_YLW" "$C_RESET"
+    printf "%s9)%s Music Tagging (multi-label, modelo TF Hub)\n" "$C_YLW" "$C_RESET"
     printf "%s10)%s Mastering check (LUFS/crest/DR plan)\n" "$C_YLW" "$C_RESET"
-    printf "%s11)%s Download optional model (onnx/tflite cache)\n" "$C_YLW" "$C_RESET"
-    printf "%s12)%s Tune ML params (batch/threshold/topN)\n" "$C_YLW" "$C_RESET"
-    printf "%s13)%s Generate ML Master Report\n" "$C_YLW" "$C_RESET"
-    printf "%s14)%s Toggle online reference (MusicBrainz=%s)\n" "$C_YLW" "$C_RESET" "${DJPT_ONLINE_REF:-0}"
+    printf "%s11)%s Descargar modelo opcional (onnx/tflite cache)\n" "$C_YLW" "$C_RESET"
     printf "%s0)%s Toggle offline (DJPT_OFFLINE=%s)\n" "$C_YLW" "$C_RESET" "${DJPT_OFFLINE:-0}"
-    printf "%sB)%s Back\n" "$C_YLW" "$C_RESET"
-    printf "%sOption:%s " "$C_BLU" "$C_RESET"
-    read -e -r top
+    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
+    printf "%sOpción:%s " "$C_BLU" "$C_RESET"
+    if ! read -e -r top </dev/tty 2>/dev/null; then
+      printf "\n%s[WARN]%s Entrada no disponible, saliendo del submenú.\n" "$C_YLW" "$C_RESET"
+      break
+    fi
     offline_args=()
     [ "${DJPT_OFFLINE:-0}" -eq 1 ] && offline_args=(--offline)
     case "$top" in
@@ -2081,30 +2801,23 @@ submenu_T_tensorflow_lab() {
       1)
         clear
         ensure_python_bin || { pause_enter; continue; }
+        check_connectivity || { pause_enter; continue; }
         out_emb="$REPORTS_DIR/audio_embeddings.tsv"
         out_tags="$REPORTS_DIR/audio_tags.tsv"
         printf "%s[INFO]%s Auto-tagging/embeddings (offline/TF si disponible) -> %s / %s\n" "$C_CYN" "$C_RESET" "$out_emb" "$out_tags"
         printf "Modelo (yamnet/musicnn/musictag/clap_onnx/clip_vitb16_onnx/musicgen_tflite/sentence_t5_tflite) [por defecto %s]: " "${DJPT_ML_MODEL:-yamnet}"
-        read -r mdl_choice
+        read -e -r mdl_choice
+        mdl_choice=$(strip_quotes "$mdl_choice")
         mdl_choice=${mdl_choice:-${DJPT_ML_MODEL:-yamnet}}
         case "$mdl_choice" in
           clap_onnx|clip_vitb16_onnx|sentence_t5_tflite)
-            ensure_python_deps "onnxruntime (for $mdl_choice)" onnxruntime || {
+            ensure_python_deps "onnxruntime (para $mdl_choice)" onnxruntime || {
               printf "%s[WARN]%s Sin onnxruntime; se usará fallback/mock.\n" "$C_YLW" "$C_RESET"
             }
             ;;
         esac
-        if [ "$mdl_choice" = "musicgen_tflite" ]; then
-          if "$PYTHON_BIN" - <<'PY' >/dev/null 2>&1
-import sys, platform
-sys.exit(0 if (sys.platform == "darwin" and platform.machine() == "arm64" and sys.version_info >= (3, 11)) else 1)
-PY
-          then
-            printf "%s[WARN]%s musicgen_tflite no tiene wheel para macOS arm64 con Python >=3.11; se usará fallback/hash.\n" "$C_YLW" "$C_RESET"
-          fi
-        fi
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit "$DJPT_TF_BATCH" --model "$mdl_choice" "${offline_args[@]}" && \
-           "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit "$DJPT_TF_BATCH" --model "$mdl_choice" "${offline_args[@]}"; then
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" embeddings --base "$BASE_PATH" --out "$out_emb" --limit "$DJPT_TF_BATCH" --model "$mdl_choice" "${offline_args[@]}" &&\
+           "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" tags --base "$BASE_PATH" --out "$out_tags" --limit "$DJPT_TF_BATCH" --model "$mdl_choice" "${offline_args[@]}"; then
           printf "%s[OK]%s Reportes generados. Usa DJPT_TF_MOCK=1 para evitar descargas; instala TF (opción 64) para usar modelos reales.\n" "$C_GRN" "$C_RESET"
         else
           printf "%s[ERR]%s Falló generación de embeddings/tags.\n" "$C_RED" "$C_RESET"
@@ -2118,18 +2831,16 @@ PY
         sim_out="$REPORTS_DIR/audio_similarity.tsv"
         printf "%s[INFO]%s Similitud por contenido desde embeddings -> %s\n" "$C_CYN" "$C_RESET" "$sim_out"
         if [ ! -s "$emb_in" ]; then
-          printf "%s[WARN]%s No previous embeddings found; generating first.\n" "$C_YLW" "$C_RESET"
-          "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit 150 "${offline_args[@]}" || {
+          printf "%s[WARN]%s No hay embeddings previos; generando primero.\n" "$C_YLW" "$C_RESET"
+          "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" embeddings --base "$BASE_PATH" --out "$emb_in" --limit "$DJPT_TF_BATCH" "${offline_args[@]}" || {
             printf "%s[ERR]%s No se pudieron generar embeddings.\n" "$C_RED" "$C_RESET"
             pause_enter; continue
           }
         fi
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" similarity --embeddings "$emb_in" --out "$sim_out" --threshold "$DJPT_TF_THRESHOLD" --top "$DJPT_TF_TOPN" "${offline_args[@]}"; then
-          printf "%s[OK]%s Similitud generada: %s
-" "$C_GRN" "$C_RESET" "$sim_out"
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" similarity --embeddings "$emb_in" --out "$sim_out" --threshold "$DJPT_TF_THRESHOLD" --top "$DJPT_TF_TOPN" "${offline_args[@]}"; then
+          printf "%s[OK]%s Similitud generada: %s\n" "$C_GRN" "$C_RESET" "$sim_out"
         else
-          printf "%s[ERR]%s Falló cálculo de similitud.
-" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló cálculo de similitud.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2138,7 +2849,7 @@ PY
         ensure_python_bin || { pause_enter; continue; }
         out_an="$REPORTS_DIR/audio_anomalies.tsv"
         printf "%s[INFO]%s Anomalías (silencio/clipping) -> %s\n" "$C_CYN" "$C_RESET" "$out_an"
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" anomalies --base "$BASE_PATH" --out "$out_an" --limit 200 "${offline_args[@]}"; then
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" anomalies --base "$BASE_PATH" --out "$out_an" --limit "$DJPT_TF_BATCH" "${offline_args[@]}"; then
           printf "%s[OK]%s Anomalías generadas.\n" "$C_GRN" "$C_RESET"
         else
           printf "%s[ERR]%s Falló análisis de anomalías.\n" "$C_RED" "$C_RESET"
@@ -2149,11 +2860,11 @@ PY
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_gb="$REPORTS_DIR/audio_garbage.tsv"
-        printf "%s[INFO]%s Garbage/silence/clipping classifier -> %s\n" "$C_CYN" "$C_RESET" "$out_gb"
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" garbage --base "$BASE_PATH" --out "$out_gb" --limit 200 "${offline_args[@]}"; then
-          printf "%s[OK]%s Garbage report generated.\n" "$C_GRN" "$C_RESET"
+        printf "%s[INFO]%s Clasificador basura/silencio/clipping -> %s\n" "$C_CYN" "$C_RESET" "$out_gb"
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" garbage --base "$BASE_PATH" --out "$out_gb" --limit "$DJPT_TF_BATCH" "${offline_args[@]}"; then
+          printf "%s[OK]%s Reporte de sospechosos generado.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Garbage classifier failed.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló el clasificador de sospechosos.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2161,17 +2872,19 @@ PY
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_lufs="$REPORTS_DIR/audio_loudness.tsv"
-        printf "Target LUFS (default %s): " "${DJPT_LUFS_TARGET:- -14.0}"
-        read -r target
+        printf "Objetivo LUFS (default %s): " "${DJPT_LUFS_TARGET:- -14.0}"
+        read -e -r target
+        target=$(strip_quotes "$target")
         target=${target:-${DJPT_LUFS_TARGET:- -14.0}}
-        printf "Tolerance BOOST/CUT dB (default %s): " "${DJPT_GAIN_TOL:-1.5}"
-        read -r tol
+        printf "Tolerancia BOOST/CUT dB (default %s): " "${DJPT_GAIN_TOL:-1.5}"
+        read -e -r tol
+        tol=$(strip_quotes "$tol")
         tol=${tol:-${DJPT_GAIN_TOL:-1.5}}
-        printf "%s[INFO]%s Loudness estimate (target %s LUFS, tol %s dB; pyloudnorm if available) -> %s\n" "$C_CYN" "$C_RESET" "$target" "$tol" "$out_lufs"
-        if DJPT_GAIN_TOL="$tol" "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit 200 --target "$target" --tolerance "$tol" "${offline_args[@]}"; then
-          printf "%s[OK]%s Loudness report generated.\n" "$C_GRN" "$C_RESET"
+        printf "%s[INFO]%s Estimación de loudness (objetivo %s LUFS, tolerancia %s dB; usa pyloudnorm si está) -> %s\n" "$C_CYN" "$C_RESET" "$target" "$tol" "$out_lufs"
+        if DJPT_GAIN_TOL="$tol" "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" loudness --base "$BASE_PATH" --out "$out_lufs" --limit "$DJPT_TF_BATCH" --target "$target" --tolerance "$tol" "${offline_args[@]}"; then
+          printf "%s[OK]%s Reporte de loudness generado.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Loudness estimation failed.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló la estimación de loudness.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2179,14 +2892,11 @@ PY
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_seg="$REPORTS_DIR/audio_segments.tsv"
-        printf "%s[INFO]%s Segmentación/onsets -> %s
-" "$C_CYN" "$C_RESET" "$out_seg"
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" segments --base "$BASE_PATH" --out "$out_seg" --limit 50 "${offline_args[@]}"; then
-          printf "%s[OK]%s Segmentos generados.
-" "$C_GRN" "$C_RESET"
+        printf "%s[INFO]%s Segmentación/onsets -> %s\n" "$C_CYN" "$C_RESET" "$out_seg"
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" segments --base "$BASE_PATH" --out "$out_seg" --limit "$DJPT_TF_BATCH" "${offline_args[@]}"; then
+          printf "%s[OK]%s Segmentos generados.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Falló segmentación.
-" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló segmentación.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2200,11 +2910,11 @@ PY
         tag_args=()
         [ -s "$emb_file" ] && emb_args=(--embeddings "$emb_file")
         [ -s "$tags_file" ] && tag_args=(--tags "$tags_file")
-        printf "%s[INFO]%s Cross-platform matching (normalized names + tags/embeddings if present) -> %s\n" "$C_CYN" "$C_RESET" "$out_match"
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit "$DJPT_TF_BATCH" "${emb_args[@]}" "${tag_args[@]}" "${offline_args[@]}"; then
-          printf "%s[OK]%s Matching report generated.\n" "$C_GRN" "$C_RESET"
+        printf "%s[INFO]%s Matching cross-platform (nombres normalizados + tags/embeddings si existen) -> %s\n" "$C_CYN" "$C_RESET" "$out_match"
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" matching --base "$BASE_PATH" --out "$out_match" --limit "$DJPT_TF_BATCH" "${emb_args[@]}" "${tag_args[@]}" "${offline_args[@]}"; then
+          printf "%s[OK]%s Matching generado.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Matching generation failed.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló el matching.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2212,11 +2922,11 @@ PY
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_vtags="$REPORTS_DIR/video_tags.tsv"
-        printf "%s[INFO]%s Video tagging (heuristic filename cues) -> %s\n" "$C_CYN" "$C_RESET" "$out_vtags"
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" video_tags --base "$BASE_PATH" --out "$out_vtags" --limit 200 "${offline_args[@]}"; then
-          printf "%s[OK]%s Video tags generated.\n" "$C_GRN" "$C_RESET"
+        printf "%s[INFO]%s Auto-tagging de vídeo (heurístico por nombre) -> %s\n" "$C_CYN" "$C_RESET" "$out_vtags"
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" video_tags --base "$BASE_PATH" --out "$out_vtags" --limit "$DJPT_TF_BATCH" "${offline_args[@]}"; then
+          printf "%s[OK]%s Tags de vídeo generados.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Video tagging failed.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló el tagging de vídeo.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2224,11 +2934,11 @@ PY
         clear
         ensure_python_bin || { pause_enter; continue; }
         out_mtags="$REPORTS_DIR/music_tags.tsv"
-        printf "%s[INFO]%s Music tagging multi-label (TF Hub or heuristics) -> %s\n" "$C_CYN" "$C_RESET" "$out_mtags"
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" music_tags --base "$BASE_PATH" --out "$out_mtags" --limit 200 "${offline_args[@]}"; then
-          printf "%s[OK]%s Music tagging generated.\n" "$C_GRN" "$C_RESET"
+        printf "%s[INFO]%s Music tagging multi-label (TF Hub o heurístico) -> %s\n" "$C_CYN" "$C_RESET" "$out_mtags"
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" music_tags --base "$BASE_PATH" --out "$out_mtags" --limit "$DJPT_TF_BATCH" "${offline_args[@]}"; then
+          printf "%s[OK]%s Music tagging generado.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Music tagging failed.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló music tagging.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -2237,38 +2947,31 @@ PY
         ensure_python_bin || { pause_enter; continue; }
         out_master="$REPORTS_DIR/audio_mastering.tsv"
         printf "%s[INFO]%s Mastering check (LUFS/crest/DR) -> %s\n" "$C_CYN" "$C_RESET" "$out_master"
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" mastering --base "$BASE_PATH" --out "$out_master" --limit 200 --target -14.0 --crest-min 6.0 --dr-min 5.0 "${offline_args[@]}"; then
-          printf "%s[OK]%s Mastering plan generated.\n" "$C_GRN" "$C_RESET"
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" mastering --base "$BASE_PATH" --out "$out_master" --limit "$DJPT_TF_BATCH" --target -14.0 --crest-min 6.0 --dr-min 5.0 "${offline_args[@]}"; then
+          printf "%s[OK]%s Plan de mastering generado.\n" "$C_GRN" "$C_RESET"
         else
-          printf "%s[ERR]%s Mastering check failed.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s Falló el chequeo de mastering.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
       11)
         clear
         ensure_python_bin || { pause_enter; continue; }
-        printf "%s[INFO]%s Descargar modelo opcional (onnx/tflite) a _DJProducerTools/venv/models\n" "$C_CYN" "$C_RESET"
-        printf "Opciones: clap_onnx, clip_vitb16_onnx, musicgen_tflite, sentence_t5_tflite\nNombre(s) (coma para múltiples): "
-        read -r mdl
+        check_connectivity || { pause_enter; continue; }
+        printf "%s[INFO]%s Descargar modelo opcional (onnx/tflite) a .venv/models\n" "$C_CYN" "$C_RESET"
+        printf "Opciones: clap_onnx, clip_vitb16_onnx, musicgen_tflite, sentence_t5_tflite\nNombre: "
+        read -e -r mdl
+        mdl=$(strip_quotes "$mdl")
         if [ -z "$mdl" ]; then
-          printf "%s[WARN]%s No name provided, cancelled.\n" "$C_YLW" "$C_RESET"
+          printf "%s[WARN]%s Sin nombre, cancelado.\n" "$C_YLW" "$C_RESET"
         else
-          if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" download_model --name "$mdl" ${offline_args:+"${offline_args[@]}"}; then
+          if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" download_model --name "$mdl" "${offline_args[@]}"; then
             printf "%s[OK]%s Modelo %s cacheado.\n" "$C_GRN" "$C_RESET" "$mdl"
           else
             printf "%s[ERR]%s Descarga falló (revisa red/URL).\n" "$C_RED" "$C_RESET"
           fi
         fi
         pause_enter
-        ;;
-      12)
-        action_ml_param_tuning
-        ;;
-      13)
-        action_ml_master_report
-        ;;
-      14)
-        action_toggle_online_reference
         ;;
       B|b)
         break
@@ -2281,120 +2984,213 @@ PY
 }
 
 action_30_plan_tags() {
-  print_header
-  out="$PLANS_DIR/audio_by_tags_plan.tsv"
-  printf "%s[INFO]%s Organizar audio por TAGS -> plan TSV: %s\n" "$C_CYN" "$C_RESET" "$out"
-  >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null | while IFS= read -r f; do
-    printf "%s\tGENRE_UNKNOWN\n" "$f" >>"$out"
-  done
-  printf "%s[OK]%s Plan de TAGS generado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
+    print_header
+    local out="$PLANS_DIR/audio_by_tags_plan.tsv"
+    if [ -s "$out" ]; then
+        printf "%s[INFO]%s Se encontró un plan de tags previo (%s).\n" "$C_CYN" "$C_RESET" "$out"
+        printf "¿Deseas REUSAR el archivo existente? [Y/n] (n = regenerar): "
+        read -r reuse
+        if [ -z "$reuse" ] || [[ "$reuse" =~ ^[Yy]$ ]]; then
+            printf "%s[OK]%s Reusando plan de tags existente.\n" "$C_GRN" "$C_RESET"
+            pause_enter
+            return
+        fi
+    fi
+
+    printf "%s[INFO]%s Organizar audio por TAGS (vía script Python) -> plan TSV: %s\n" "$C_CYN" "$C_RESET" "$out"
+    local builder_script="$LIB_DIR/tags_plan_builder.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if ! "$PYTHON_BIN" "$builder_script" --base "$BASE_PATH" --out "$out"; then
+        printf "%s[ERR]%s Falló la generación del plan de tags.\n" "$C_RED" "$C_RESET"
+    fi
+    pause_enter
 }
 
 action_31_report_tags() {
-  print_header
-  plan="$PLANS_DIR/audio_by_tags_plan.tsv"
-  out="$REPORTS_DIR/audio_tags_report.tsv"
-  printf "%s[INFO]%s Reporte de tags de audio -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  if [ ! -f "$plan" ]; then
-    printf "%s[WARN]%s No TAGS plan found, generating first.\n" "$C_YLW" "$C_RESET"
-    action_30_plan_tags
-  fi
-  awk -F'\t' '{c[$2]++} END {for (g in c){printf "%s\t%d\n", g, c[g]}}' "$plan" >"$out"
-  printf "%s[OK]%s Reporte generado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
+    print_header
+    local plan="$PLANS_DIR/audio_by_tags_plan.tsv"
+    local out="$REPORTS_DIR/audio_tags_report.tsv"
+    
+    printf "%s[INFO]%s Reporte de tags de audio (vía script Python) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+
+    if [ ! -s "$plan" ]; then
+        printf "%s[WARN]%s No hay plan de TAGS, generando primero.\n" "$C_YLW" "$C_RESET"
+        action_30_plan_tags
+        if [ ! -s "$plan" ]; then
+            printf "%s[ERR]%s No se pudo generar el plan de tags. Abortando.\n" "$C_RED" "$C_RESET"
+            pause_enter
+            return
+        fi
+    fi
+
+    local report_builder_script="$LIB_DIR/tags_report_builder.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if ! "$PYTHON_BIN" "$report_builder_script" --plan "$plan" --out "$out"; then
+        printf "%s[ERR]%s Falló la generación del reporte de tags.\n" "$C_RED" "$C_RESET"
+    fi
+    pause_enter
 }
 
 action_32_serato_video_report() {
-  print_header
-  out="$REPORTS_DIR/serato_video_report.tsv"
-  printf "%s[INFO]%s Serato Video REPORT (ffprobe inventario) -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  if ! command -v ffprobe >/dev/null 2>&1; then
-    printf "%s[ERR]%s ffprobe no disponible.\n" "$C_RED" "$C_RESET"; pause_enter; return
-  fi
-  ensure_python_bin || { pause_enter; return; }
-  "$PYTHON_BIN" "lib/video_tools.py" inventory "$BASE_PATH" "$out" 2>/dev/null || {
-    printf "%s[ERR]%s Falló inventario (revisa lib/video_tools.py).\n" "$C_RED" "$C_RESET"
-    pause_enter; return
-  }
-  printf "%s[OK]%s Reporte vídeo generado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
+    print_header
+    local out="$REPORTS_DIR/serato_video_report.tsv"
+    printf "%s[INFO]%s Serato Video REPORT (vía script Python) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+
+    local reporter_script="$LIB_DIR/serato_video_reporter.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if [ ! -f "$reporter_script" ]; then
+        printf "%s[ERR]%s No se encuentra el script de reporte: %s\n" "$C_RED" "$C_RESET" "$reporter_script"
+        pause_enter
+        return
+    fi
+
+    if ! "$PYTHON_BIN" "$reporter_script" --base "$BASE_PATH" --out "$out"; then
+        printf "%s[ERR]%s Falló la generación del reporte de video. Revisa si 'ffprobe' está instalado.\n" "$C_RED" "$C_RESET"
+    fi
+    pause_enter
 }
 
 action_33_serato_video_prep() {
-  print_header
-  out="$PLANS_DIR/serato_video_transcode_plan.tsv"
-  printf "%s[INFO]%s Serato Video PREP (plan transcode sugerido) -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  if ! command -v ffprobe >/dev/null 2>&1; then
-    printf "%s[ERR]%s ffprobe no disponible.\n" "$C_RED" "$C_RESET"; pause_enter; return
-  fi
-  ensure_python_bin || { pause_enter; return; }
-  printf "Codec (auto/videotoolbox/nvenc/libx264) [auto]: "
-  read -r vid_codec
-  vid_codec=${vid_codec:-auto}
-  "$PYTHON_BIN" "lib/video_tools.py" transcode_plan "$BASE_PATH" "$out" "h264_1080p" "$vid_codec" 2>/dev/null || {
-    printf "%s[ERR]%s Falló generación de plan (revisa lib/video_tools.py).\n" "$C_RED" "$C_RESET"
-    pause_enter; return
-  }
-  printf "%s[OK]%s Plan de transcode generado.\n" "$C_GRN" "$C_RESET"
-  printf "¿Ejecutar ffmpeg ahora? [y/N]: "
-  read -r run_ff
-  case "$run_ff" in
-    y|Y)
-      if ! command -v ffmpeg >/dev/null 2>&1; then
+    print_header
+    local out="$PLANS_DIR/serato_video_transcode_plan.tsv"
+    printf "%s[INFO]%s Serato Video PREP (plan de transcode sugerido) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+
+    if ! command -v ffprobe >/dev/null 2>&1; then
+        printf "%s[ERR]%s ffprobe no disponible.\n" "$C_RED" "$C_RESET"; pause_enter; return
+    fi
+    ensure_python_bin || { pause_enter; return; }
+
+    printf "Codec a usar (auto/videotoolbox/nvenc/libx264) [auto]: "
+    read -r vid_codec
+    vid_codec=${vid_codec:-auto}
+
+    if ! "$PYTHON_BIN" "$LIB_DIR/video_tools.py" transcode_plan "$BASE_PATH" "$out" "h264_1080p" "$vid_codec"; then
+        printf "%s[ERR]%s Falló la generación del plan (revisa lib/video_tools.py).\n" "$C_RED" "$C_RESET"
+        pause_enter; return
+    fi
+
+    printf "%s[OK]%s Plan de transcode generado.\n" "$C_GRN" "$C_RESET"
+    printf "¿Ejecutar transcodificación con ffmpeg ahora? [y/N]: "
+    read -r run_ff
+    [[ "$run_ff" =~ ^[yY]$ ]] || { pause_enter; return; }
+
+    if ! command -v ffmpeg >/dev/null 2>&1; then
         printf "%s[ERR]%s ffmpeg no disponible.\n" "$C_RED" "$C_RESET"; pause_enter; return
-      fi
-      confirm_heavy "Transcode ffmpeg (puede tardar)" || { pause_enter; return; }
-      tail -n +2 "$out" | while IFS=$'\t' read -r vpath action cmd est size; do
-        [ "$action" = "KEEP" ] && continue
-        [ -z "$cmd" ] && continue
-        if [ "$DRYRUN_FORCE" -eq 1 ]; then
-          printf "[DRY] ffmpeg -> %s\n" "$vpath"
-          printf "%s\n" "$cmd"
-        else
-          bash -c "$cmd"
-        fi
-      done
-      ;;
-    *)
-      ;;
-  esac
-  pause_enter
+    fi
+
+    local dry_run_flag=""
+    if [ "$SAFE_MODE" -eq 1 ] || [ "$DJ_SAFE_LOCK" -eq 1 ] || [ "$DRYRUN_FORCE" -eq 1 ]; then
+        printf "%s[WARN]%s SAFE_MODE/DJ_SAFE_LOCK/DRYRUN_FORCE activos. Se ejecutará en modo simulación (dry-run).\n" "$C_YLW" "$C_RESET"
+        dry_run_flag="--dry-run"
+    else
+        confirm_heavy "Transcodificación ffmpeg (puede tardar mucho)" || { pause_enter; return; }
+    fi
+
+    local executor_script="$LIB_DIR/transcode_executor.py"
+    "$PYTHON_BIN" "$executor_script" --plan "$out" ${dry_run_flag}
+
+    pause_enter
 }
 
 action_34_normalize_names() {
-  print_header
-  out="$PLANS_DIR/normalize_names_plan.tsv"
-  printf "%s[INFO]%s Normalizar nombres (plan TSV) -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  >"$out"
-  find "$BASE_PATH" -type f 2>/dev/null | while IFS= read -r f; do
-    base="$(basename "$f")"
-    dir="$(dirname "$f")"
-    new="$dir/$base"
-    printf "%s\t%s\n" "$f" "$new" >>"$out"
-  done
-  printf "%s[OK]%s Plan de renombrado generado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
+    print_header
+    local out="$PLANS_DIR/normalize_names_plan.tsv"
+    printf "%s[INFO]%s Normalizar nombres (plan TSV, vía script Python) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+
+    local normalizer_script="$LIB_DIR/name_normalizer.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if [ ! -f "$normalizer_script" ]; then
+        printf "%s[ERR]%s No se encuentra el script de normalización: %s\n" "$C_RED" "$C_RESET" "$normalizer_script"
+        pause_enter
+        return
+    fi
+
+    "$PYTHON_BIN" "$normalizer_script" --base "$BASE_PATH" --out "$out"
+
+    pause_enter
+}
+
+action_ai_status() {
+    print_header
+    printf "%s[INFO]%s 🧠 AI STATUS: Reporte completo del entorno IA\n" "$C_CYN" "$C_RESET"
+    
+    local ai_status_script="$SCRIPT_DIR/ai_status.py"
+    local models_dir="$BASE_PATH/ai/models"
+    
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+    
+    if [ ! -f "$ai_status_script" ]; then
+        printf "%s[ERR]%s No se encuentra el script de AI status: %s\n" "$C_RED" "$C_RESET" "$ai_status_script"
+        pause_enter
+        return
+    fi
+    
+    # Use enhanced AI status script if available, fallback to basic
+    local enhanced_script="$SCRIPT_DIR/ai_status_enhanced.py"
+    local basic_script="$SCRIPT_DIR/ai_status.py"
+  
+    if [ -f "$enhanced_script" ]; then
+        printf "%s[INFO]%s Usando script mejorado de AI status.\n" "$C_CYN" "$C_RESET"
+        "$PYTHON_BIN" "$enhanced_script" --models-dir "$DJPT_MODELS_DIR" --format text --lang "${DJPT_CURRENT_LANG:-ES}"
+    elif [ -f "$basic_script" ]; then
+        printf "%s[INFO]%s Usando script básico de AI status.\n" "$C_CYN" "$C_RESET"
+        "$PYTHON_BIN" "$basic_script" --models-dir "$DJPT_MODELS_DIR" --format text --lang "${DJPT_CURRENT_LANG:-ES}"
+    else
+        printf "%s[ERR]%s No se encontró script de AI status.\n" "$C_RED" "$C_RESET"
+    fi
+    
+    pause_enter
 }
 
 action_35_samples_by_type() {
-  print_header
-  out="$PLANS_DIR/samples_by_type_plan.tsv"
-  printf "%s[INFO]%s Organizar samples por TIPO (plan TSV) -> %s\n" "$C_CYN" "$C_RESET" "$out"
-  >"$out"
-  find "$BASE_PATH" -type f \( -iname "*kick*.wav" -o -iname "*snare*.wav" -o -iname "*hat*.wav" -o -iname "*bass*.wav" \) 2>/dev/null | while IFS= read -r f; do
-    type="OTHER"
-    case "$(basename "$f" | tr '[:upper:]' '[:lower:]')" in
-      *kick*) type="KICK" ;;
-      *snare*) type="SNARE" ;;
-      *hat*) type="HAT" ;;
-      *bass*) type="BASS" ;;
-    esac
-    printf "%s\t%s\n" "$f" "$type" >>"$out"
-  done
-  printf "%s[OK]%s Plan de samples por tipo generado.\n" "$C_GRN" "$C_RESET"
-  pause_enter
+    print_header
+    local out="$PLANS_DIR/samples_by_type_plan.tsv"
+    printf "%s[INFO]%s Organizar samples por TIPO (vía script Python) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+
+    local classifier_script="$LIB_DIR/sample_classifier.py"
+
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
+
+    if [ ! -f "$classifier_script" ]; then
+        printf "%s[ERR]%s No se encuentra el script clasificador: %s\n" "$C_RED" "$C_RESET" "$classifier_script"
+        pause_enter
+        return
+    fi
+
+    "$PYTHON_BIN" "$classifier_script" --base "$BASE_PATH" --out "$out"
+    pause_enter
 }
 
 submenu_36_web_clean() {
@@ -2425,18 +3221,26 @@ submenu_36_web_clean() {
 action_37_web_whitelist_manager() {
   print_header
   printf "%s[INFO]%s WEB Whitelist Manager simple.\n" "$C_CYN" "$C_RESET"
-  printf "Whitelist fixed in this version.\n"
+  printf "Whitelist fija en esta versión.\n"
   pause_enter
 }
 
 action_38_clean_web_playlists() {
   print_header
   printf "%s[INFO]%s Limpiar entradas WEB en playlists.\n" "$C_CYN" "$C_RESET"
-  find "$BASE_PATH" -type f \( -iname "*.m3u" -o -iname "*.m3u8" \) 2>/dev/null | while IFS= read -r f; do
+  printf "Buscando playlists (.m3u/.m3u8)...\r"
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*.m3u" -o -iname "*.m3u8" \) 2>/dev/null)
+  total=${#files[@]}
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count+1))
+    percent=$((count*100/total))
+    status_line "WEB_CLEAN" "$percent" "$(basename "$f")"
     tmp="$f.tmp"
     grep -vE "^https?://" "$f" >"$tmp" 2>/dev/null || true
     mv "$tmp" "$f" 2>/dev/null || true
   done
+  finish_status_line
   printf "%s[OK]%s Playlists limpiadas.\n" "$C_GRN" "$C_RESET"
   pause_enter
 }
@@ -2446,50 +3250,101 @@ action_39_clean_web_tags() {
   out="$PLANS_DIR/clean_web_tags_plan.tsv"
   printf "%s[INFO]%s Limpiar WEB en TAGS (plan) -> %s\n" "$C_CYN" "$C_RESET" "$out"
   >"$out"
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null | while IFS= read -r f; do
+  printf "Analizando audio para limpieza web...\r"
+  mapfile -t files < <(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.m4a" -o -iname "*.wav" \) 2>/dev/null)
+  total=${#files[@]}
+  count=0
+  for f in "${files[@]}"; do
+    count=$((count+1))
+    percent=$((count*100/total))
+    status_line "WEB_CLEAN_TAGS" "$percent" "$(basename "$f")"
     printf "%s\tCLEAN_WEB_TAGS\n" "$f" >>"$out"
   done
-  printf "%s[OK]%s Plan de limpieza WEB en TAGS generado.\n" "$C_GRN" "$C_RESET"
+  finish_status_line
+  print_header
+  printf "%s[INFO]%s 🤖 MACHINE LEARNING: Predictor de Problemas\n" "$C_CYN" "$C_RESET"
+
+  local ts prediction_report lines
+  ts=$(date +%s)
+  prediction_report="$REPORTS_DIR/ml_predictions_${ts}.tsv"
+  printf "Archivo\tProblema\tConfianza\tAccion\n" >"$prediction_report"
+
+  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.m4a" \) 2>/dev/null | head -50 | while IFS= read -r f; do
+    fname=$(basename "$f")
+    size=$({ stat -f %z "$f" 2>/dev/null || echo 0; } | tr -d ' ')
+    if [ "${#fname}" -gt 80 ]; then
+      printf "%s\tNombre muy largo\t75%%\tRevisar opción 34\n" "$f" >>"$prediction_report"
+    fi
+    if [ "$size" -eq 0 ]; then
+      printf "%s\tArchivo vacío\t90%%\tReemplazar o borrar\n" "$f" >>"$prediction_report"
+    fi
+  done
+
+  lines=$(wc -l <"$prediction_report" | tr -d ' ')
+  if [ "$lines" -le 1 ]; then
+    printf "N/A\tSin hallazgos simples\t100%%\tOK\n" >>"$prediction_report"
+  fi
+
+  printf "%s[OK]%s Predicciones generadas: %s\n" "$C_GRN" "$C_RESET" "$prediction_report"
   pause_enter
 }
 
 action_40_smart_analysis() {
-  maybe_activate_ml_env "Opción 40 (Smart Analysis)"
+  maybe_activate_ml_env "Opción 40 (Análisis inteligente)"
   print_header
   printf "%s[INFO]%s 🧠 DEEP-THINKING: Análisis Inteligente de Biblioteca\n" "$C_CYN" "$C_RESET"
 
-  local ts analysis_report total_files audio_files video_files size_kb
-  ts=$(date +%s)
-  analysis_report="$REPORTS_DIR/smart_analysis_${ts}.json"
-  total_files=$(find "$BASE_PATH" -type f 2>/dev/null | wc -l | tr -d ' ')
-  audio_files=$(find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.m4a" \) 2>/dev/null | wc -l | tr -d ' ')
-  video_files=$(find "$BASE_PATH" -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" \) 2>/dev/null | wc -l | tr -d ' ')
-  size_kb=$(du -sk "$BASE_PATH" 2>/dev/null | awk '{print $1}')
-  : "${total_files:=0}"
-  : "${audio_files:=0}"
-  : "${video_files:=0}"
-  : "${size_kb:=0}"
+  local ts report analyzer_script candidate
+  ts="$(date +%Y%m%d-%H%M%S)"
+  report="$REPORTS_DIR/smart_analysis_${ts}.json"
+  analyzer_script=""
+  mkdir -p "$REPORTS_DIR"
 
-  cat >"$analysis_report" <<EOF
-{
-  "analysis_type": "SMART_ANALYSIS",
-  "base_path": "$BASE_PATH",
-  "totals": {
-    "files": $total_files,
-    "audio_files": $audio_files,
-    "video_files": $video_files,
-    "size_kb": $size_kb
-  },
-  "quick_recommendations": [
-    "9 -> 10 (hash + duplicados exactos)",
-    "27 (snapshot rápido)",
-    "39 (limpieza de URLs en tags)",
-    "8 (backup rápido)"
-  ]
-}
-EOF
+  for candidate in "$LIB_DIR/smart_analyzer.py" "$SCRIPT_DIR/smart_analyzer.py" "${ROOT_DIR:-}/lib/smart_analyzer.py"; do
+    if [ -f "$candidate" ]; then
+      analyzer_script="$candidate"
+      break
+    fi
+  done
 
-  printf "%s[OK]%s Análisis generado: %s\n" "$C_GRN" "$C_RESET" "$analysis_report"
+  if [ -z "$analyzer_script" ]; then
+    printf "%s[ERR]%s smart_analyzer.py no encontrado (rutas probadas: lib/, ../lib/).\n" "$C_RED" "$C_RESET"
+    pause_enter
+    return
+  fi
+
+  if ! ensure_python_bin; then
+    pause_enter
+    return
+  fi
+
+  if "$PYTHON_BIN" "$analyzer_script" --base "$BASE_PATH" --out "$report"; then
+    printf "%s[OK]%s Análisis inteligente generado: %s\n" "$C_GRN" "$C_RESET" "$report"
+    "$PYTHON_BIN" - "$report" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+try:
+    with open(path, "r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    by_type = data.get("by_type") or {}
+    print(
+        "Resumen: files={files} audio={audio} video={video} project={project}"
+        .format(
+            files=data.get("files_count", 0),
+            audio=by_type.get("audio", 0),
+            video=by_type.get("video", 0),
+            project=by_type.get("project", 0),
+        )
+    )
+except Exception:
+    pass
+PY
+  else
+    printf "%s[ERR]%s Falló el análisis inteligente.\n" "$C_RED" "$C_RESET"
+  fi
+
   pause_enter
 }
 
@@ -2527,22 +3382,29 @@ action_42_efficiency_optimizer() {
   maybe_activate_ml_env "Opción 42 (Optimizador)"
   print_header
   printf "%s[INFO]%s ⚡ DEEP-THINKING: Optimizador de Eficiencia\n" "$C_CYN" "$C_RESET"
-
-  local ts plan dupe_info
+ 
+  local ts plan optimizer_script
   ts=$(date +%s)
   plan="$PLANS_DIR/efficiency_${ts}.tsv"
-  dupe_info="Generar plan con opción 10"
-  if [ -f "$PLANS_DIR/dupes_plan.tsv" ]; then
-    dupe_info=$(awk -F'\t' '$2=="QUARANTINE"{c++} END {if (c=="") c=0; print c " candidatos"}' "$PLANS_DIR/dupes_plan.tsv")
+  optimizer_script="$LIB_DIR/efficiency_optimizer.py"
+
+  if ! ensure_python_bin; then
+    printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+    pause_enter
+    return
   fi
 
-  printf "Area\tAccion\tBeneficio_Estimado\tReferencia\n" >"$plan"
-  printf "Duplicados\tRevisar/quitar duplicados\tAlto (%s)\tOpción 10\n" "$dupe_info" >>"$plan"
-  printf "Metadatos\tLimpiar URLs en tags\tMedio\tOpción 39\n" >>"$plan"
-  printf "Backup\tVerificar backup reciente\tMedio\tOpción 8\n" >>"$plan"
-  printf "Snapshot\tHash rápido para control\tBajo\tOpción 27\n" >>"$plan"
+  if [ ! -f "$optimizer_script" ]; then
+    printf "%s[ERR]%s No se encuentra el script optimizador: %s\n" "$C_RED" "$C_RESET" "$optimizer_script"
+    pause_enter
+    return
+  fi
 
-  printf "%s[OK]%s Plan de eficiencia generado: %s\n" "$C_GRN" "$C_RESET" "$plan"
+  if "$PYTHON_BIN" "$optimizer_script" --plans-dir "$PLANS_DIR" --out "$plan" --lang es; then
+    printf "%s[OK]%s Plan de eficiencia generado: %s\n" "$C_GRN" "$C_RESET" "$plan"
+  else
+    printf "%s[ERR]%s Falló el optimizador de eficiencia.\n" "$C_RED" "$C_RESET"
+  fi
   pause_enter
 }
 
@@ -2550,21 +3412,28 @@ action_43_smart_workflow() {
   maybe_activate_ml_env "Opción 43 (Flujo inteligente)"
   print_header
   printf "%s[INFO]%s 🚀 DEEP-THINKING: Flujo de Trabajo Inteligente\n" "$C_CYN" "$C_RESET"
+ 
+  local workflow_file workflow_script
+  workflow_file="$PLANS_DIR/workflow_$(date +%s).txt"
+  workflow_script="$LIB_DIR/smart_workflow_generator.py"
 
-  local workflow="$PLANS_DIR/workflow_$(date +%s).txt"
-  cat >"$workflow" <<'EOF'
-FLUJO DE TRABAJO INTELIGENTE:
-1. Opción 40: Análisis (5 min)
-2. Opción 41: Predictor (10 min)
-3. Opción 42: Optimizador (5 min)
-4. Opción 8: Backup (30 min)
-5. Opción 10: Eliminar duplicados (45 min)
-6. Opción 39: Limpiar metadatos (30 min)
-7. Opción 8: Backup final (30 min)
-Tiempo total: ~2-3 horas
-EOF
+  if ! ensure_python_bin; then
+    printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+    pause_enter
+    return
+  fi
 
-  printf "%s[OK]%s Flujo generado: %s\n" "$C_GRN" "$C_RESET" "$workflow"
+  if [ ! -f "$workflow_script" ]; then
+    printf "%s[ERR]%s No se encuentra el script generador de flujo: %s\n" "$C_RED" "$C_RESET" "$workflow_script"
+    pause_enter
+    return
+  fi
+
+  if "$PYTHON_BIN" "$workflow_script" --out "$workflow_file" --lang es; then
+    printf "%s[OK]%s Flujo de trabajo generado: %s\n" "$C_GRN" "$C_RESET" "$workflow_file"
+  else
+    printf "%s[ERR]%s Falló la generación del flujo de trabajo.\n" "$C_RED" "$C_RESET"
+  fi
   pause_enter
 }
 
@@ -2573,46 +3442,54 @@ action_44_integrated_dedup() {
   print_header
   printf "%s[INFO]%s 🔄 DEEP-THINKING: Deduplicación Integrada\n" "$C_CYN" "$C_RESET"
 
-  local dedup_plan="$PLANS_DIR/integrated_dedup_$(date +%s).tsv"
-  local dupes_plan="$PLANS_DIR/dupes_plan.tsv"
-  local exact=0
-  if [ -f "$dupes_plan" ]; then
-    exact=$(awk -F'\t' '$2=="QUARANTINE"{c++} END {if (c=="") c=0; print c}' "$dupes_plan")
+  local dedup_plan analyzer_script
+  dedup_plan="$PLANS_DIR/integrated_dedup_$(date +%s).tsv"
+  analyzer_script="$SCRIPT_DIR/integrated_dedup_analyzer.py"
+
+  if ! ensure_python_bin; then
+    printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+    pause_enter
+    return
   fi
 
-  printf "Tipo\tConteo\tNota\n" >"$dedup_plan"
-  printf "Exactos (hash)\t%s\tGenerados con opción 10\n" "$exact" >>"$dedup_plan"
-  printf "Fuzzy (nombre/tamaño)\t0\tUsar submenú D2 para detectar\n" >>"$dedup_plan"
-  printf "Acción\tRecomendación\tSiguiente_Paso\n" >>"$dedup_plan"
-  printf "Revisar\tMover a quarantine los sobrantes\tOpción 11\n" >>"$dedup_plan"
+  if [ ! -f "$analyzer_script" ]; then
+    printf "%s[ERR]%s No se encuentra el script de análisis: %s\n" "$C_RED" "$C_RESET" "$analyzer_script"
+    pause_enter
+    return
+  fi
 
-  printf "%s[OK]%s Plan deduplicación integrada: %s\n" "$C_GRN" "$C_RESET" "$dedup_plan"
+  if "$PYTHON_BIN" "$analyzer_script" --plans-dir "$PLANS_DIR" --out "$dedup_plan" --lang es; then
+    printf "%s[OK]%s Plan de deduplicación integrada generado: %s\n" "$C_GRN" "$C_RESET" "$dedup_plan"
+  else
+    printf "%s[ERR]%s Falló el análisis de deduplicación integrada.\n" "$C_RED" "$C_RESET"
+  fi
   pause_enter
 }
 
 action_45_ml_organization() {
-  maybe_activate_ml_env "Opción 45 (Organización ML)"
-  print_header
-  printf "%s[INFO]%s 📂 MACHINE LEARNING: Organización Automática\n" "$C_CYN" "$C_RESET"
+    maybe_activate_ml_env "Opción 45 (Organización ML)"
+    print_header
+    printf "%s[INFO]%s 📂 MACHINE LEARNING: Organización Automática (vía script Python)\n" "$C_CYN" "$C_RESET"
 
-  local org_plan="$PLANS_DIR/ml_organization_$(date +%s).tsv"
-  printf "Archivo\tCarpeta_Sugerida\tConfianza\n" >"$org_plan"
+    local ts
+    ts=$(date +%s)
+    local org_plan="$PLANS_DIR/ml_organization_${ts}.tsv"
+    local planner_script="$LIB_DIR/ml_organization_planner.py"
 
-  find "$BASE_PATH" -type f \( -iname "*.mp3" -o -iname "*.flac" -o -iname "*.wav" -o -iname "*.m4a" \) 2>/dev/null | head -50 | while IFS= read -r f; do
-    lower=$(printf "%s" "$f" | tr '[:upper:]' '[:lower:]')
-    target="MISC"
-    conf="60%"
-    case "$lower" in
-      *acapella*|*acapela*) target="ACAPELLAS"; conf="90%";;
-      *remix*|*edit*) target="REMIXES"; conf="85%";;
-      *instrumental*|*inst*) target="INSTRUMENTALES"; conf="80%";;
-      *live*) target="LIVE"; conf="70%";;
-    esac
-    printf "%s\t%s\t%s\n" "$f" "$target" "$conf" >>"$org_plan"
-  done
+    if ! ensure_python_bin; then
+        printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+        pause_enter
+        return
+    fi
 
-  printf "%s[OK]%s Plan organización ML: %s\n" "$C_GRN" "$C_RESET" "$org_plan"
-  pause_enter
+    if [ ! -f "$planner_script" ]; then
+        printf "%s[ERR]%s No se encuentra el script de organización: %s\n" "$C_RED" "$C_RESET" "$planner_script"
+        pause_enter
+        return
+    fi
+
+    "$PYTHON_BIN" "$planner_script" --base "$BASE_PATH" --out "$org_plan" --limit 50 --lang es
+    pause_enter
 }
 
 action_46_metadata_harmonizer() {
@@ -2621,12 +3498,24 @@ action_46_metadata_harmonizer() {
   printf "%s[INFO]%s 🎵 DEEP-THINKING: Armonizador de Metadatos\n" "$C_CYN" "$C_RESET"
 
   local harmony_plan="$PLANS_DIR/metadata_harmony_$(date +%s).tsv"
-  printf "Aspecto\tDetalle\tAccion\n" >"$harmony_plan"
-  printf "Tags/URLs\tDetectar y limpiar http(s) en comentarios\tOpción 39\n" >>"$harmony_plan"
-  printf "Campos vacíos\tCompletar artista/título en lote\tOpción 31\n" >>"$harmony_plan"
-  printf "Consistencia\tRevisar mayúsculas/minúsculas en nombres\tOpción 34\n" >>"$harmony_plan"
+  local harmonizer_script="$LIB_DIR/metadata_harmonizer.py"
 
-  printf "%s[OK]%s Plan armonización: %s\n" "$C_GRN" "$C_RESET" "$harmony_plan"
+  if ! ensure_python_bin; then
+      printf "%s[ERR]%s Se necesita Python para esta acción.\n" "$C_RED" "$C_RESET"
+      pause_enter
+      return
+  fi
+
+  if [ ! -f "$harmonizer_script" ]; then
+      printf "%s[ERR]%s No se encuentra el script armonizador: %s\n" "$C_RED" "$C_RESET" "$harmonizer_script"
+      pause_enter
+      return
+  fi
+
+  if ! "$PYTHON_BIN" "$harmonizer_script" --out "$harmony_plan" --lang "${DJPT_CURRENT_LANG:-es}"; then
+      printf "%s[ERR]%s Falló la generación del plan de armonización.\n" "$C_RED" "$C_RESET"
+  fi
+  
   pause_enter
 }
 
@@ -2718,7 +3607,7 @@ submenu_ableton_tools() {
           continue
         fi
         out="$REPORTS_DIR/ableton_sets_report.tsv"
-        printf "%s[INFO]%s Searching for .als in %s\n" "$C_CYN" "$C_RESET" "$root"
+        printf "%s[INFO]%s Buscando .als en %s\n" "$C_CYN" "$C_RESET" "$root"
         total=$(find "$root" -type f -iname "*.als" 2>/dev/null | wc -l | tr -d ' ')
         if [ "$total" -eq 0 ]; then
           printf "%s[WARN]%s No se encontraron .als\n" "$C_YLW" "$C_RESET"
@@ -2868,7 +3757,7 @@ action_49_advanced_analysis() {
   if ! ensure_python_deps "BPM" "librosa" "soundfile"; then
     pause_enter; return
   fi
-  "$PYTHON_BIN" "lib/bpm_analyzer.py" --base "$BASE_PATH" --out "$out" --limit 200 2>/dev/null || {
+  "$PYTHON_BIN" "$LIB_DIR/bpm_analyzer.py" --base "$BASE_PATH" --out "$out" --limit 200 2>/dev/null || {
     printf "%s[ERR]%s Falló análisis BPM (revisa lib/bpm_analyzer.py y dependencias ffprobe/librosa).\n" "$C_RED" "$C_RESET"
     pause_enter; return
   }
@@ -2920,7 +3809,7 @@ action_50_integration_engine() {
     y|Y)
       args=(--base "$BASE_PATH" --state "$STATE_DIR" --report "$REPORTS_DIR" --http-port "$http_port" --osc-port "$osc_port")
       [ -n "$api_token" ] && args+=(--auth-token "$api_token")
-      nohup "$PYTHON_BIN" "lib/osc_api_server.py" "${args[@]}" >/dev/null 2>&1 &
+      nohup "$PYTHON_BIN" "$LIB_DIR/osc_api_server.py" "${args[@]}" >/dev/null 2>&1 &
       srv_pid=$!
       echo "$srv_pid" >"$pid_file"
       printf "%s[OK]%s Servidor iniciado (PID %s). HTTP http://127.0.0.1:%s\n" "$C_GRN" "$C_RESET" "$srv_pid" "$http_port"
@@ -3087,7 +3976,7 @@ submenu_L_libraries() {
           pause_enter
         else
           out="$PLANS_DIR/audio_dupes_from_catalog.tsv"
-          printf "%s[INFO]%s Generating duplicates plan by basename+size -> %s\n" "$C_CYN" "$C_RESET" "$out"
+          printf "%s[INFO]%s Generando plan de duplicados por basename+tamaño -> %s\n" "$C_CYN" "$C_RESET" "$out"
           awk '
           {
             lib=$1
@@ -3111,52 +4000,68 @@ submenu_L_libraries() {
               }
             }
           }' "$cat_master" >"$out"
-          printf "%s[OK]%s Plan de duplicados audio generado.\n" "$C_GRN" "$C_RESET"
+          printf "%s[OK]%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string SUB_L_DUPES_PLAN_DONE)"
           pause_enter
         fi
         ;;
       4)
         clear
-        printf "%s[INFO]%s Extraer Cues desde Rekordbox XML.\n" "$C_CYN" "$C_RESET"
+        printf "%s[INFO]%s %s\n" "$C_CYN" "$C_RESET" "$(get_localized_string CUES_HEADER_RB)"
         if [ -z "${REKORDBOX_XML:-}" ] || [ ! -f "$REKORDBOX_XML" ]; then
-          printf "%s[ERR]%s REKORDBOX_XML no configurado o inexistente.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s %s\n" "$C_RED" "$C_RESET" "$(get_localized_string NO_REKORDBOX_XML)"
           pause_enter
         else
           out="$REPORTS_DIR/dj_cues.tsv"
-          printf "REKORDBOX_XML\t%s\n" "$REKORDBOX_XML" >"$out"
-          printf "%s[OK]%s Placeholder dj_cues.tsv generado: %s\n" "$C_GRN" "$C_RESET" "$out"
+          if ! ensure_python_bin; then
+            pause_enter
+            break
+          fi
+          bridge="${ROOT_DIR:-}/lib/rekordbox_cues_bridge.py"
+          if [ ! -f "$bridge" ]; then
+            bridge="$LIB_DIR/rekordbox_cues_bridge.py"
+          fi
+          if [ ! -f "$bridge" ]; then
+            printf "%s[ERR]%s No se encuentra rekordbox_cues_bridge.py\n" "$C_RED" "$C_RESET"
+            pause_enter
+            break
+          fi
+          if "$PYTHON_BIN" "$bridge" extract --xml "$REKORDBOX_XML" --out "$out"; then
+            printf "%s[OK]%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string CUES_RB_DONE "$out")"
+          else
+            printf "%s[ERR]%s Fallo al extraer cues desde Rekordbox XML.\n" "$C_RED" "$C_RESET"
+          fi
           pause_enter
         fi
         ;;
       5)
         clear
-        printf "%s[INFO]%s Generar ableton_locators.csv desde dj_cues.tsv.\n" "$C_CYN" "$C_RESET"
+        printf "%s[INFO]%s %s\n" "$C_CYN" "$C_RESET" "$(get_localized_string CUES_HEADER_ABLETON)"
         cues="$REPORTS_DIR/dj_cues.tsv"
         out="$REPORTS_DIR/ableton_locators.csv"
         if [ ! -f "$cues" ]; then
-          printf "%s[ERR]%s No existe dj_cues.tsv.\n" "$C_RED" "$C_RESET"
+          printf "%s[ERR]%s %s\n" "$C_RED" "$C_RESET" "$(get_localized_string NO_DJ_CUES)"
           pause_enter
         else
-          printf "Name,Time,Track\n" >"$out"
-          printf "CueFromRekordbox,1.1.1,1\n" >>"$out"
-          printf "%s[OK]%s ableton_locators.csv generado: %s\n" "$C_GRN" "$C_RESET" "$out"
+          if ! ensure_python_bin; then
+            pause_enter
+            break
+          fi
+          bridge="${ROOT_DIR:-}/lib/rekordbox_cues_bridge.py"
+          if [ ! -f "$bridge" ]; then
+            bridge="$LIB_DIR/rekordbox_cues_bridge.py"
+          fi
+          if [ ! -f "$bridge" ]; then
+            printf "%s[ERR]%s No se encuentra rekordbox_cues_bridge.py\n" "$C_RED" "$C_RESET"
+            pause_enter
+            break
+          fi
+          if "$PYTHON_BIN" "$bridge" to-ableton --cues "$cues" --out "$out" --default-bpm 120; then
+            printf "%s[OK]%s %s\n" "$C_GRN" "$C_RESET" "$(get_localized_string LOCATORS_DONE "$out")"
+          else
+            printf "%s[ERR]%s Fallo al convertir dj_cues.tsv a ableton_locators.csv.\n" "$C_RED" "$C_RESET"
+          fi
           pause_enter
         fi
-        ;;
-      5)
-        clear
-        printf "%s[INFO]%s Plan de duplicados exactos por hash (todas las rutas).\n" "$C_CYN" "$C_RESET"
-        hash_file="$REPORTS_DIR/hash_index.tsv"
-        if [ ! -f "$hash_file" ]; then
-          printf "%s[WARN]%s No hash_index.tsv found, generating first.\n" "$C_YLW" "$C_RESET"
-          action_9_hash_index
-        fi
-        if [ -f "$hash_file" ]; then
-          action_10_dupes_plan
-        else
-          printf "%s[ERR]%s No se pudo generar hash_index.tsv.\n" "$C_RED" "$C_RESET"
-        fi
-        pause_enter
         ;;
       B|b)
         break ;;
@@ -3183,7 +4088,7 @@ submenu_D_dupes_general() {
     printf "%s9)%s Similitud audio (YAMNet embeddings, requiere TF) (D9)\n" "$C_YLW" "$C_RESET"
     printf "%s10)%s Helpers rsync por lotes desde consolidation_plan (D10)\n" "$C_YLW" "$C_RESET"
     printf "Flujo sugerido: D1 -> D2 -> D3, luego aplicar 10/11/44 con backup previo si SafeMode=0.\n"
-    printf "Tip: GENERAL_ROOT is the root cataloged in D1/D2/D3. D4 compares destination vs sources. D5 accepts multiple comma-separated roots. D6 marks leftovers; D7 structure; D8 content; D10 creates rsync helpers in batches from the consolidation plan.\n"
+    printf "Tip: GENERAL_ROOT es la raíz que se cataloga en D1/D2/D3. D4 compara destino vs orígenes. D5 acepta varias raíces separadas por coma. D6 marca sobrantes; D7 estructura; D8 contenido; D10 crea helpers de rsync en lotes desde el plan de consolidación.\n"
     printf "%sB)%s Volver al menú principal\n" "$C_YLW" "$C_RESET"
     printf "%sH)%s Ayuda rápida (rutas/flujo)\n" "$C_YLW" "$C_RESET"
     printf "%sSelecciona una opción:%s " "$C_BLU" "$C_RESET"
@@ -3246,7 +4151,7 @@ submenu_D_dupes_general() {
         printf "%s[INFO]%s Duplicados generales por basename+tamaño.\n" "$C_CYN" "$C_RESET"
         cat_file="$REPORTS_DIR/general_catalog.tsv"
         if [ ! -s "$cat_file" ]; then
-          printf "%s[WARN]%s No general_catalog.tsv found or empty, generating first.\n" "$C_YLW" "$C_RESET"
+          printf "%s[WARN]%s No hay general_catalog.tsv o está vacío, generando primero.\n" "$C_YLW" "$C_RESET"
           out="$REPORTS_DIR/general_catalog.tsv"
           printf "Exclusiones (patrones coma, ej: *.asd,*/Cache/*; ENTER usa defecto): "
           read -r exclude_patterns
@@ -3319,7 +4224,7 @@ submenu_D_dupes_general() {
         printf "%s\n" "- GENERAL_ROOT: raíz que se cataloga en D1/D2/D3; ENTER usa BASE_PATH (actual: ${BASE_PATH})."
         printf "%s\n" "- D1: catáloga GENERAL_ROOT."
         printf "%s\n" "- D2/D3: usan ese catálogo para duplicados por nombre+tamaño (y reporte smart en D3)."
-        printf "%s\n" "- D4: consolidation plan. Destination is usually your official library; sources = external disks separated by comma."
+        printf "%s\n" "- D4: plan de consolidación. Destino suele ser tu librería oficial; orígenes = discos externos separados por coma."
         printf "%s\n" "- D5: plan de duplicados exactos por hash; puedes pasar varias raíces separadas por coma (oficial + externos)."
         printf "%s\n" "- D6: consolidación inversa (sobrantes en origen que ya están en destino)."
         printf "%s\n" "- D7: reporte de matrioshkas (carpetas con misma estructura/nombres)."
@@ -3338,8 +4243,8 @@ submenu_D_dupes_general() {
         smart_plan="$PLANS_DIR/general_dupes_smart.tsv"
 
         # Asegurar catálogo
-        if [ ! -f "$cat_file" ]; then
-          printf "%s[WARN]%s No general_catalog.tsv found, generating first.\n" "$C_YLW" "$C_RESET"
+        if [ ! -s "$cat_file" ]; then
+          printf "%s[WARN]%s No hay general_catalog.tsv, generando primero.\n" "$C_YLW" "$C_RESET"
           out="$REPORTS_DIR/general_catalog.tsv"
           printf "Exclusiones (patrones coma, ej: *.asd,*/Cache/*; ENTER usa defecto): "
           read -r exclude_patterns
@@ -3366,7 +4271,7 @@ submenu_D_dupes_general() {
 
         # Asegurar plan básico de duplicados (D2)
         if [ ! -f "$plan_dupes" ]; then
-          printf "%s[WARN]%s No general duplicates plan found, generating (D2).\n" "$C_YLW" "$C_RESET"
+          printf "%s[WARN]%s No hay plan de duplicados generales, generando (D2).\n" "$C_YLW" "$C_RESET"
           cat_file="$REPORTS_DIR/general_catalog.tsv"
           out="$PLANS_DIR/general_dupes_plan.tsv"
           awk '
@@ -3445,13 +4350,13 @@ submenu_D_dupes_general() {
           continue
         fi
         default_sources="${EXTRA_SOURCE_ROOTS:-}"
-        printf "Comma-separated source list (ej: /Volumes/DiskA,/Volumes/DiskB; ENTER uses detected: %s): " "${default_sources:-NONE}"
+        printf "Lista de orígenes separados por coma (ej: /Volumes/DiscoA,/Volumes/DiscoB; ENTER usa detectado: %s): " "${default_sources:-NINGUNO}"
         read -e -r src_line
         if [ -z "$src_line" ]; then
           src_line="$default_sources"
         fi
         if [ -z "$src_line" ]; then
-          printf "%s[WARN]%s No sources, cancelled.\n" "$C_YLW" "$C_RESET"
+          printf "%s[WARN]%s Sin orígenes, cancelado.\n" "$C_YLW" "$C_RESET"
           pause_enter
           continue
         fi
@@ -3505,7 +4410,7 @@ submenu_D_dupes_general() {
         while IFS=$'\t' read -r src target; do
           dest_dir=$(dirname "$target")
           printf "mkdir -p %q\n" "$dest_dir" >>"$rsync_helper"
-          printf "rsync -av --progress --protect-args %q %q\n" "$src" "$target" >>"$rsync_helper"
+          printf "rsync -av --progress %q %q\n" "$src" "$target" >>"$rsync_helper"
         done <"$plan_conso"
         chmod +x "$rsync_helper" 2>/dev/null || true
         printf "Acción recomendada: revisar y luego ejecutar el helper: %s (SAFE_MODE no aplica, revisa antes de correrlo).\n" "$rsync_helper"
@@ -3540,10 +4445,10 @@ submenu_D_dupes_general() {
           printf "%s[WARN]%s Valor inválido, usando 20 GB.\n" "$C_YLW" "$C_RESET"
           min_free_gb=20
         fi
-        printf "¿Añadir --remove-source-files tras copiar? (liberar origen) [y/N]: "
+        printf "¿Añadir --remove-source-files tras copiar? (liberar origen) [s/N]: "
         read -r rm_src_ans
         case "$rm_src_ans" in
-          [yY]* ) remove_src=1 ;;
+          [sSyY]* ) remove_src=1 ;;
           * ) remove_src=0 ;;
         esac
         batch_bytes=$((batch_gb * 1024 * 1024 * 1024))
@@ -3631,7 +4536,7 @@ EOSCRIPT
           if [ "$batch_files" -gt 0 ] && [ -n "$current_batch" ]; then
             total_batches=$((total_batches + 1))
             size_gb=$(awk -v b="$batch_size" 'BEGIN{printf "%.2f", b/1024/1024/1024}')
-            batch_summary="${batch_summary}Batch ${batch_idx}: ${batch_files} files, ${size_gb} GB -> $(basename "$current_batch")\n"
+            batch_summary="${batch_summary}Batch ${batch_idx}: ${batch_files} archivos, ${size_gb} GB -> $(basename "$current_batch")\n"
             {
               cat <<'EOSUM'
 fmt_gb() { awk -v b="$1" 'BEGIN{printf "%.2f", b/1024/1024/1024}'; }
@@ -3800,13 +4705,13 @@ EOSUM
           continue
         fi
         default_sources="${EXTRA_SOURCE_ROOTS:-}"
-        printf "Comma-separated source list (ENTER uses detected: %s): " "${default_sources:-NONE}"
+        printf "Lista de orígenes separados por coma (ENTER usa detectado: %s): " "${default_sources:-NINGUNO}"
         read -e -r src_line
         if [ -z "$src_line" ]; then
           src_line="$default_sources"
         fi
         if [ -z "$src_line" ]; then
-          printf "%s[WARN]%s No sources, cancelled.\n" "$C_YLW" "$C_RESET"
+          printf "%s[WARN]%s Sin orígenes, cancelado.\n" "$C_YLW" "$C_RESET"
           pause_enter
           continue
         fi
@@ -3883,7 +4788,7 @@ EOSUM
         >"$sig_tmp"
         >"$plan_m"
         >"$clean_plan"
-        printf "%s[INFO]%s Generating structure signatures (depth=%s, max_files=%s)...\n" "$C_CYN" "$C_RESET" "$md" "$mf"
+        printf "%s[INFO]%s Generando firmas de estructura (prof=%s, max_files=%s)...\n" "$C_CYN" "$C_RESET" "$md" "$mf"
         for r in "${MROOTS[@]}"; do
           r_trim=$(printf "%s" "$r" | xargs)
           [ -d "$r_trim" ] || { printf "%s[WARN]%s Raíz inválida: %s\n" "$C_YLW" "$C_RESET" "$r_trim"; continue; }
@@ -3966,18 +4871,18 @@ EOSUM
           4) model_name="musicnn" ;;
           *) model_name="yamnet" ;;
         esac
-
+        
         emb_file="$REPORTS_DIR/d9_embeddings.tsv"
         
         # Step 1: Generate Embeddings
-        if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" embeddings \
+        if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" embeddings \
             --base "$GENERAL_ROOT" \
             --out "$emb_file" \
             --limit "$max_files" \
             --model "$model_name"; then
             
             # Step 2: Calculate Similarity
-            if "$PYTHON_BIN" "$SCRIPT_DIR/lib/ml_tf.py" similarity \
+            if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" similarity \
                 --embeddings "$emb_file" \
                 --out "$report_sim" \
                 --threshold "$sim_thresh" \
@@ -3986,13 +4891,13 @@ EOSUM
                 # Step 3: Create Plan (simple mapping from report)
                 awk -F'\t' 'NR>1 {print $1"\t"$2"\tREVIEW"}' "$report_sim" > "$plan_sim"
                 
-                printf "%s[OK]%s Similarity report: %s\n" "$C_GRN" "$C_RESET" "$report_sim"
-                printf "%s[OK]%s Similarity plan: %s\n" "$C_GRN" "$C_RESET" "$plan_sim"
+                printf "%s[OK]%s Reporte similitud: %s\n" "$C_GRN" "$C_RESET" "$report_sim"
+                printf "%s[OK]%s Plan similitud: %s\n" "$C_GRN" "$C_RESET" "$plan_sim"
             else
-                printf "%s[ERR]%s Similarity calculation failed.\n" "$C_RED" "$C_RESET"
+                printf "%s[ERR]%s Falló el cálculo de similitud.\n" "$C_RED" "$C_RESET"
             fi
         else
-            printf "%s[ERR]%s Embedding generation failed.\n" "$C_RED" "$C_RESET"
+            printf "%s[ERR]%s Falló la generación de Embeddings.\n" "$C_RED" "$C_RESET"
         fi
         pause_enter
         ;;
@@ -4389,7 +5294,7 @@ action_V11_dmx_from_playlist() {
     printf "%s[ERR]%s ffprobe no disponible.\n" "$C_RED" "$C_RESET"; pause_enter; return
   fi
   ensure_python_bin || { pause_enter; return; }
-  "$PYTHON_BIN" "lib/playlist_bridge.py" dmx "$pl_path" "$plan" "$base_ch" 2>/dev/null || {
+  "$PYTHON_BIN" "$LIB_DIR/playlist_bridge.py" dmx "$pl_path" "$plan" "$base_ch" 2>/dev/null || {
     printf "%s[ERR]%s No se pudo generar el plan DMX.\n" "$C_RED" "$C_RESET"
     pause_enter; return
   }
@@ -4425,7 +5330,7 @@ submenu_V_visuals() {
     printf "%s=== V) Visuales / DAW / OSC ===%s\n" "$C_CYN" "$C_RESET"
     printf "%s1)%s Ableton .als quick report (samples/plugins)\n" "$C_GRN" "$C_RESET"
     printf "%s2)%s Inventario de vídeos/visuales -> TSV\n" "$C_GRN" "$C_RESET"
-    printf "%s3)%s Plan OSC/DMX placeholder\n" "$C_GRN" "$C_RESET"
+    printf "%s3)%s Plan OSC/DMX desde playlist\n" "$C_GRN" "$C_RESET"
     printf "%s4)%s Serato Video: reporte\n" "$C_GRN" "$C_RESET"
     printf "%s5)%s Serato Video: plan de transcode\n" "$C_GRN" "$C_RESET"
     printf "%s6)%s Reporte resolución/duración (ffprobe)\n" "$C_GRN" "$C_RESET"
@@ -4461,6 +5366,108 @@ submenu_V_visuals() {
   done
 }
 
+submenu_profiles_manager() {
+  while true; do
+    clear
+    print_header
+    printf "%s=== Gestor de Perfiles ===%s\n" "$C_CYN" "$C_RESET"
+    printf "Perfil Actual: BASE=%s | AUDIO=%s | GENERAL=%s\n" "$BASE_PATH" "${AUDIO_ROOT:-}" "${GENERAL_ROOT:-}"
+    printf "%s1)%s Guardar rutas actuales en un perfil\n" "$C_YLW" "$C_RESET"
+    printf "%s2)%s Cargar perfil\n" "$C_YLW" "$C_RESET"
+    printf "%s3)%s Listar perfiles\n" "$C_YLW" "$C_RESET"
+    printf "%sB)%s Volver\n" "$C_YLW" "$C_RESET"
+    printf "%sOpción:%s " "$C_BLU" "$C_RESET"
+    read -r pop
+    case "$pop" in
+      1)
+        printf "Nombre del perfil (ej. EstudioA): "
+        read -r pname
+        pname=$(strip_quotes "$pname")
+        if [ -n "$pname" ]; then
+          mkdir -p "$PROFILES_DIR"
+          pfile="$PROFILES_DIR/${pname}.conf"
+          {
+            printf "BASE_PATH=%q\n" "$BASE_PATH"
+            printf "AUDIO_ROOT=%q\n" "${AUDIO_ROOT:-}"
+            printf "GENERAL_ROOT=%q\n" "${GENERAL_ROOT:-}"
+          } > "$pfile"
+          printf "%s[OK]%s Guardado en %s\n" "$C_GRN" "$C_RESET" "$pfile"
+        fi
+        pause_enter
+        ;;
+      2)
+        printf "Perfiles en %s:\n" "$PROFILES_DIR"
+        ls -1 "$PROFILES_DIR"/*.conf 2>/dev/null | xargs -n 1 basename .conf 2>/dev/null
+        printf "Nombre del perfil a cargar: "
+        read -r pname
+        pname=$(strip_quotes "$pname")
+        pfile="$PROFILES_DIR/${pname}.conf"
+        if [ -f "$pfile" ]; then
+          # shellcheck disable=SC1090
+          . "$pfile"
+          save_conf
+          printf "%s[OK]%s Cargado.\n" "$C_GRN" "$C_RESET"
+        else
+          printf "%s[ERR]%s No encontrado.\n" "$C_RED" "$C_RESET"
+        fi
+        pause_enter
+        ;;
+      3)
+        ls -1 "$PROFILES_DIR"/*.conf 2>/dev/null
+        pause_enter
+        ;;
+      B|b) break ;;
+      *) invalid_option ;;
+    esac
+  done
+}
+
+action_audio_lufs_plan() {
+  print_header
+  out="$PLANS_DIR/audio_lufs_plan.tsv"
+  printf "%s[INFO]%s Plan de Análisis LUFS -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  ensure_python_bin || { pause_enter; return; }
+  
+  if ! "$PYTHON_BIN" -c "import pyloudnorm" >/dev/null 2>&1; then
+      printf "%s[WARN]%s pyloudnorm no encontrado. Instala con la Opción 68 o 'pip install pyloudnorm'.\n" "$C_YLW" "$C_RESET"
+      printf "¿Instalar ahora en el venv? [S/n]: "
+      read -r ans
+      if [[ "$ans" =~ ^[SsYy] ]]; then
+         check_connectivity || { pause_enter; return; }
+         maybe_activate_ml_env "LUFS" 0 0
+         "$PYTHON_BIN" -m pip install pyloudnorm soundfile
+      else
+         pause_enter; return
+      fi
+  fi
+  
+  if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" loudness --base "$BASE_PATH" --out "$out" --limit "$DJPT_TF_BATCH" --target -14.0 --tolerance 1.0; then
+      printf "%s[OK]%s Plan generado.\n" "$C_GRN" "$C_RESET"
+  else
+      printf "%s[ERR]%s Falló.\n" "$C_RED" "$C_RESET"
+  fi
+  pause_enter
+}
+
+action_audio_cues_onsets() {
+  print_header
+  out="$PLANS_DIR/audio_onsets_cues.tsv"
+  printf "%s[INFO]%s Auto-Cues (Onsets) -> %s\n" "$C_CYN" "$C_RESET" "$out"
+  ensure_python_bin || { pause_enter; return; }
+
+  if ! "$PYTHON_BIN" -c "import librosa" >/dev/null 2>&1; then
+       printf "%s[WARN]%s librosa no encontrado.\n" "$C_YLW" "$C_RESET"
+       pause_enter; return
+  fi
+
+  if "$PYTHON_BIN" "$LIB_DIR/ml_tf.py" segments --base "$BASE_PATH" --out "$out" --limit "$DJPT_TF_BATCH"; then
+      printf "%s[OK]%s Cues generados.\n" "$C_GRN" "$C_RESET"
+  else
+      printf "%s[ERR]%s Falló.\n" "$C_RED" "$C_RESET"
+  fi
+  pause_enter
+}
+
 action_H_help_info() {
   clear
   printf "%s=== H) Help & INFO ===%s\n" "$C_CYN" "$C_RESET"
@@ -4474,7 +5481,7 @@ action_H_help_info() {
   printf "  9) Índice SHA-256 -> hash_index.tsv (base para duplicados exactos).\n"
   printf " 10) Plan duplicados -> dupes_plan.json/tsv (usa hash_index).\n"
   printf " 11) Quarantine desde dupes_plan.tsv (aplica plan; respeta SafeMode/Lock).\n"
-  printf " 12) Quarantine Manager: list / restore / delete quarantine content.\n"
+  printf " 12) Quarantine Manager: listar / restaurar / borrar contenido de quarantine.\n"
   printf " 13) ffprobe -> media_corrupt.tsv (detectar archivos corruptos).\n"
   printf " 27) Snapshot integridad con barra de progreso (hash rápido).\n"
   printf " 30) Plan organización por TAGS (género) -> TSV.\n"
@@ -4496,7 +5503,7 @@ action_H_help_info() {
   printf "  Nota: todo el análisis es local; no envía datos. En modo básico usa reglas/estadísticas; en 62 puedes entrenar un modelo ligero local.\n"
   printf "  Descargas: básico ~%s MB (numpy/pandas); evolutivo ~%s MB (añade scikit-learn/joblib). TensorFlow opcional (+%s MB) para audio embeddings/auto-tagging avanzados.\n\n" "$ML_PKG_BASIC_MB" "$ML_PKG_EVO_MB" "$ML_PKG_TF_MB"
 
-  printf "%sHerramientas adicionales 53-68:%s\n" "$C_YLW" "$C_RESET"
+  printf "%sHerramientas adicionales 53-67:%s\n" "$C_YLW" "$C_RESET"
   printf "  53) Reset estado / limpiar extras: borra _DJProducerTools o limpia fuentes extra.\n"
   printf "  54) Gestor de perfiles (BASE/GENERAL/AUDIO roots): guardar/cargar perfiles de rutas.\n"
   printf "  55) Ableton Tools: reporte rápido de .als (samples/plugins usados).\n"
@@ -4509,18 +5516,18 @@ action_H_help_info() {
   printf "  62) ML Evolutivo: entrena modelo local con tus planes de duplicados y predice sospechosos sin subir datos.\n"
   printf "  63) Toggle ML ON/OFF: desactiva/habilita todo uso del venv ML (Deep/ML/62).\n"
   printf "  64) TensorFlow opcional: instala TF (descarga +%s MB) y habilita ideas de auto-tagging/embeddings avanzados.\n"
-  printf "  65) TensorFlow Lab: auto-tagging (modelos: YAMNet/NNFP/VGGish/musicnn; 150 archivos, top3), similitud (presets: rápido/balanceado/estricto), loops/sospechosos (placeholder), music tagging multi-label (150). Requiere TF/tf_hub/soundfile.\n"
+  printf "  65) TensorFlow Lab: auto-tagging (modelos: YAMNet/NNFP/VGGish/musicnn; 150 archivos, top3), similitud (presets: rápido/balanceado/estricto), detección de loops/sospechosos (heurística), music tagging multi-label (150). Requiere TF/tf_hub/soundfile.\n"
   printf "  66) Plan LUFS (análisis, sin normalizar) – requiere python3+pyloudnorm+soundfile.\n"
-  printf "  67) Auto-cues por onsets (librosa) – requiere python3+librosa.\n"
-  printf "  68) Instalar deps Python en venv (pyserial, python-osc, librosa, soundfile).\n\n" "$ML_PKG_TF_MB"
+  printf "  67) Auto-cues por onsets (librosa) – requiere python3+librosa.\n\n" "$ML_PKG_TF_MB"
+  printf "  68) Instalar deps Python en venv (pyserial, python-osc, librosa, soundfile).\n\n"
 
   printf "%sNotas rápidas de procesos (qué hacen internamente):%s\n" "$C_YLW" "$C_RESET"
-  printf "  D4: indexes destination by name+size and lists missing items from sources -> TSV plan + rsync helper.\n"
+  printf "  D4: indexa destino por nombre+tamaño y lista faltantes desde orígenes → plan TSV + helper rsync.\n"
    printf "  D10: crea helpers de rsync en lotes (50 GB por defecto) desde consolidation_plan.tsv sin mover archivos.\n"
-  printf "  D6: marks leftovers in sources that already exist in destination (optional threshold) -> TSV plan.\n"
+  printf "  D6: marca sobrantes en orígenes que ya existen en destino (umbral opcional) → plan TSV.\n"
   printf "  D7: firma estructura de carpetas, sugiere KEEP/REMOVE por fecha/tamaño → plan limpieza.\n"
-  printf "  D8: compares folders by content (listing hash) to detect mirrors -> KEEP/REMOVE plan.\n"
-  printf "  D9: generates YAMNet embeddings and lists similar audio pairs (sim>=0.60) -> REVIEW plan.\n"
+  printf "  D8: compara carpetas por contenido (hash de listados) para detectar espejos → plan KEEP/REMOVE.\n"
+  printf "  D9: genera embeddings YAMNet y lista pares de audio similares (sim>=0.60) → plan REVIEW.\n"
   printf "  10/11: usan hash_index/dupes_plan; 11 aplica quarantine (mueve a _DJProducerTools/quarantine).\n"
   printf "  62: entrena modelo ligero (scikit-learn) con tus planes; 2) predice sospechosos (5000 máx).\n"
   printf "  64: instala TensorFlow en el venv (no por defecto); 65 usa TF Hub (YAMNet/music tagging) si está.\n"
@@ -4536,7 +5543,7 @@ action_H_help_info() {
   printf "  Nota: los TSV generados son plantillas; revísalos antes de enviarlos a tu software DMX/OSC.\n\n"
 
   printf "%sModelos TF disponibles (pros/cons + peso aprox descarga inicial):%s\n" "$C_YLW" "$C_RESET"
-  printf "  YAMNet (~40MB): fast, generalist (events/ambient), good for basic similarity.\n"
+  printf "  YAMNet (~40MB): rápido, generalista (eventos/ambiente), bueno para similitud básica.\n"
   printf "  Music Tagging NNFP (~70MB): orientado a música, mejor para géneros/estilos; algo más pesado.\n"
   printf "  VGGish (~70MB): embeddings clásicos, ligero; menos fino en música que musicnn/NNFP.\n"
   printf "  Musicnn (~80-100MB): enfocado a música, buen tagging y similitud; más peso.\n"
@@ -4546,8 +5553,8 @@ action_H_help_info() {
   printf "  L1) Config rutas Serato/Rekordbox/Traktor/Ableton.\n"
   printf "  L2) Catálogo audio multi-librería.\n"
   printf "  L3) Duplicados por basename+tamaño.\n"
-  printf "  L4) Cues Rekordbox -> dj_cues.tsv (placeholder).\n"
-  printf "  L5) dj_cues.tsv -> ableton_locators.csv (placeholder).\n\n"
+  printf "  L4) Cues Rekordbox XML -> dj_cues.tsv.\n"
+  printf "  L5) dj_cues.tsv -> ableton_locators.csv.\n\n"
 
   printf "%sSubmenú D) Duplicados generales:%s\n" "$C_YLW" "$C_RESET"
   printf "  D1) Catálogo general por disco.\n"
@@ -4555,7 +5562,7 @@ action_H_help_info() {
   printf "  D3) Reporte inteligente (Deep/ML) sobre duplicados.\n"
   printf "  D4) Consolidación multi-disco (plan seguro, añade faltantes).\n"
   printf "  D5) Plan de duplicados exactos por hash (todas las extensiones).\n"
-  printf "  D6) Inverse consolidation: leftovers in sources that already exist in destination (optional threshold).\n"
+  printf "  D6) Consolidación inversa: sobrantes en orígenes que ya existen en destino (umbral opcional).\n"
   printf "  D7) Matrioshkas: carpetas duplicadas por estructura (KEEP/REMOVE sugerido).\n"
   printf "  D8) Carpetas espejo: duplicados de carpetas por contenido (nombre+size o hash completo).\n"
   printf "  D9) Similitud audio (YAMNet embeddings, requiere TF).\n\n"
@@ -4576,13 +5583,277 @@ action_H_help_info() {
   pause_enter
 }
 
+action_run_tests() {
+  print_header
+  printf "%s[INFO]%s Ejecutando suite de pruebas completa...\n" "$C_CYN" "$C_RESET"
+  
+  local test_runner_script="$SCRIPT_DIR/../tests/run_all_tests.sh"
+  
+  if [ -f "$test_runner_script" ]; then
+    # Dar permisos por si acaso y ejecutar
+    chmod +x "$test_runner_script"
+    if bash "$test_runner_script"; then
+      printf "\n%s[OK]%s Todos los tests se completaron con éxito.\n" "$C_GRN" "$C_RESET"
+    else
+      printf "\n%s[ERR]%s Algunos tests fallaron. Revisa la salida para más detalles.\n" "$C_RED" "$C_RESET"
+    fi
+  else
+    printf "%s[ERR]%s No se encuentra el script de tests principal: %s\n" "$C_RED" "$C_RESET" "$test_runner_script"
+  fi
+  
+  pause_enter
+}
+
+# Shared AI actions + compatibility wrappers (ES/EN numeric parity)
+ROOT_DIR="${DJPT_BASE_DIR:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+if [ -f "$SCRIPT_DIR/ai_actions.sh" ]; then
+  # shellcheck disable=SC1090
+  source "$SCRIPT_DIR/ai_actions.sh"
+fi
+if [ -f "$SCRIPT_DIR/ai/enhanced_chat_functions.sh" ]; then
+  # shellcheck disable=SC1090
+  source "$SCRIPT_DIR/ai/enhanced_chat_functions.sh"
+fi
+
+# Numeric parity wrappers for menu contract v1 (ES dispatch as source of truth)
+action_55_ableton_tools() {
+  submenu_ableton_tools
+}
+action_56_importers() {
+  submenu_importers_cues
+}
+action_57_submenu_excludes() {
+  submenu_excludes_manager
+}
+action_58_hash_compare() {
+  action_compare_hash_indexes
+}
+action_59_health_check() {
+  action_state_health
+}
+action_60_export_import_config() {
+  action_export_import_config
+}
+action_61_mirror_check() {
+  action_mirror_integrity_check
+}
+action_80_ai_advanced_menu() {
+  action_ai_advanced_menu
+}
+action_81_ai_lab() {
+  action_ai_lab
+}
+action_82_ai_optimization() {
+  action_ai_optimization
+}
+action_83_ai_global_config() {
+  action_ai_global_config
+}
+action_84_ai_learning_system() {
+  action_ai_learning_system
+}
+action_85_ai_educator() {
+  action_ai_educator
+}
+action_86_ai_document_analysis() {
+  action_ai_document_analysis
+}
+action_87_install_local_models() {
+  action_install_local_models
+}
+action_local_models_manager() {
+  action_install_local_models
+}
+submenu_C_chat() {
+  action_chat_cli
+}
+submenu_H_help() {
+  action_H_help_info
+}
+submenu_R_repair_system() {
+  action_error_recovery
+}
+
+delegate_to_canonical_es_action() {
+  local action_number="$1"
+  shift || true
+  local target="$ROOT_DIR/scripts/DJProducerTools_MultiScript_ES.sh"
+  if [ ! -x "$target" ]; then
+    printf "%s[ERR]%s Canonical ES script not found: %s\n" "$C_RED" "$C_RESET" "$target"
+    return 1
+  fi
+  BASE_PATH="${BASE_PATH:-$ROOT_DIR}" bash "$target" --run "$action_number" "$@"
+}
+
+if ! declare -f action_ai_backends_manager >/dev/null 2>&1; then
+  action_ai_backends_manager() { delegate_to_canonical_es_action 71 "$@"; }
+fi
+if ! declare -f action_install_ai_deps >/dev/null 2>&1; then
+  action_install_ai_deps() { delegate_to_canonical_es_action 72 "$@"; }
+fi
+if ! declare -f action_ai_advanced_config >/dev/null 2>&1; then
+  action_ai_advanced_config() { delegate_to_canonical_es_action 74 "$@"; }
+fi
+if ! declare -f action_ai_train_models >/dev/null 2>&1; then
+  action_ai_train_models() { delegate_to_canonical_es_action 75 "$@"; }
+fi
+if ! declare -f action_ai_knowledge_base >/dev/null 2>&1; then
+  action_ai_knowledge_base() { delegate_to_canonical_es_action 76 "$@"; }
+fi
+if ! declare -f action_ui_config >/dev/null 2>&1; then
+  action_ui_config() { delegate_to_canonical_es_action 77 "$@"; }
+fi
+if ! declare -f action_smart_scan >/dev/null 2>&1; then
+  action_smart_scan() { delegate_to_canonical_es_action 78 "$@"; }
+fi
+if ! declare -f action_error_recovery >/dev/null 2>&1; then
+  action_error_recovery() { delegate_to_canonical_es_action 79 "$@"; }
+fi
+if ! declare -f action_enhanced_chat_cli >/dev/null 2>&1; then
+  action_enhanced_chat_cli() { delegate_to_canonical_es_action 89 "$@"; }
+fi
+if ! declare -f action_launch_serato_organizer >/dev/null 2>&1; then
+  action_launch_serato_organizer() {
+    print_header
+    printf "%s[INFO]%s Launching SERATO Organizer...\n" "$C_CYN" "$C_RESET"
+    local serato_script=""
+    for cand in \
+      "$ROOT_DIR/../_SeratOrganizer/SeratOrganizer.sh" \
+      "/Volumes/SeaGate2TB/_SeratOrganizer/SeratOrganizer.sh" \
+      "$ROOT_DIR/../_SERATORGANIZER/SERATO_ORGANIZER.sh" \
+      "/Volumes/SeaGate2TB/_SERATORGANIZER/SERATO_ORGANIZER.sh"; do
+      if [ -f "$cand" ]; then
+        serato_script="$cand"
+        break
+      fi
+    done
+    if [ -z "$serato_script" ]; then
+      printf "%s[ERR]%s Serato Organizer script not found.\n" "$C_RED" "$C_RESET"
+      pause_enter
+      return
+    fi
+    bash "$serato_script" || true
+    pause_enter
+  }
+fi
+
+# Chat->menu action policy: block destructive numeric actions unless explicitly allowed.
+BLOCKED_DESTRUCTIVE_ACTIONS="11 12"
+run_numeric_action_safe() {
+  local action="$1"
+  case " $BLOCKED_DESTRUCTIVE_ACTIONS " in
+    *" $action "*)
+      if [ "${DJPT_ALLOW_DESTRUCTIVE:-0}" != "1" ]; then
+        printf "%s[BLOCKED]%s Action %s is destructive. Set DJPT_ALLOW_DESTRUCTIVE=1 to allow.\n" "$C_RED" "$C_RESET" "$action"
+        return 1
+      fi
+      ;;
+  esac
+  case "$action" in
+    1) action_1_status ;;
+    2) action_2_change_base ;;
+    3) action_3_summary ;;
+    4) action_4_top_dirs ;;
+    5) action_5_top_files ;;
+    6) action_6_scan_workspace ;;
+    7) action_7_backup_serato ;;
+    8) action_8_backup_dj ;;
+    9) action_9_hash_index ;;
+    10) action_10_dupes_plan ;;
+    11) action_11_quarantine_from_plan ;;
+    12) action_12_quarantine_manager ;;
+    13) action_13_ffprobe_report ;;
+    14) action_14_playlists_per_folder ;;
+    15) action_15_relink_helper ;;
+    16) action_16_mirror_by_genre ;;
+    17) action_17_find_dj_libs ;;
+    18) action_18_rescan_intelligent ;;
+    19) action_19_tools_diag ;;
+    20) action_20_fix_ownership_flags ;;
+    21) action_21_install_cmd ;;
+    22) action_22_uninstall_cmd ;;
+    23) action_23_toggle_safe_mode ;;
+    24) action_24_toggle_lock ;;
+    25) action_25_quick_help ;;
+    26) action_26_export_import_state ;;
+    27) action_27_snapshot ;;
+    28) action_28_logs_viewer ;;
+    29) action_29_toggle_dryrun ;;
+    30) action_30_plan_tags ;;
+    31) action_31_report_tags ;;
+    32) action_32_serato_video_report ;;
+    33) action_33_serato_video_prep ;;
+    34) action_34_normalize_names ;;
+    35) action_35_samples_by_type ;;
+    36) submenu_36_web_clean ;;
+    37) action_37_web_whitelist_manager ;;
+    38) action_38_clean_web_playlists ;;
+    39) action_39_clean_web_tags ;;
+    40) action_40_smart_analysis ;;
+    41) action_41_ml_predictor ;;
+    42) action_42_efficiency_optimizer ;;
+    43) action_43_smart_workflow ;;
+    44) action_44_integrated_dedup ;;
+    45) action_45_ml_organization ;;
+    46) action_46_metadata_harmonizer ;;
+    47) action_47_predictive_backup ;;
+    48) action_48_cross_platform_sync ;;
+    49) action_49_advanced_analysis ;;
+    50) action_50_integration_engine ;;
+    51) action_51_adaptive_recommendations ;;
+    52) action_52_automated_cleanup_pipeline ;;
+    53) action_53_reset_state ;;
+    54) submenu_profiles_manager ;;
+    55) action_55_ableton_tools ;;
+    56) action_56_importers ;;
+    57) action_57_submenu_excludes ;;
+    58) action_58_hash_compare ;;
+    59) action_59_health_check ;;
+    60) action_60_export_import_config ;;
+    61) action_61_mirror_check ;;
+    62) action_ml_evo_manager ;;
+    63) action_toggle_ml ;;
+    64) action_tensorflow_manager ;;
+    65) submenu_T_tensorflow_lab ;;
+    66) action_audio_lufs_plan ;;
+    67) action_audio_cues_onsets ;;
+    68) action_install_all_python_deps ;;
+    69) action_69_shared_corpus ;;
+    70) action_ai_status ;;
+    71) action_ai_backends_manager ;;
+    72) action_install_ai_deps ;;
+    73) action_chat_cli ;;
+    74) action_ai_advanced_config ;;
+    75) action_ai_train_models ;;
+    76) action_ai_knowledge_base ;;
+    77) action_ui_config ;;
+    78) action_smart_scan ;;
+    79) action_error_recovery ;;
+    80) action_80_ai_advanced_menu ;;
+    81) action_81_ai_lab ;;
+    82) action_82_ai_optimization ;;
+    83) action_83_ai_global_config ;;
+    84) action_84_ai_learning_system ;;
+    85) action_85_ai_educator ;;
+    86) action_86_ai_document_analysis ;;
+    87) action_87_install_local_models ;;
+    88) action_local_models_manager ;;
+    89) action_enhanced_chat_cli ;;
+    90) action_launch_serato_organizer ;;
+    *)
+      printf "%s[ERR]%s Unknown numeric action: %s\n" "$C_RED" "$C_RESET" "$action"
+      return 1
+      ;;
+  esac
+}
+
 main_loop() {
   while true; do
     print_header
     print_menu
-    printf "%sOption:%s " "$C_BLU" "$C_RESET"
+    printf "%s%s%s " "$C_BLU" "$(get_localized_string PROMPT_OPTION)" "$C_RESET"
     if ! read -r op </dev/tty 2>/dev/null; then
-      printf "%s[WARN]%s Input not available (double click / no keyboard). Press ENTER to exit.\n" "$C_YLW" "$C_RESET"
+      printf "%s[WARN]%s Entrada no disponible (doble click / sin teclado). Pulsa ENTER para salir.\n" "$C_YLW" "$C_RESET"
       pause_enter
       break
     fi
@@ -4625,6 +5896,7 @@ main_loop() {
       33) action_33_serato_video_prep ;;
       34) action_34_normalize_names ;;
       35) action_35_samples_by_type ;;
+      AI) action_ai_status ;;
       36) submenu_36_web_clean ;;
       37) action_37_web_whitelist_manager ;;
       38) action_38_clean_web_playlists ;;
@@ -4644,13 +5916,13 @@ main_loop() {
       52) action_52_automated_cleanup_pipeline ;;
       53) action_53_reset_state ;;
       54) submenu_profiles_manager ;;
-      55) submenu_ableton_tools ;;
-      56) submenu_importers_cues ;;
-      57) submenu_excludes_manager ;;
-      58) action_compare_hash_indexes ;;
-      59) action_state_health ;;
-      60) action_export_import_config ;;
-      61) action_mirror_integrity_check ;;
+      55) action_55_ableton_tools ;;
+      56) action_56_importers ;;
+      57) action_57_submenu_excludes ;;
+      58) action_58_hash_compare ;;
+      59) action_59_health_check ;;
+      60) action_60_export_import_config ;;
+      61) action_61_mirror_check ;;
       62) action_ml_evo_manager ;;
       63) action_toggle_ml ;;
       64) action_tensorflow_manager ;;
@@ -4659,21 +5931,42 @@ main_loop() {
       67) action_audio_cues_onsets ;;
       68) action_install_all_python_deps ;;
       69) action_69_shared_corpus ;;
-      C|c) action_chat_cli ;;
+      70) action_ai_status ;;
+      71) action_ai_backends_manager ;;
+      72) action_install_ai_deps ;;
+      73) action_chat_cli ;;
+      74) action_ai_advanced_config ;;
+      75) action_ai_train_models ;;
+      76) action_ai_knowledge_base ;;
+      77) action_ui_config ;;
+      78) action_smart_scan ;;
+      79) action_error_recovery ;;
+      80) action_80_ai_advanced_menu ;;
+      81) action_81_ai_lab ;;
+      82) action_82_ai_optimization ;;
+      83) action_83_ai_global_config ;;
+      84) action_84_ai_learning_system ;;
+      85) action_85_ai_educator ;;
+      86) action_86_ai_document_analysis ;;
+      87) action_87_install_local_models ;;
+      88) action_local_models_manager ;;
+      89) action_enhanced_chat_cli ;;
+      90) action_launch_serato_organizer ;;
+      C|c) submenu_C_chat ;;
+      # La opción de cambiar idioma ahora se gestiona en main.sh al inicio
       L|l) submenu_L_libraries ;;
+      I|i) submenu_I_integrations ;;
       D|d) submenu_D_dupes_general ;;
       V|v) submenu_V_visuals ;;
-      H|h) action_H_help_info ;;
+      T|t) submenu_T_tensorflow_lab ;;
+      B|b) break ;;
+      R|r|DR|dr) submenu_R_repair_system ;;
+      H|h) submenu_H_help ;;
       0) break ;;
       *) invalid_option ;;
     esac
   done
 }
-
-init_paths
-load_conf
-ensure_base_path_valid
-ensure_general_root_valid
 
 # Parseo de flags CLI
 parse_args "$@"
@@ -4696,11 +5989,14 @@ fi
 # Inicializa rutas y configuración
 init_paths
 load_conf
+if [ -n "${DJPT_EXPLICIT_BASE_PATH:-}" ] && [ -d "${DJPT_EXPLICIT_BASE_PATH}" ]; then
+  BASE_PATH="$DJPT_EXPLICIT_BASE_PATH"
+fi
 ensure_base_path_valid
 ensure_general_root_valid
 
 # Si hay GENERAL_ROOT configurado y válido, úsalo como BASE_PATH preferente
-if [ -n "${GENERAL_ROOT:-}" ] && [ -d "$GENERAL_ROOT" ] && [ "$BASE_PATH" != "$GENERAL_ROOT" ]; then
+if [ -z "${DJPT_EXPLICIT_BASE_PATH:-}" ] && [ -n "${GENERAL_ROOT:-}" ] && [ -d "$GENERAL_ROOT" ] && [ "$BASE_PATH" != "$GENERAL_ROOT" ]; then
   BASE_PATH="$GENERAL_ROOT"
   init_paths
   load_conf
@@ -4734,18 +6030,20 @@ if [ -n "$RUN_ACTION" ]; then
     predict) action_41_ml_predictor ;;
     optimize) action_42_efficiency_optimizer ;;
     workflow) action_43_smart_workflow ;;
+    tensorflow) action_tensorflow_manager ;;
+    mlx) action_mlx_test ;;
+    deps) action_install_all_python_deps ;;
+    ml_evo) action_ml_evo_manager ;;
+    integrated_dedup) action_44_integrated_dedup ;;
+    ai_status) action_ai_status ;;
+    ai_backends) action_ai_backends_manager ;;
+    ai_chat|chat) action_chat_cli ;;
+    ai_health|repair) action_error_recovery ;;
     *) 
-      # Try numeric
       if [[ "$RUN_ACTION" =~ ^[0-9]+$ ]]; then
-         # We need to simulate the 'op' variable for the case statement inside a function or just call it?
-         # The main_loop has a big case statement. We can refactor that case statement into a function `run_op`
-         # But for now, let's just support specific keywords or exact function calls if we exposed them.
-         # Since we didn't refactor the main case statement into a function, we can't easily jump in.
-         # Let's support the mapped keywords above for now, or error out.
-         printf "[ERR] Numeric actions not yet supported in CLI mode. Use keywords: status, scan, backup, hash, dupes, smart, predict, optimize, workflow.\n"
-         exit 1
+         run_numeric_action_safe "$RUN_ACTION" || exit 1
       else
-         printf "[ERR] Unknown action: %s\n" "$RUN_ACTION"
+         printf "[ERR] Acción desconocida: %s\n" "$RUN_ACTION"
          exit 1
       fi
       ;;

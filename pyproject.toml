@@ -1,0 +1,56 @@
+[project]
+name = "djpt-ai-suite"
+version = "2.0.0"
+description = "DJ Producer Tools AI Suite - Quantum Engine"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.9"
+dependencies = [
+    "typer[all]",
+    "pydantic",
+    "pydantic-settings",
+    "toml",
+    "rich", # Para una salida más bonita en la terminal
+]
+
+[project.optional-dependencies]
+ai = [
+    "mlx>=0.20.0",
+    "mlx-lm>=0.19.0", 
+    "tensorflow-macos>=2.16.0",
+    "tensorflow-metal>=1.2.0",
+    "scikit-learn>=1.5.0",
+    "sentence-transformers>=3.0.0",
+    "torch>=2.4.0",
+    "psutil>=6.0.0",
+    "PyPDF2>=3.0.0",
+    "pdfplumber>=0.10.0",
+    "nltk>=3.9.0",
+    "requests>=2.32.0",
+    "beautifulsoup4>=4.12.0",
+    "joblib>=1.4.0",
+    "onnxruntime-silicon>=1.19.0"
+]
+
+apple-silicon = [
+    "mlx>=0.20.0",
+    "mlx-lm>=0.19.0",
+    "tensorflow-macos>=2.16.0",
+    "tensorflow-metal>=1.2.0",
+    "onnxruntime-silicon>=1.19.0"
+]
+
+audio = [
+    "librosa>=0.10.0",
+    "mutagen>=1.47.0",
+    "soundfile>=0.12.0",
+    "pyloudnorm>=0.1.1",
+    "numpy>=1.26.0"
+]
+
+[project.scripts]
+# Esto crea el comando `djpt` apuntando a la CLI canónica de raíz.
+djpt = "cli:app"
+
+[tool.pydantic-settings]
+# Prefijo para las variables de entorno, ej: DJPT_JOBS_THREADS=8
+env_prefix = "djpt_"

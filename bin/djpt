@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Canonical launcher: autodetect language and dispatch to ES/EN menus.
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_DIR="$ROOT_DIR/app"
+
+# Auto-configurar BASE_PATH si no está definido
+if [[ -z "${BASE_PATH:-}" ]]; then
+  export BASE_PATH="$ROOT_DIR"
+fi
+
+# Prefer explicit override
+LANG_HINT="${DJPT_FORCE_LANG:-}"
+
+# Auto-detect from locale if not forced
+if [ -z "$LANG_HINT" ]; then
+  case "${LANG:-${LC_ALL:-${LC_MESSAGES:-}}}" in
+    es*|ES*) LANG_HINT="es" ;;
+    *)       LANG_HINT="en" ;;
+  esac
+fi
+
+case "$LANG_HINT" in
+  es|ES) TARGET="$APP_DIR/DJProducerTools_MultiScript_ES.sh" ;;
+  en|EN) TARGET="$APP_DIR/DJProducerTools_MultiScript_EN.sh" ;;
+  *)     TARGET="$APP_DIR/DJProducerTools_MultiScript_EN.sh" ;;
+esac
+
+# Fallback chain to avoid hard-fail when one language/menu variant is absent.
+if [ ! -x "$TARGET" ]; then
+  for candidate in \
+    "$APP_DIR/DJProducerTools_MultiScript_ES.sh" \
+    "$ROOT_DIR/DJProducerTools_MultiScript_EN.sh" \
+    "$ROOT_DIR/DJProducerTools_MultiScript_ES.sh"
+  do
+    if [ -x "$candidate" ]; then
+      TARGET="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ ! -x "$TARGET" ]; then
+  echo "[ERR] Target menu not found: $TARGET (fallbacks exhausted)" >&2
+  exit 1
+fi
+
+export DJPT_CURRENT_LANG="$LANG_HINT"
+exec "$TARGET" "$@"

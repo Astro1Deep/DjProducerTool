@@ -28,7 +28,7 @@ class TestMLTF(unittest.TestCase):
 
     def test_mock_embeddings(self):
         # Force offline/mock mode
-        with patch.dict(tuple(os.environ.items()) + (("DJPT_TF_MOCK", "1"),)):
+        with patch.dict(os.environ, {"DJPT_TF_MOCK": "1"}):
             ml_tf.write_embeddings(self.base_dir, self.out_file, 10, "yamnet", offline=True)
             
         self.assertTrue(self.out_file.exists())

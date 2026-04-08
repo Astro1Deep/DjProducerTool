@@ -1,0 +1,10 @@
+{
+  "version": "health_score_v2",
+  "max_score": 100,
+  "headroom_index_target": 20.0,
+  "components": {
+    "contracts": 35,
+    "runtime": 35,
+    "validation": 30
+  }
+}

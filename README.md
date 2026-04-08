@@ -1,150 +1,64 @@
+# DJProducerTools (DJPT)
 
-<img src="https://github.com/user-attachments/assets/0fed1bb5-a36f-41d7-8021-5596bbc69004" alt="DJProducerTools banner" style="max-width: 100%; height: auto;" />
+Punto de entrada canónico (shell): `./bin/djpt`
 
+- Crea/usa entorno aislado local en `djpt_venv/`.
+- Usa configuración canónica en `config/ai_model_params.toml`.
+- Ejecuta smoke IA y muestra estado MLX/TF/Ollama sin exigir `OPENAI_API_KEY` ni `HF_TOKEN` en modo local-first.
+- Declara `transformers` y `openai_local` como rutas opcionales, desactivadas por defecto hasta que haya modelo/endpoint local real.
+- Menú completo (90+ opciones) o CLI Typer (`python3 cli.py --help`).
 
-# DJProducerTool 🎵
+Entradas rápidas:
+- `./bin/djpt` — menú / CLI interactiva
+- `./launch.sh` — shim legacy hacia `bin/djpt`
+- `./DJProducerTools_Con_Opciones_IA.sh` — menú legacy enlazado a CLI
+- `djpt_venv/bin/djpt ai status` — estado IA
+- `djpt_venv/bin/djpt ai hf-sync --action status` — estado del pin HF local
+- `djpt_venv/bin/djpt ai hf-sync --action sync --allow-remote --dry-run` — validar conexión HF sin descargar
+- `djpt_venv/bin/djpt ai hf-sync --action sync --allow-remote` — descargar/pinnear modelo HF a local
+- `djpt_venv/bin/djpt ai online-setup --apply --install-optional-deps --hf-sync --hf-dry-run` — setup online asistido
+- `djpt_venv/bin/djpt ai module --action init --name mi_modulo` — crear módulo aislado
+- `djpt_venv/bin/djpt ai module --action doctor` — sanear módulos inválidos sin tocar core
+- `python3 lib/djpt_chat_cli.py` — asistente conversacional local
+- `python3 lib/djpt_chat_cli.py` + `rag status` — estado RAG desde chat
+- `python3 lib/djpt_chat_cli.py` + `hf status` — estado HF/transformers local-first
+- `python3 lib/djpt_chat_cli.py` + `modulo list` — inventario de módulos aislados
+- `python3 lib/djpt_chat_cli.py` + `estudiar-web https://huggingface.co/models --index-rag` — ingestión web + indexado RAG
+- `python3 lib/djpt_chat_cli.py` + `programar cada 30m scan mp3` — tarea programada persistente
+- `python3 lib/djpt_chat_cli.py` + `tareas run` — ejecutar tareas vencidas
+- `python3 lib/djpt_chat_cli.py` + `combo status` — chequeo combinado (chat+RAG+HF+módulos+tareas)
+- `python3 lib/djpt_chat_cli.py` + `combo learn https://huggingface.co/models` — aprendizaje web + indexado RAG
+- `python3 scripts/chat_tasks_runner.py --base-path . --json` — ejecución one-shot de tareas vencidas
+- `python3 scripts/launchd_chat_tasks.py install --interval 300` — genera plist launchd (dry-run)
+- `python3 scripts/launchd_chat_tasks.py install --interval 300 --apply` — instala/carga launchd automático
+- `python3 scripts/launchd_chat_tasks.py status` — estado del agente launchd
+- `python3 scripts/launchd_chat_tasks.py uninstall --apply` — desinstala launchd
+- `bash scripts/bootstrap_djpt_venv.sh --core --with-dev` — bootstrap limpio del entorno aislado
+- `bash scripts/certify_fresh_install.sh` — certificación de instalación nueva desde el zip más reciente
+- `bash scripts/reanchor_git_in_place.sh --apply --branch main` — reanclaje Git local cuando el worktree quedó roto
 
-Bilingual CLI for safe DJ library management on macOS. Spanish version: [README_ES.md](./README_ES.md).
+Notas recientes:
+- CLI interactiva ahora soporta `cd/ls/pwd` y mapea `ai`→`ai status`, `config`→`config show`.
+- Doctor Mode disponible: tecla `R` en el menú abre herramientas de diagnóstico/reparación.
+- La capa de módulos (`state/modules`) permite extender sin modificar runtime base; `ai module doctor` marca inválidos como deshabilitados.
+- Opciones 55-57 activas (Ableton tools, import cues, exclusiones).
+- Opción `62` ya entrena/predice localmente con `lib/ml_evolutionary.py` real.
+- Opción `71` expone el gestor multi-backend 1-8 canónico.
+- Opción `74` centraliza tuning, health, dependencias y gestión de modelos IA.
+- Opciones `91-92` del modo `LAB` ya son ejecutables por `--run`.
 
-## 📌 Status
+Validación recomendada antes de distribuir:
+- `python3 scripts/menu_contract_tools.py validate-json`
+- `bash tests/test_menu_release_navigation.sh`
+- `bash tests/test_ai_advanced_ops_smoke.sh`
+- `bash tests/test_destructive_flows_sacrificial.sh`
+- `bash tests/run_smoke.sh`
 
-- **Current version:** 1.0.0 (2024-01-04)
-- **Implemented (CLI):** file catalog, SHA-256 index and duplicate plan, quarantine manager, `_Serato_`/DJ metadata backups, fast hash snapshot, TSV reports (ffprobe, relink helper, rescan), per-folder playlists, safety toggles (`SAFE_MODE`, `DJ_SAFE_LOCK`, `DRYRUN_FORCE`), ffprobe video inventory + transcode plan (H.264 1080p suggested), playlist→OSC/DMX plans, DMX send (dry-run by default), local API/OSC server, BPM/librosa TSV analysis.
-- **Roadmap/placeholders:** advanced ML auto-tagging and TensorFlow Lab ideas (only documented/plan output for now); richer HTML/PDF exports.
+Directorios generados en runtime (excluir de paquetes): `state/`, `logs/`, `reports/`, `scans/`, `quarantine/`, `djpt_venv/`, `venv/`, `_archive/`.
 
-## ✨ Features (current)
-
-- 📂 **Catalog + hash**: inventory and SHA-256 TSV for exact duplicate detection.
-- 🛡️ **Quarantine & safety**: TSV/JSON plans and optional quarantine moves; `SAFE_MODE`/`DJ_SAFE_LOCK` enabled by default; `--dry-run` forces simulation.
-- 💾 **Fast backups**: rsync of `_Serato_` and DJ metadata (Serato/Traktor/Rekordbox/Ableton) into `_DJProducerTools/`.
-- 🔍 **Reports**: fast hash snapshot, ffprobe corruption scan, relink helper, smart rescan, per-folder `.m3u8` playlists.
-- 🎥 **Video prep**: ffprobe inventory + suggested transcode plan (H.264 1080p).
-- 🎛️ **Playlists → OSC/DMX**: plans with timing from `.m3u/.m3u8`; optional DMX send via ENTTEC honoring Safe/Lock/dry-run.
-- 🔌 **Local API/OSC**: lightweight HTTP (/status,/reports) + OSC (/djpt/ping) start/stop from menu.
-- 🤖 **Deep/ML + Shared Corpus**: multi-modal matching (audio+texto) con scoring separado y posibilidad de reutilizar embeddings/tags desde `SHARED_CORPUS_DIR`; toggles ML/TF y offline-friendly.
-- 🧭 **Progress & state**: spinners/bars, route history, log viewer, exclusion/profile manager.
-- 🌐 **Bilingual**: menus and messages in EN/ES.
-- 🔄 **Shared corpus**: sync reports/plans (hash, ML, playlists) across disks via menu 69 to reuse analyses.
-
-## 🚧 Roadmap / Placeholders
-
-- ML auto-tagging, TensorFlow Lab, and advanced exports remain in roadmap (plans only, no audio mutation).
-
-## 🚀 Quick Start
-
-### One-line installation
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Astro1Deep/DjProducerTool/main/INSTALL.sh | bash
-```
-
-### Manual installation
-
-```bash
-git clone https://github.com/Astro1Deep/DjProducerTool.git
-cd DjProducerTool
-chmod +x scripts/*.sh
-# English
-./scripts/DJProducerTools_MultiScript_EN.sh
-# Spanish
-./scripts/DJProducerTools_MultiScript_ES.sh
-```
-
-## 🛠️ Usage
-
-- CLI flags: `--help | --version | --test | --dry-run`
-  - `--test` checks core deps (bash, find, awk, sed, xargs, python3, ffprobe, sox, jq).
-  - `--dry-run` forces `DRYRUN_FORCE=1` while keeping backups/quarantine safe.
-- State lives in `BASE_PATH/_DJProducerTools` (defaults to current working directory). Use `HOME_OVERRIDE=/custom` to isolate state.
-- Safe defaults: `SAFE_MODE=1`, `DJ_SAFE_LOCK=1`.
-- Shared corpus REST: `DJPT_SHARED_CORPUS=/ruta/compartida` (o menú 69) mantiene copias de los reports/autogenerated embeddings/tags para reuse en otras bases; el ML utiliza esos archivos antes de recalcular.
-- ML Master Report (menú 65.13) consolida matching/anomalies/segments/loudness/video tags en `reports/ml_master_report.tsv`. Ajusta las métricas por batch/threshold/top-N en el submenú 65.12 y activa MusicBrainz en la 65.14 para añadir metadata oficial si hay conexión.
-
-Quick commands (after creating the optional symlink via menu 21):
-```bash
-dj       # auto language
-dj-en    # force English
-dj-es    # force Spanish
-```
-
-## 📚 Documentation
-
-- **[FEATURES.md](./FEATURES.md)** — Scope and status (EN)
-- **Características:** ver README_ES para resumen en español.
-- **[guides/GUIDE.md](./guides/GUIDE.md)** — Quick guide (EN)
-- **[guides/GUIDE_es.md](./guides/GUIDE_es.md)** — Quick guide (ES)
-- **[guides/ADVANCED_GUIDE.md](./guides/ADVANCED_GUIDE.md)** — Advanced action/menu guide (EN)
-- **[guides/ADVANCED_GUIDE_es.md](./guides/ADVANCED_GUIDE_es.md)** — Advanced guide (ES)
-- **TF Lab (65):** Instala TF con opción 64 (venv aislado). `DJPT_TF_MOCK=1` evita descargas y usa modo offline. Salidas: `reports/audio_embeddings.tsv`, `reports/audio_tags.tsv`, `reports/audio_similarity.tsv`, `reports/audio_anomalies.tsv`, `reports/audio_segments.tsv`.
- - **Deep Thinking & ML/TF Lab (menú 65)**: Por defecto el flujo es *offline-friendly* (usa `DJPT_OFFLINE=1` para forzar heurísticos). El submenú 65 permite escoger modelos reales de TF/ONNX/TFLite y genera todos los reportes de embeddings, tags, similarity, anomalies, segments, loudness, matching, video_tags, music_tags y mastering. `ml_tf download_model --name <model>` o la opción 65.15 descarga los pesos (clap_onnx, clip_vitb16_onnx, musicgen_tflite y sentence_t5_tflite) en `_DJProducerTools/venv/models`. `music_tags` ahora usa CLAP + prompts `MUSIC_TAG_PROMPTS`, `video_tags` extrae keyframes con ffmpeg y emplea CLIP (onnx). Las estructuras compartidas se colocan en `DJPT_SHARED_CORPUS`/`SHARED_CORPUS_DIR` para reutilizar embeddings entre discos.
- - **MusicBrainz opcional:** El reporte maestro (65.14) acepta `--online` y `--query` para consultar MusicBrainz y anexar título/artista/fecha en `reports/ml_master_report.tsv`, todo mientras `DJPT_OFFLINE=1` mantiene heurísticos por defecto.
-- **Colaboradores:** planes/roadmap/API/seguridad (incluye FEATURES/DEBUG/API/VERSION) en `docs/internal/` (no necesario para usuarios).
-- **Wiki (manual extendido):** `docs/wiki/WIKI_EXTENDED_MANUAL_ES.md` (ES) y `docs/wiki/WIKI_EXTENDED_MANUAL_EN.md` (EN) con todas las opciones/acciones en detalle.
-
-### Novedades (1.0.0)
-- Plan de transcode: permite elegir códec (auto/videotoolbox/nvenc/libx264) y ejecutar ffmpeg con confirmación; respeta `DRYRUN_FORCE`.
-- API/OSC: soporta Bearer token; `/djpt/ping` y `/djpt/status` responden “unauthorized” sin token.
-
-## Safety & Packaging (recordatorios rápidos)
-- No ejecutes el script como root ni apuntes `BASE_PATH` al disco del sistema. Usa `confirm_heavy_action` para operaciones grandes y revisa exclusiones por defecto antes de escanear discos con mucho media.
-- Dependencias mínimas: `bash`, `python3`, `ffprobe`, `sox`, `jq`. Ejemplo macOS: `brew install ffmpeg sox jq`.
-- Paquete limpio: `git archive -o ../DJProducerTools_WAX.zip HEAD` e incluye `djpt_icon.icns` para el icono del Dock.
-
-### ML/TF Lab desde cero (modelos reales onnx/tflite)
-
-1. Activa el venv local o deja que el menú lo cree: `source _DJProducerTools/venv/bin/activate` (se aloja en la carpeta donde arrancas el script, nunca en el sistema).
-2. En TF Lab (menú 65), pon `DJPT_OFFLINE=0` para permitir modelos reales. Si eliges modelos ONNX (clap_onnx/clip_vitb16_onnx/sentence_t5_tflite), se pedirá instalar `onnxruntime`; si falta, se usa fallback mock con aviso.
-3. TFLite en macOS ARM: no hay wheel oficial `tflite-runtime`; usa TensorFlow (opción 64) o un entorno con wheel compatible. Mientras tanto, MusicGen_tflite opera en modo fallback seguro.
-4. `DJPT_OFFLINE=1` fuerza heurísticos/mocks en todas las opciones ML. Los avisos son no bloqueantes y el script permanece en modo seguro.
-
-## ⚙️ System Requirements
-
-- macOS 10.13+ (10.15+ recommended)
-- bash 4.0+ or zsh
-- Dependencies:
-  - `ffmpeg`/`ffprobe`
-  - `jq`
-  - `curl`
-  - `python3`
-  - Optional: `pyserial` (DMX send), `python-osc` (API/OSC), `librosa` + `soundfile` (BPM/auto-cues)
-
-## 🧪 Testing
-
-```bash
-bash scripts/VERIFY_AND_TEST.sh --fast   # smoke tests
-./scripts/DJProducerTools_MultiScript_EN.sh --test
-./scripts/DJProducerTools_MultiScript_ES.sh --test
-```
-
-## 📊 Project Structure
-
-```
-DJProducerTools_Project/
-├── scripts/            # Main menus and helpers
-├── lib/                # Python helpers (video, playlist→OSC/DMX, BPM, DMX, API/OSC)
-├── docs/               # Plans and module notes
-├── guides/             # Quick and advanced guides (EN/ES)
-├── _DJProducerTools/   # State (reports/plans/logs/venv)
-└── build_pkg_staging/  # Packaging assets (optional)
-```
-
-## 📝 Version History
-
-- **v1.0.0** (Jan 2024)
-  - Hash index + duplicate plan with optional quarantine
-  - `_Serato_`/DJ metadata backups; fast hash snapshot
-  - EN/ES menus, safety defaults, TSV reports
-- **v1.9.5** (2023)
-  - First automation prototypes (stabilized)
-
-## 📄 License
-
-MIT - see [LICENSE](./LICENSE).
-
-## 👨‍💻 Author
-
-**Astro1Deep**  
-GitHub: [@Astro1Deep](https://github.com/Astro1Deep)  
-Project: [DjProducerTool](https://github.com/Astro1Deep/DjProducerTool)
-
-**Made with ❤️ for DJ Producers.**
+Documentación esencial:
+- `QUICK_START_GUIDE.md`
+- `CHAT_ADVANCED_SYSTEM.md`
+- `UNIVERSAL_DEPLOYMENT.md`
+- `REPARACION_COMPLETA.md`
+- `ESTRUCTURA_COMPLETA_SISTEMA.md`

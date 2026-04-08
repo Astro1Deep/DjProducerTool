@@ -1,0 +1,56 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reviewer_id",
+    "model_name",
+    "timestamp",
+    "scope",
+    "verdict",
+    "score_claims",
+    "validated_checks",
+    "findings",
+    "risks",
+    "recommended_actions",
+    "evidence_refs",
+    "confidence",
+    "limitations"
+  ],
+  "properties": {
+    "reviewer_id": {"type": "string"},
+    "model_name": {"type": "string"},
+    "timestamp": {"type": "string"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["repo_root", "packet_version", "mode", "target_gate"],
+      "properties": {
+        "repo_root": {"type": "string"},
+        "packet_version": {"type": "string"},
+        "mode": {"type": "string"},
+        "target_gate": {"type": "string"}
+      }
+    },
+    "verdict": {"type": "string", "enum": ["pending", "ok", "warn", "fail"]},
+    "score_claims": {"type": "object", "additionalProperties": {"type": "number"}},
+    "validated_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["check_id", "status", "evidence_refs"],
+        "properties": {
+          "check_id": {"type": "string"},
+          "status": {"type": "string"},
+          "evidence_refs": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "findings": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "risks": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "recommended_actions": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "evidence_refs": {"type": "array", "items": {"type": "string"}},
+    "confidence": {"type": "number"},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

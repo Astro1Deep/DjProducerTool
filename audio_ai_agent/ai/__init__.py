@@ -1,0 +1,1 @@
+# AI compatibility namespace.

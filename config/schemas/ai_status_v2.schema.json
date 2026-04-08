@@ -1,0 +1,127 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "summary",
+    "mlx_llm",
+    "embeddings",
+    "asr",
+    "ollama",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["ai_status_v2"]
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "execution_ms": {
+      "type": "number"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "overall_status",
+        "models_dir"
+      ],
+      "properties": {
+        "overall_status": {
+          "type": "string",
+          "enum": ["ok", "warn", "fail"]
+        },
+        "models_dir": {
+          "type": "string"
+        }
+      }
+    },
+    "mlx_llm": {
+      "type": "object",
+      "required": [
+        "severity",
+        "details"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["ok", "warn", "fail"]
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    },
+    "embeddings": {
+      "type": "object",
+      "required": [
+        "severity",
+        "details"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["ok", "warn", "fail"]
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    },
+    "asr": {
+      "type": "object",
+      "required": [
+        "severity",
+        "details"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["ok", "warn", "fail"]
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    },
+    "ollama": {
+      "type": "object",
+      "required": [
+        "severity",
+        "details"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["ok", "warn", "fail"]
+        },
+        "details": {
+          "type": "string"
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "status",
+          "details"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok", "warn", "fail"]
+          },
+          "details": {
+            "type": "string"
+          },
+          "suggestion": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

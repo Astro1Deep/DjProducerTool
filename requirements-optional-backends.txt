@@ -1,0 +1,17 @@
+# DJProducerTools optional AI/backend dependencies
+# These are environment-dependent and can be omitted on fresh installs.
+
+# Platform-specific TensorFlow
+tensorflow>=2.10.0; sys_platform != 'darwin' or platform_machine != 'arm64'
+tensorflow-macos>=2.10.0; sys_platform == 'darwin' and platform_machine == 'arm64'
+tensorflow-metal>=1.2.0; sys_platform == 'darwin' and platform_machine == 'arm64'
+
+# Apple Silicon specific ML dependencies
+mlx>=0.12.0; sys_platform == 'darwin' and platform_machine == 'arm64'
+mlx-lm>=0.2.0; sys_platform == 'darwin' and platform_machine == 'arm64'
+
+# Remote or heavyweight AI integrations
+sentence-transformers>=2.2.0
+huggingface_hub>=0.24.0
+openai>=1.0.0
+anthropic>=0.3.0

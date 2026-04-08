@@ -1,0 +1,92 @@
+# DJProducerTools canonical local-AI defaults.
+# Thread values at 0 mean "auto-detect on this machine".
+
+[general]
+preferred_backend = "auto"
+temperature = 0.7
+batch_size = 32
+allow_gpu = true
+max_files = 5000
+parallel_threads = 0
+max_memory_gb = 8
+
+[mlx]
+cache_limit_mb = 1024
+device = "metal"
+enable_gpu = true
+memory_fraction = 0.25
+
+[tensorflow]
+intraop_threads = 0
+interop_threads = 0
+gpu_memory_growth = true
+device = "auto"
+mixed_precision = true
+
+[ollama]
+base_url = "http://localhost:11434"
+default_model = "llama3.2:3b"
+timeout_seconds = 30
+max_tokens = 2048
+temperature = 0.7
+
+[transformers]
+enabled = false
+model = "sentence-transformers/all-MiniLM-L6-v2"
+model_path = "state/models/huggingface/all-MiniLM-L6-v2"
+local_files_only = true
+max_tokens = 128
+
+[huggingface]
+enabled = false
+model = "sentence-transformers/all-MiniLM-L6-v2"
+revision = "main"
+local_dir = "state/models/huggingface/all-MiniLM-L6-v2"
+allow_remote = false
+require_token = false
+verify_remote = true
+apply_to_transformers = true
+enable_transformers_after_sync = false
+
+[openai_local]
+enabled = false
+base_url = "http://localhost:8080"
+healthcheck_path = "/health"
+model = "local-model"
+temperature = 0.4
+max_tokens = 512
+
+[threads]
+cpu_threads = 0
+tf_intraop = 0
+tf_interop = 0
+
+[jobs]
+scan_workers = 4
+batch_processing = true
+chunk_size = 1000
+progress_interval = 10
+retry_attempts = 3
+
+[optimization]
+auto_tune = true
+profile_memory = true
+cache_models = true
+preload_models = false
+cleanup_temp = true
+
+[learning]
+learning_rate = 0.01
+max_sessions = 5
+session_timeout = 1800
+save_patterns = true
+adaptive_mode = true
+
+[limits]
+max_file_size_mb = 500
+max_concurrent_jobs = 3
+max_memory_usage = 0.8
+disk_space_threshold = 0.9
+
+[trends]
+max_files = 5000

@@ -1,0 +1,26 @@
+# DJProducerTools core runtime dependencies
+# Local-first and fresh-install safe.
+
+click>=8.0.0
+typer[all]>=0.12.0
+colorama>=0.4.0
+tqdm>=4.60.0
+requests>=2.25.0
+peewee>=3.17.0
+rich>=13.0.0
+psutil>=5.8.0
+pyyaml>=6.0.1
+jsonschema>=4.21.0
+pydantic>=2.7.0
+pydantic-settings>=2.2.0
+toml>=0.10.2
+
+# Audio / scanning / metadata
+numpy>=1.21.0
+pandas>=1.3.0
+mutagen>=1.46.0
+soundfile>=0.12.0
+librosa>=0.10.0
+scikit-learn>=1.0.0
+pdfplumber>=0.7.0
+pyserial>=3.5
