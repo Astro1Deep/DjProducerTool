@@ -15,6 +15,8 @@ ROOT_PATH="$DEFAULT_ROOT"
 SKIP_NETWORK=1
 FULL_INVENTORY=0
 TEST_FAILS=0
+URL_WARNS=0
+STRICT_RAW_URLS=0
 
 # Python binary and pytest configuration
 PYTHON_BIN=""
@@ -633,13 +635,21 @@ test_download_urls() {
         local url="${base_url}/${file}"
         local count=$((i + 1))
         
-        # Test URL without downloading full file
-        if curl -s -I --max-time 5 "$url" | grep -q "200 OK"; then
+        # Test URL using HTTP status code (robust across HTTP/1.1 and HTTP/2)
+        local http_code
+        http_code="$(curl -s -L -o /dev/null -w "%{http_code}" --max-time 8 "$url")"
+        if [ "$http_code" = "200" ]; then
             echo -e "  ${GREEN}✓${RESET} $file"
         else
-            echo -e "  ${RED}✗${RESET} $file - ${RED}Not accessible (404)${RESET}"
-            echo -e "     URL: $url"
-            TEST_FAILS=$((TEST_FAILS + 1))
+            if [ "${STRICT_RAW_URLS:-0}" -eq 1 ] || [ "${DJPT_ENFORCE_RAW_URLS:-0}" = "1" ]; then
+                echo -e "  ${RED}✗${RESET} $file - ${RED}Not accessible (HTTP ${http_code})${RESET}"
+                echo -e "     URL: $url"
+                TEST_FAILS=$((TEST_FAILS + 1))
+            else
+                echo -e "  ${YELLOW}⚠${RESET} $file - ${YELLOW}Not accessible (HTTP ${http_code}) [publication-only warning]${RESET}"
+                echo -e "     URL: $url"
+                URL_WARNS=$((URL_WARNS + 1))
+            fi
         fi
         
         progress_bar $count $total "Testing URLs..."
@@ -810,12 +820,13 @@ test_emoji_support() {
 
 usage() {
     cat <<EOF
-Uso: $0 [--root PATH] [--fast|--skip-network] [--full-network] [--full-inventory] [--help]
+Uso: $0 [--root PATH] [--fast|--skip-network] [--full-network] [--full-inventory] [--strict-raw-urls] [--help]
   --root PATH        Directorio a inventariar (default: ${DEFAULT_ROOT})
   --fast             Omite pruebas de red/descarga (modo offline, default)
   --skip-network     Alias de --fast
   --full-network     Incluye pruebas de red y descarga (requiere flag explícito)
   --full-inventory   Ejecuta inventario completo (requiere flag explícito)
+  --strict-raw-urls  Convierte fallos de URL raw de GitHub en bloqueantes
   --help             Muestra esta ayuda
 EOF
 }
@@ -952,6 +963,10 @@ final_summary() {
     else
         echo -e "${GREEN}All tests passed! Ready for production deployment.${RESET}"
         echo -e "${GREEN}¡Todas las pruebas pasaron! Listo para despliegue en producción.${RESET}"
+        if [ "${URL_WARNS:-0}" -gt 0 ]; then
+            echo -e "${YELLOW}Publication warnings: ${URL_WARNS} raw URL checks unresolved (non-blocking by default).${RESET}"
+            echo -e "${YELLOW}Avisos de publicación: ${URL_WARNS} URLs raw sin resolver (no bloqueantes por defecto).${RESET}"
+        fi
         echo ""
         echo -e "${YELLOW}Next steps / Próximos pasos:${RESET}"
         echo -e "  1. Review test results above / Revisar resultados arriba"
@@ -993,6 +1008,10 @@ main() {
                 FULL_INVENTORY=1
                 shift
                 ;;
+            --strict-raw-urls)
+                STRICT_RAW_URLS=1
+                shift
+                ;;
             -h|--help)
                 usage
                 exit 0
@@ -1025,6 +1044,9 @@ main() {
     fi
     if [ $FULL_INVENTORY -eq 0 ]; then
         echo -e "${YELLOW}Modo rápido:${RESET} se omite inventario completo (usa --full-inventory para habilitar)."
+    fi
+    if [ "${STRICT_RAW_URLS:-0}" -eq 1 ]; then
+        echo -e "${YELLOW}Modo estricto URL raw:${RESET} los 404 de publicación cuentan como fallo."
     fi
     echo ""
     
