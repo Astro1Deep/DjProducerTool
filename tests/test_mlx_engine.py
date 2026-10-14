@@ -27,7 +27,10 @@ else:
 if MLX_AVAILABLE:
     import mlx.core as mx  # type: ignore
 
-from audio_ai_agent.ai.mlx_engine import MLXEngine, AudioMLXUtils
+try:
+    from lib.mlx_engine import MLXEngine, AudioMLXUtils
+except ImportError:
+    from mlx_engine import MLXEngine, AudioMLXUtils
 
 def test_mlx_engine_context_manager():
     """Test that MLXEngine can be used as a context manager."""

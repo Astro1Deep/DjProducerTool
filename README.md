@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/assets/branding/waxspaceship_hero_banner.svg" alt="WaxSpaceship x Astro1Deep Hero Banner" width="100%">
+  <img src="docs/assets/branding/waxspaceship_editorial_cover.jpg" alt="WaxSpaceship x Astro1Deep Editorial Cover (High Resolution 4K)" width="100%">
 </div>
 
 # 🎧 DJProducerTools v1.3.0
