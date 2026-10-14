@@ -1,48 +1,76 @@
-# Quick Start Guide
+# Quick Start Guide - DJProducerTools (v1.3.0)
 
 ## Objetivo
-Arrancar DJProducerTools con la superficie canónica y validar que el sistema base responde en un equipo nuevo.
+Arrancar y operar la suite oficial **DJProducerTools v1.3.0** en macOS con soporte para reconocimiento acústico ShazamIO, servidor MCP para Cerebro OS y ecosistema multi-disco.
 
-## Entradas canónicas
-- `./bin/djpt`
-- `./launch.sh`
-- `./DJProducerTools_Con_Opciones_IA.sh`
-- `python3 cli.py --help`
-- `python3 lib/djpt_chat_cli.py`
+---
 
-## Configuración base
-- Configuración persistente: `config/ai_model_params.toml`
-- Estado runtime: `_DJProducerTools/` o `state/` según el punto de entrada
-- Configuración IA de sesión: `_DJProducerTools/state/config/ai_backend_env.sh`
+## Puntos de Entrada Canónicos
 
-## Primer arranque
-1. Ejecuta `./bin/djpt`.
-2. Verifica la opción `70` para health IA.
-3. Verifica la opción `71` para el gestor multi-backend.
-4. Verifica la opción `74` para tuning/dependencias/health centralizado.
+| Comando / Script | Descripción |
+| :--- | :--- |
+| `./bin/djpt` | Lanzador unificado de terminal (menús interactivos, escaneo, análisis y audio IA). |
+| `./launch.sh` | Lanzador rápido con auto-detección de entorno virtual y dependencias. |
+| `python3 core/mcp_server_fixed.py` | Servidor de protocolo MCP (10 herramientas para Cerebro OS y agentes de IA). |
+| `python3 lib/shazam_recognizer.py <audio>` | Reconocedor acústico por terminal con reintentos y fallback FFmpeg. |
+| `python3 cli.py --help` | Interfaz de línea de comandos estructurada en Python. |
+| `python3 lib/djpt_chat_cli.py` | Asistente conversacional interactivo para producción musical. |
 
-## Validación mínima
-1. `python3 scripts/menu_contract_tools.py validate-json`
-2. `bash tests/test_menu_release_navigation.sh`
-3. `bash tests/test_ai_advanced_ops_smoke.sh`
-4. `bash tests/test_destructive_flows_sacrificial.sh`
-5. `bash tests/run_smoke.sh`
+---
 
-## Notas local-first
-- `OPENAI_API_KEY` y `HF_TOKEN` son opcionales.
-- El backend Ollama por defecto recomendado es `llama3.2:3b`.
-- `transformers` y `openai_local` están desactivados por defecto hasta que configures un modelo o endpoint local real.
-- Para pin controlado de HuggingFace: `djpt ai hf-sync --action sync --allow-remote --dry-run` y luego sin `--dry-run` para descargar a local.
-- Para setup online guiado: `djpt ai online-setup --apply --install-optional-deps --hf-sync --hf-dry-run`.
-- Para extensiones seguras sin romper core: `djpt ai module --action init --name mi_modulo` y `djpt ai module --action doctor`.
-- Desde chat puedes orquestar lo mismo con comandos cortos: `rag status`, `hf status`, `online-setup --apply --hf-sync`, `modulo list`.
-- Para aprendizaje web local y RAG: `estudiar-web <url> --index-rag`.
-- Para automatización periódica: `programar cada 30m scan mp3`, `tareas`, `tareas run`.
-- Para pipeline combinado de máxima eficiencia: `combo status`, `combo learn <url>`, `combo optimize`, `combo setup ...`.
-- Referencia completa del chat avanzado: `CHAT_ADVANCED_SYSTEM.md`.
-- Para ejecución automática de tareas (macOS launchd): `python3 scripts/launchd_chat_tasks.py install --interval 300 --apply`.
-- Para runner manual de tareas vencidas: `python3 scripts/chat_tasks_runner.py --base-path . --json`.
-- Para recuperar Git local si el worktree quedó roto: `bash scripts/reanchor_git_in_place.sh --apply --branch main`.
-- `TensorFlow Lab` no hace bootstrap automático al abrirse; se instala explícitamente desde `64`, `72` o exportando `DJPT_TF_LAB_BOOTSTRAP=1`.
-- Para una instalación limpia reproducible usa `bash scripts/bootstrap_djpt_venv.sh --core --with-dev`.
-- Para certificar un zip fuera del repo usa `bash scripts/certify_fresh_install.sh`.
+## Configuración y Estado del Sistema
+
+- **Configuración Persistente**: `config/ai_model_params.toml`
+- **Caché ShazamIO**: `_DJProducerTools/state/shazam_cache.sqlite`
+- **Estado y Bases de Datos**: `_DJProducerTools/state/db/djpt.sqlite`
+- **Planes de Desduplicación**: `_DJProducerTools/plans/`
+- **Reportes de Auditoría**: `_DJProducerTools/reports/`
+
+---
+
+## Comprobación Rápida de Salud (Health Check)
+
+1. **Verificar Estado del Sistema**:
+   ```bash
+   ./bin/djpt
+   ```
+   - Opción `70`: Health general de IA y dependencias.
+   - Opción `71`: Gestor multi-backend (Ollama, MLX, Whisper, ShazamIO).
+   - Opción `74`: Hub centralizado de afinación y rendimiento.
+
+2. **Probar el Servidor MCP para Cerebro OS**:
+   ```bash
+   python3 -c "import core.mcp_server_fixed as s; print('MCP Server Tools:', len(s.TOOLS))"
+   ```
+   *(Debe retornar `10` herramientas registradas).*
+
+3. **Probar el Reconocimiento Acústico Resiliente**:
+   ```bash
+   python3 -c "from lib.shazam_recognizer import recognize_track_sync; print('ShazamIO Engine Listo')"
+   ```
+
+4. **Validación de la Suite Completa**:
+   ```bash
+   bash tests/run_smoke.sh
+   ```
+
+---
+
+## Integración con Discos Externos y Cerebro OS
+
+DJProducerTools v1.3.0 interactúa de forma nativa con los discos externos del productor:
+- **Realtek RTL9210B Media**: Native Instruments & Reaktor.
+- **Samsung PSSDT7**: Ableton Live & Roland SP-404MK2.
+- **SanDisk SSD**: Serato DJ Pro & VJ Loops.
+- **Akai MPC MicroSD (`/Volumes/MPCSMPL`)**: Base de datos SQLite y expansiones.
+
+Para sincronizar y auditar el ecosistema completo:
+```bash
+python3 "/Users/ivan/.gemini/antigravity/scratch/sync_master_dashboard.py"
+```
+
+---
+
+## Modo Seguro (Safe-First)
+- Por defecto, `SAFE_MODE=1` y `DJ_SAFE_LOCK=1` están habilitados para evitar cualquier alteración irreversible en tus colecciones de audio.
+- Los duplicados detectados nunca se eliminan automáticamente: se aíslan en una carpeta de cuarentena para tu confirmación explícita.

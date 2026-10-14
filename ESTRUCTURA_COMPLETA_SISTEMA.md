@@ -1,34 +1,42 @@
-# Estructura Completa Del Sistema
+# Estructura Completa Del Sistema - DJProducerTools (v1.3.0)
 
-## Superficie canónica
-- Shell: `bin/djpt`
-- CLI Python: `cli.py`
-- Configuración IA: `config/ai_model_params.toml`
-- Imports Python estables: `core/*`
+## Superficie Canónica
+- **Lanzador Shell**: `bin/djpt` (gestor unificado con resolución de variables y venv).
+- **Lanzador Rápido**: `launch.sh`.
+- **CLI Python**: `cli.py` y `lib/djpt_chat_cli.py`.
+- **Servidor MCP**: `core/mcp_server_fixed.py` (con wrapper compatible en `mcp_server.py`).
+- **Motor Acústico**: `lib/shazam_recognizer.py` (ShazamIO + FFmpeg + SQLite).
+- **Configuración IA**: `config/ai_model_params.toml`.
+- **Contratos Públicos**: `core/*`.
 
-## Compatibilidad
-- `launch.sh`
-- `DJProducerTools_Con_Opciones_IA.sh`
-- `scripts/cli.py`
-- `scripts/config_schema.py`
-- `scripts/core/*`
+---
 
-## Capas principales
-- `scripts/DJProducerTools_MultiScript_ES.sh`: menú canónico
-- `lib/*`: módulos operativos
-- `core/*`: namespace Python raíz para contratos públicos
-- `tests/*`: validación, smoke y contrato
+## Capas Principales del Sistema
 
-## Estado runtime
-- `state/` o `_DJProducerTools/state/`
-- `reports/` o `_DJProducerTools/reports/`
-- `plans/` o `_DJProducerTools/plans/`
+| Directorio / Archivo | Propósito y Responsabilidad |
+| :--- | :--- |
+| `bin/djpt` | Punto de entrada CLI estándar para macOS. |
+| `core/mcp_server_fixed.py` | Servidor del protocolo MCP con 10 herramientas para Cerebro OS. |
+| `lib/shazam_recognizer.py` | Motor de reconocimiento musical resiliente con reintentos y fallback. |
+| `lib/*` | Módulos operativos de escaneo, análisis, metadatos y deduplicación. |
+| `scripts/DJProducerTools_MultiScript_ES.sh` | Menú interactivo TUI canónico en español. |
+| `scripts/DJProducerTools_MultiScript_EN.sh` | Menú interactivo TUI canónico en inglés. |
+| `scripts/sync_wiki.sh` | Script de sincronización bidireccional con la GitHub Wiki. |
+| `docs/assets/branding/` | Banners SVG dual-cell, portadas editoriales y logos vectoriales. |
+| `tests/*` | Suite de tests automatizados (smoke, audio recognition, contratos). |
 
-## Menús relevantes
-- `62`: ML evolutivo local
-- `65`: TensorFlow Lab
-- `70`: Health IA
-- `71`: Gestor multi-backend IA
-- `74`: Hub de configuración de backends IA
-- `80-88`: menús IA avanzados
-- `91-92`: LAB/doctor/grafo
+---
+
+## Estado y Directorios Runtime
+- `_DJProducerTools/state/db/djpt.sqlite`: Base de datos SQLite unificada.
+- `_DJProducerTools/state/shazam_cache.sqlite`: Caché de huellas acústicas.
+- `_DJProducerTools/plans/`: Planes de desduplicación en dos fases.
+- `_DJProducerTools/reports/`: Informes técnicos, TSV y auditorías.
+
+---
+
+## Ecosistema Multi-Disco
+- `/Volumes/Realtek RTL9210B-CG Media`: Native Instruments & Reaktor.
+- `/Volumes/samsung PSSDT7`: Producción, Ableton Live & Roland SP-404MK2.
+- `/Volumes/SanDisk SSD`: Serato DJ Pro & VJ Loops.
+- `/Volumes/MPCSMPL`: Akai MPC MicroSD (Base de datos SQLite, Expansiones y Catálogo Web).

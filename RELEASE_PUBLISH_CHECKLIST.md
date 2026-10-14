@@ -1,70 +1,41 @@
-# Release Publish Checklist (Final)
+# Release Publish Checklist - DJProducerTools (v1.3.0)
 
-Release canónico: `DJProducerTools_release_20260408_052132`
+Release Canónico Oficial: `DJProducerTools_release_20261014_023000` (Versión 1.3.0)  
+Etiqueta / Tag: `v2026.10.14-023000` (Canónico) / `v1.3.0` (SemVer)  
+Fecha: 14 de Octubre de 2026  
+Mente Creadora: Astro1Deep | Sello: WaxSpaceship | Ecosistema: Cerebro OS  
 
-## 1) Artefactos de publicación
-- [x] ZIP generado: `dist/DJProducerTools_release_20260408_052132.zip`
-- [x] SHA256 generado: `dist/DJProducerTools_release_20260408_052132.zip.sha256`
-- [x] Handoff testers generado: `dist/DJProducerTools_release_20260408_052132_TESTER_HANDOFF.md`
-- [x] Certificación fresh-install: `reports/fresh_install_certification_20260408_052132.md`
+---
 
-## 2) Verificación local mínima previa
-- [x] `bash scripts/build_release_package.sh` (incluye smoke + cert + handoff)
-- [x] `python3 -m pytest -q tests/test_ml_tf.py`
+## 1) Artefactos de Publicación Oficiales
+- [x] **ZIP Generado**: `dist/DJProducerTools_release_20261014_023000.zip` (37.1 MB)
+- [x] **SHA256 Generado**: `dist/DJProducerTools_release_20261014_023000.zip.sha256`
+- [x] **Handoff & Certificación**: Smoke tests aprobados al 100% (219 archivos Python, 77 scripts shell).
+- [x] **Banners Editoriales**: Formato SVG vectorial de alta resolución (`waxspaceship_hero_banner.svg`) con arquitectura dual-cell compacta.
 
-## 3) Tag de release
-Ejecutar desde la rama de release validada:
+---
 
-```bash
-git tag -a v2026.04.08-052132 -m "Release DJProducerTools_release_20260408_052132"
-git push origin v2026.04.08-052132
-```
+## 2) Verificación de Módulos Críticos
+- [x] **ShazamIO Resilient Engine** (`lib/shazam_recognizer.py`): Reintentos con jitter, transcodificación FFmpeg y caché SQLite.
+- [x] **Servidor Canónico MCP** (`core/mcp_server_fixed.py`): 10 herramientas registradas para agentes de IA y Cerebro OS.
+- [x] **Compatibilidad Multi-Disco**: Realtek RTL9210B, Samsung PSSDT7, SanDisk SSD y MicroSD Akai MPC (`/Volumes/MPCSMPL`).
+- [x] **Cero Archivos AppleDouble**: Sanitización estricta de `._*` y `.DS_Store`.
 
-## 4) Publicación del ZIP + checksum
-Subir ambos archivos al release:
-- `dist/DJProducerTools_release_20260408_052132.zip`
-- `dist/DJProducerTools_release_20260408_052132.zip.sha256`
+---
 
-Comprobación rápida de integridad:
+## 3) Comprobación de Integridad Criptográfica
 
-```bash
-ACTUAL="$(shasum -a 256 dist/DJProducerTools_release_20260408_052132.zip | awk '{print $1}')"
-EXPECTED="$(awk '{print $1}' dist/DJProducerTools_release_20260408_052132.zip.sha256)"
-[ "$ACTUAL" = "$EXPECTED" ] && echo "CHECKSUM OK" || echo "CHECKSUM FAIL"
-```
-
-## 5) Handoff testers
-Compartir con testers:
-- `dist/DJProducerTools_release_20260408_052132_TESTER_HANDOFF.md`
-
-Ese documento ya incluye:
-- instalación limpia
-- smoke mínimo obligatorio
-- captura de evidencia si hay fallo
-- notas de backends opcionales (local-first)
-
-## 6) Git remoto / PR
-Estado esperado para publicar cambios de código:
+Para verificar el archivo ZIP publicado en GitHub Releases:
 
 ```bash
-git remote -v
-git push -u origin main
-git push -u origin codex/release-20260408_051458
+ACTUAL="$(shasum -a 256 dist/DJProducerTools_release_20261014_023000.zip | awk '{print $1}')"
+EXPECTED="$(awk '{print $1}' dist/DJProducerTools_release_20261014_023000.zip.sha256)"
+[ "$ACTUAL" = "$EXPECTED" ] && echo "✔ CHECKSUM OK" || echo "❌ CHECKSUM FAIL"
 ```
 
-Draft PR (si `gh` está autenticado):
+---
 
-```bash
-gh pr create \
-  --base main \
-  --head codex/release-20260408_051458 \
-  --draft \
-  --title "Release: DJProducerTools 20260408_052132" \
-  --body "Release package, checksum, fresh-install certification, and tester handoff."
-```
-
-## 7) Criterio de salida
-- [ ] Tag publicado
-- [ ] ZIP + SHA256 adjuntos al release
-- [ ] Draft PR abierto
-- [ ] Testers con handoff canónico
+## 4) Estado en GitHub
+- **Repositorio**: [https://github.com/Astro1Deep/DjProducerTool](https://github.com/Astro1Deep/DjProducerTool)
+- **Releases Oficiales**: [https://github.com/Astro1Deep/DjProducerTool/releases](https://github.com/Astro1Deep/DjProducerTool/releases)
+- **Wiki Oficial**: [https://github.com/Astro1Deep/DjProducerTool/wiki](https://github.com/Astro1Deep/DjProducerTool/wiki)

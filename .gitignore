@@ -30,3 +30,12 @@ error_patterns.json
 
 # Temporary/recovery git artifacts
 .git.worktree_broken_*
+
+# Archives and transient reports
+*.zip
+*.tar.gz
+*.tsv
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
