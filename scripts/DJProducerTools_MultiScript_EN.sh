@@ -1067,6 +1067,7 @@ PY
     printf "  6) Test Spotify OAuth now\n"
     printf "  7) Test MusicBrainz now\n"
     printf "  8) Install Serato deps (serato-crate + serato-tools)\n"
+    printf "  9) ShazamIO: Acoustic audio identification (MPC/Serato/Production)\n"
     printf "  B) Back\n"
     printf "Option: "
     if ! read -r api_opt; then
@@ -1188,6 +1189,47 @@ PY
             printf "%s[INFO]%s Installation canceled.\n" "$C_CYN" "$C_RESET"
             ;;
         esac
+        pause_enter
+        ;;
+      9)
+        printf "%s[INFO]%s ShazamIO Acoustic Recognition...\n" "$C_CYN" "$C_RESET"
+        local shazam_py="$LIB_DIR/shazam_recognizer.py"
+        if [ -f "$shazam_py" ]; then
+          printf "Select target to recognize:\n"
+          printf "  1) Akai MPC Sample (/Volumes/MPCSMPL)\n"
+          printf "  2) Serato DJ Pro (/Volumes/SanDisk SSD/00_SERATO_MUSICA)\n"
+          printf "  3) Production & Ableton (/Volumes/samsung PSSDT7)\n"
+          printf "  4) Current / Custom directory\n"
+          printf "Option [1-4]: "
+          read -r shz_target_opt
+          local shz_path=""
+          case "$shz_target_opt" in
+            1) shz_path="/Volumes/MPCSMPL" ;;
+            2) shz_path="/Volumes/SanDisk SSD/00_SERATO_MUSICA" ;;
+            3) shz_path="/Volumes/samsung PSSDT7" ;;
+            4)
+              printf "Scan path: "
+              read -r user_shz_path
+              shz_path="${user_shz_path:-$BASE_PATH}"
+              ;;
+            *) shz_path="$BASE_PATH" ;;
+          esac
+
+          printf "Max candidates to process (ENTER for 25): "
+          read -r shz_limit
+          shz_limit="${shz_limit:-25}"
+
+          local shz_out="$BASE_PATH/_DJProducerTools/reports/shazam_matches.tsv"
+          printf "%s[RUN]%s Processing candidates in %s...\n" "$C_CYN" "$C_RESET" "$shz_path"
+          if command -v uv &>/dev/null; then
+            uv run --no-project --with shazamio python3 "$shazam_py" --base "$shz_path" --out "$shz_out" --limit "$shz_limit"
+          else
+            "$PYTHON_BIN" "$shazam_py" --base "$shz_path" --out "$shz_out" --limit "$shz_limit"
+          fi
+          printf "%s[OK]%s Report saved to: %s\n" "$C_GRN" "$C_RESET" "$shz_out"
+        else
+          printf "%s[ERR]%s Missing %s\n" "$C_RED" "$C_RESET" "$shazam_py"
+        fi
         pause_enter
         ;;
       B|b|0)

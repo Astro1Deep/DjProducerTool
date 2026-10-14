@@ -7571,6 +7571,7 @@ PY
         printf "  6) Test Spotify OAuth ahora\n"
         printf "  7) Test MusicBrainz ahora\n"
         printf "  8) Instalar dependencias Serato (serato-crate + serato-tools)\n"
+        printf "  9) ShazamIO: Identificar canciones / samples acústicamente (MPC/Serato/Producción)\n"
         printf "  B) Volver\n"
         printf "Opción: "
         read -r api_opt
@@ -7698,6 +7699,47 @@ PY
                 printf "%s[INFO]%s Instalación cancelada.\n" "$C_CYN" "$C_RESET"
                 ;;
             esac
+            pause_enter
+            ;;
+          9)
+            printf "%s[INFO]%s Identificación acústica con ShazamIO (Huella de audio)...\n" "$C_CYN" "$C_RESET"
+            local shazam_py="$LIB_DIR/shazam_recognizer.py"
+            if [ -f "$shazam_py" ]; then
+              printf "Selecciona el objetivo a identificar:\n"
+              printf "  1) Akai MPC Sample (/Volumes/MPCSMPL)\n"
+              printf "  2) Serato DJ Pro (/Volumes/SanDisk SSD/00_SERATO_MUSICA)\n"
+              printf "  3) Producción & Ableton (/Volumes/samsung PSSDT7)\n"
+              printf "  4) Directorio actual o personalizado\n"
+              printf "Opción [1-4]: "
+              read -r shz_target_opt
+              local shz_path=""
+              case "$shz_target_opt" in
+                1) shz_path="/Volumes/MPCSMPL" ;;
+                2) shz_path="/Volumes/SanDisk SSD/00_SERATO_MUSICA" ;;
+                3) shz_path="/Volumes/samsung PSSDT7" ;;
+                4)
+                  printf "Ruta a escanear: "
+                  read -r user_shz_path
+                  shz_path="${user_shz_path:-$BASE_PATH}"
+                  ;;
+                *) shz_path="$BASE_PATH" ;;
+              esac
+
+              printf "Límite de candidatos a procesar (ENTER para 25): "
+              read -r shz_limit
+              shz_limit="${shz_limit:-25}"
+
+              local shz_out="$BASE_PATH/_DJProducerTools/reports/shazam_matches.tsv"
+              printf "%s[RUN]%s Procesando candidatos en %s...\n" "$C_CYN" "$C_RESET" "$shz_path"
+              if command -v uv &>/dev/null; then
+                uv run --no-project --with shazamio python3 "$shazam_py" --base "$shz_path" --out "$shz_out" --limit "$shz_limit"
+              else
+                "$PYTHON_BIN" "$shazam_py" --base "$shz_path" --out "$shz_out" --limit "$shz_limit"
+              fi
+              printf "%s[OK]%s Reporte guardado en: %s\n" "$C_GRN" "$C_RESET" "$shz_out"
+            else
+              printf "%s[ERR]%s No se encontró %s\n" "$C_RED" "$C_RESET" "$shazam_py"
+            fi
             pause_enter
             ;;
           B|b)

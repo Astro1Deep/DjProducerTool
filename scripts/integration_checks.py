@@ -78,10 +78,24 @@ def check_mcp() -> dict[str, Any]:
     }
 
 
-def aggregate(serato: dict[str, Any], spotify: dict[str, Any], musicbrainz: dict[str, Any], mcp: dict[str, Any]) -> dict[str, Any]:
+def check_shazam() -> dict[str, Any]:
+    shazamio_available = _spec_available("shazamio")
+    script_path = ROOT / "lib" / "shazam_recognizer.py"
+    script_exists = script_path.exists()
+    status = "ready" if shazamio_available and script_exists else ("ready_via_uv" if script_exists else "missing")
+    return {
+        "status": status,
+        "message": "ShazamIO acoustic engine ready" if status in {"ready", "ready_via_uv"} else "ShazamIO engine missing",
+        "shazamio_installed": shazamio_available,
+        "script_exists": script_exists,
+        "engine_script": str(script_path),
+    }
+
+
+def aggregate(serato: dict[str, Any], spotify: dict[str, Any], musicbrainz: dict[str, Any], mcp: dict[str, Any], shazam: dict[str, Any] | None = None) -> dict[str, Any]:
     overall_ok_core = serato["status"] in {"ready", "missing_optional_deps"} and musicbrainz["status"] == "configured" and mcp["status"] == "ready"
     overall_ok_strict = overall_ok_core and serato["parser_available"] and serato["tools_available"] and spotify["status"] == "configured"
-    return {
+    payload = {
         "overall_ok_core": overall_ok_core,
         "overall_ok_strict": overall_ok_strict,
         "serato": serato,
@@ -89,6 +103,9 @@ def aggregate(serato: dict[str, Any], spotify: dict[str, Any], musicbrainz: dict
         "musicbrainz": musicbrainz,
         "mcp": mcp,
     }
+    if shazam:
+        payload["shazam"] = shazam
+    return payload
 
 
 def _emit(payload: dict[str, Any]) -> int:
@@ -104,7 +121,7 @@ def _emit(payload: dict[str, Any]) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Deterministic local/web integration checks")
     subparsers = parser.add_subparsers(dest="command", required=True)
-    for name in ("serato", "spotify", "musicbrainz", "mcp", "all"):
+    for name in ("serato", "spotify", "musicbrainz", "mcp", "shazam", "all"):
         sub = subparsers.add_parser(name)
         sub.add_argument("--serato-root")
         sub.add_argument("--spotify-client-id")
@@ -125,9 +142,19 @@ def main() -> int:
         return _emit({"spotify": spotify})
     if args.command == "musicbrainz":
         return _emit({"musicbrainz": musicbrainz})
+    shazam = check_shazam()
+
+    if args.command == "serato":
+        return _emit({"serato": serato})
+    if args.command == "spotify":
+        return _emit({"spotify": spotify})
+    if args.command == "musicbrainz":
+        return _emit({"musicbrainz": musicbrainz})
     if args.command == "mcp":
         return _emit({"mcp": mcp})
-    return _emit(aggregate(serato, spotify, musicbrainz, mcp))
+    if args.command == "shazam":
+        return _emit({"shazam": shazam})
+    return _emit(aggregate(serato, spotify, musicbrainz, mcp, shazam))
 
 
 if __name__ == "__main__":
