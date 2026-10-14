@@ -105,11 +105,11 @@ def main():
 
     # 5. Auditoría del Módulo ShazamIO (Acoustic Engine)
     print("\n[5/5] 🎧 Auditoría del Motor Acústico ShazamIO...")
-    shz_py = ROOT / "lib" / "shazam_recognizer.py"
+    shz_py = ROOT / "lib" / "shazam_resilient_engine.py"
     if shz_py.exists():
         code, out = run_cmd(["uv", "run", "--no-project", "--with", "shazamio", "python3", str(ROOT / "scripts" / "integration_checks.py"), "shazam"])
         if code == 0:
-            print("  ✔ Motor ShazamIO y scripts de integración: ACTIVOS Y LISTOS")
+            print("  ✔ Motor Resiliente ShazamIO y scripts de integración: ACTIVOS Y LISTOS")
             print(f"  ✔ Script ejecutable: {shz_py}")
         else:
             print(f"  ⚠️ Error al validar integración Shazam: {out}")

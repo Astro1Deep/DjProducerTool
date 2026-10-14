@@ -80,12 +80,14 @@ def check_mcp() -> dict[str, Any]:
 
 def check_shazam() -> dict[str, Any]:
     shazamio_available = _spec_available("shazamio")
-    script_path = ROOT / "lib" / "shazam_recognizer.py"
+    script_path = ROOT / "lib" / "shazam_resilient_engine.py"
+    if not script_path.exists():
+        script_path = ROOT / "lib" / "shazam_recognizer.py"
     script_exists = script_path.exists()
     status = "ready" if shazamio_available and script_exists else ("ready_via_uv" if script_exists else "missing")
     return {
         "status": status,
-        "message": "ShazamIO acoustic engine ready" if status in {"ready", "ready_via_uv"} else "ShazamIO engine missing",
+        "message": "ShazamIO resilient acoustic engine ready" if status in {"ready", "ready_via_uv"} else "ShazamIO engine missing",
         "shazamio_installed": shazamio_available,
         "script_exists": script_exists,
         "engine_script": str(script_path),

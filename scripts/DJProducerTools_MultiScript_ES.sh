@@ -7702,8 +7702,8 @@ PY
             pause_enter
             ;;
           9)
-            printf "%s[INFO]%s Identificación acústica con ShazamIO (Huella de audio)...\n" "$C_CYN" "$C_RESET"
-            local shazam_py="$LIB_DIR/shazam_recognizer.py"
+            printf "%s[INFO]%s Identificación acústica con ShazamIO (Motor Resiliente + Fallback)...\n" "$C_CYN" "$C_RESET"
+            local shazam_py="$LIB_DIR/shazam_resilient_engine.py"
             if [ -f "$shazam_py" ]; then
               printf "Selecciona el objetivo a identificar:\n"
               printf "  1) Akai MPC Sample (/Volumes/MPCSMPL)\n"
