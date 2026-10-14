@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="docs/assets/branding/waxspaceship_hero_banner.svg" alt="WaxSpaceship x Astro1Deep Hero Banner" width="100%">
+</div>
+
 # 🎧 DJProducerTools v1.3.0
 
 Suite Profesional de Producción DJ para macOS | [English Version](README.md)
