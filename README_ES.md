@@ -19,6 +19,7 @@ Suite Profesional de Producción DJ para macOS | [English Version](README.md)
 | 🎥 Video / OSC / DMX | ✅ Parcial | Inventario ffprobe, plan transcode H.264 1080p, planes playlists→OSC/DMX, envío DMX opcional (ENTTEC) con Safe/Lock/dry-run |
 | 🔌 API/OSC local | ✅ Parcial | Servidor HTTP (/status,/reports) y OSC (/djpt/ping) con inicio/parada desde menú |
 | 🔊 BPM/librosa | ✅ Ligero | Reporte TSV de BPM/onsets con `librosa` (no modifica tags) |
+| 🎧 ShazamIO Acústico | ✅ Listo | Reconocimiento resiliente multi-capa (Akai MPC, Serato DJ, Ableton) con caché SQLite y fallback offline |
 | 🤖 ML/TF | 🚧 Placeholder | Auto-tagging/TF Lab documentados como plan; sin mutar audio |
 
 ## Instalación Rápida
@@ -54,7 +55,8 @@ chmod +x scripts/*.sh
 - **Colaboradores:** planes/roadmap/API/seguridad (incluye FEATURES/DEBUG/API/VERSION) en `docs/internal/` (no necesario para usuarios).
 - **Wiki (manual extendido):** `docs/wiki/WIKI_EXTENDED_MANUAL_ES.md` (ES) y `docs/wiki/WIKI_EXTENDED_MANUAL_EN.md` (EN) con todas las opciones/acciones en detalle.
 
-### Novedades (1.0.0)
+### Novedades
+- Reconocimiento acústico resiliente ShazamIO (opción 9): identificación de canciones completas, vinilos ripeados y chops en Akai MPC Sample, Serato DJ Pro y Ableton/Producción, con caché SQLite, reintentos con sanitizador FFmpeg y fallback heurístico offline.
 - Plan de transcode: permite elegir códec (auto/videotoolbox/nvenc/libx264) y ejecutar ffmpeg con confirmación; respeta `DRYRUN_FORCE`.
 - API/OSC: soporta Bearer token; `/djpt/ping` y `/djpt/status` responden “unauthorized” si falta token.
 - Corpus compartido (opción 69): exporta/importa reports/planes entre discos para reutilizar hashes/ML sin reescanear.

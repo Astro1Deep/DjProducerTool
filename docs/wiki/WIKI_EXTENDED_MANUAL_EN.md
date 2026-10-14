@@ -178,6 +178,22 @@ Use `./lib/ml_tf.py download_model --name <model>` (also menu 65.15) to cache we
 #### MusicBrainz online metadata
 The master report (menu 65.14) also accepts `--online`/`--query` to hit MusicBrainz, appending title, artist, release date to `reports/ml_master_report.tsv`. It respects `DJPT_OFFLINE`: the request runs only when you explicitly toggle `--online`. This gives a reliable external reference for cross-checking local analyses.
 
+### Resilient Acoustic Recognition with ShazamIO (Integrations Menu - Option 9)
+Designed to identify full tracks, vinyl rips, sample chops, and untagged audio across all three ecosystem environments:
+- **Akai MPC Sample** (`/Volumes/MPCSMPL`): Acoustic identification of orphaned chops and vinyl samples.
+- **Serato DJ Pro** (`/Volumes/SanDisk SSD/00_SERATO_MUSICA`): Resolving "Track 01" files, live sessions, and tracks lacking ID3 tags.
+- **Production & Ableton / SP-404** (`/Volumes/samsung PSSDT7`): Audio stem traceability and sample clearance.
+
+#### 5-Layer Resilience Architecture
+1. **Heuristic Guard**: Immediately skips short one-shots (<150 KB or <3.2s like isolated kicks or snares) to avoid wasting network calls.
+2. **Ultra-Fast SQLite Cache**: Located at `~/.DJProducerTools/shazam_cache.db` with chunk hashing (first 128 KB + last 128 KB + total size). Repeated queries respond in 0.001 ms (`[CACHE HIT]`).
+3. **Async Concurrency & Timeout Control**: `asyncio.Semaphore(3)` and strict 8.0s timeout per file to prevent hanging sockets.
+4. **Decoupled FFmpeg Audio Sanitizer**: If the audio file header or container is malformed, extracts a pristine 16-bit 44.1 kHz PCM chunk on-the-fly.
+5. **Autonomous Offline Heuristic Fallback**: If network fails or no match is found on Shazam servers, heuristically parses artist, clean title, and mix/version from filename and directory path without raising unhandled exceptions.
+
+Output: structured TSV report (`_DJProducerTools/reports/shazam_matches.tsv`) with columns: `file_path`, `match_status`, `title`, `artist`, `album`, `genre`, `shazam_url`.
+
+
 ### Visuals / OSC / DMX (V)
 - V1 Ableton .als quick report; V2 Visuals inventory; V3 DMX send plan (ENTTEC dry-run by default, logs frames); V4/V5 video report/plan; V6 resolution/duration; V7 visuals by resolution; V8 visuals dupes; V9 optimize plan; V10 playlist→OSC; V11 playlist→DMX timed; V12 DMX presets template (edit channels/values for your rig).
 

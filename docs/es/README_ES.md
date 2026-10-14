@@ -36,6 +36,11 @@ Incluye dos versiones del script principal:
 - **Limpieza de Metadatos**: Elimina URLs basura de etiquetas, normaliza nombres de archivos y detecta caracteres extraños.
 - **Conversión de Audio**: Herramienta integrada para convertir WAV a MP3 (320kbps CBR) con backup automático de originales.
 
+### 🎧 Reconocimiento Acústico Resiliente (ShazamIO)
+
+- **Identificación Multi-Sistema**: Diseñado para reconocer canciones completas, chops y vinilos en Akai MPC Sample (`/Volumes/MPCSMPL`), Serato DJ Pro (`/Volumes/SanDisk SSD`) y Ableton Live / Producción (`/Volumes/samsung PSSDT7`).
+- **Arquitectura Defensiva en 5 Capas**: Guardia heurística contra one-shots diminutos, caché SQLite ultra-rápida (`~/.DJProducerTools/shazam_cache.db`), sanitizador de fragmentos FFmpeg para audios corruptos, limitador de concurrencia asíncrono y fallback heurístico offline autónomo.
+
 ### 🧠 IA y Aprendizaje Automático (Local)
 
 - **Análisis Inteligente**: Escaneo profundo de la biblioteca para sugerir acciones de limpieza.

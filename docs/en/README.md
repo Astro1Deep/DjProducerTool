@@ -38,7 +38,10 @@ It includes two versions of the main script:
 - **"Fuzzy" Deduplication**: Detection by name and size to clean up repeated downloads.
 - **Matrioshka Hunter**: Finds structurally identical folders (e.g., duplicate project folders) and suggests a safe cleanup plan.
 - **Metadata Cleanup**: Removes junk URLs from tags, normalizes filenames, and detects strange characters.
-- **Audio Conversion**: Integrated tool (Option 71) to convert WAV to MP3 (320kbps CBR) with automatic backup of originals.
+### 🎧 Resilient Acoustic Recognition (ShazamIO)
+
+- **Multi-System Identification**: Designed to recognize full songs, chops, and vinyl rips across Akai MPC Sample (`/Volumes/MPCSMPL`), Serato DJ Pro (`/Volumes/SanDisk SSD`), and Ableton Live / Production (`/Volumes/samsung PSSDT7`).
+- **5-Layer Defensive Architecture**: Heuristic guard against tiny one-shots, ultra-fast SQLite cache (`~/.DJProducerTools/shazam_cache.db`), FFmpeg chunk sanitizer for damaged audio streams, async concurrency limiter, and autonomous offline heuristic fallback.
 
 ### 🧠 AI and Machine Learning (Local)
 
