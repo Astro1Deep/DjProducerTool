@@ -5,7 +5,7 @@
 [![Bash](https://img.shields.io/badge/Bash-4.0%2B-brightgreen)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/Platform-macOS%2010.15%2B-blue)](https://www.apple.com/macos/)
 [![License](https://img.shields.io/badge/License-DJProducerTools-green)](LICENSE.md)
-[![Version](https://img.shields.io/badge/Version-1.0.0-blue)](VERSION)
+[![Version](https://img.shields.io/badge/Version-1.3.0-blue)](VERSION)
 
 ---
 

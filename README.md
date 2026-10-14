@@ -1,4 +1,4 @@
-# 🎧 DJProducerTools v1.0.0
+# 🎧 DJProducerTools v1.3.0
 
 Professional DJ & Music Production Suite for macOS | [Versión en Español](README_ES.md)
 

@@ -1,11 +1,11 @@
-# 🎧 DJProducerTools v1.0.0
+# 🎧 DJProducerTools v1.3.0
 
 Suite Profesional de Producción DJ para macOS | [English Version](README.md)
 
 ## Estado
 
-- **Versión actual:** 1.0.0 (2024-01-04)
-- **Implementado (CLI):** catálogo de archivos, índice SHA-256 y plan de duplicados, quarantine manager, backups de `_Serato_`/metadatos DJ, snapshot hash rápido, reportes TSV (ffprobe, relink helper, rescan), playlists por carpeta, toggles `SAFE_MODE`/`DJ_SAFE_LOCK`/`DRYRUN_FORCE`, inventario ffprobe + plan de transcode (H.264 1080p), planes playlists→OSC/DMX, envío DMX opcional (ENTTEC) en dry-run, servidor HTTP/OSC local, análisis BPM/librosa → TSV y `video_tags.tsv` (keyframes + `clip_tags` si `clip_vitb16_onnx` está instalado).
+- **Versión actual:** 1.3.0 (2026-10-14)
+- **Implementado (CLI):** catálogo de archivos, índice SHA-256 y plan de duplicados, motor acústico ShazamIO en 5 capas con caché SQLite local, quarantine manager, backups de `_Serato_`/metadatos DJ, snapshot hash rápido, reportes TSV (ffprobe, relink helper, rescan), playlists por carpeta, toggles `SAFE_MODE`/`DJ_SAFE_LOCK`/`DRYRUN_FORCE`, inventario ffprobe + plan de transcode (H.264 1080p), planes playlists→OSC/DMX, envío DMX opcional (ENTTEC) en dry-run, servidor HTTP/OSC local, análisis BPM/librosa → TSV y `video_tags.tsv` (keyframes + `clip_tags` si `clip_vitb16_onnx` está instalado).
 - **Roadmap/placeholder:** auto-tagging ML avanzado y laboratorio TensorFlow (solo plan/documentado); exportes HTML/PDF avanzados.
 
 ## Características principales (CLI)
@@ -81,4 +81,4 @@ chmod +x scripts/*.sh
 MIT - Ver [LICENSE](LICENSE)
 
 ---
-**Versión:** 1.0.0 | **Estado:** ✅ CLI básica lista / 🚧 módulos avanzados pendientes
+**Versión:** 1.3.0 | **Estado:** ✅ Suite completa lista / 🎧 Motor Acústico Resiliente ShazamIO activo
