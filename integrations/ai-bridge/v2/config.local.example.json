@@ -1,0 +1,11 @@
+{
+  "projects": {
+    "djproducertools": "10_DJPRODUCERTOOLS",
+    "maxforlive": "11_MAX_FOR_LIVE",
+    "cerebro": "12_CEREBRO",
+    "legal_inah": "20_INAH_PRIVATE",
+    "legal_cnp": "21_CNP_PRIVATE",
+    "legal_neighborhood": "22_VECINDAD_PRIVATE",
+    "kernel_etico": "30_KERNEL_ETICO"
+  }
+}
