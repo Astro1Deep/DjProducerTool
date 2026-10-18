@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+config.local.json
+*.secret.json
+*.key
+*.pem
+__pycache__/
+.pytest_cache/
+.venv/
+handoffs/
+private/
+*.bak.*
+.DS_Store
