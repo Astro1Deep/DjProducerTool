@@ -51,6 +51,12 @@ chmod +x scripts/*.sh
 - Corpus compartido: `DJPT_SHARED_CORPUS=/ruta/compartida` (o elección en el menú 69) copia embeddings/tags en `reports/` para poder reutilizarlos en otras bases sin volver a escanear.
 - Informe maestro ML (menú 65.13) combina matching/anomalías/segmentos/loudness/video tags en `reports/ml_master_report.tsv`. Ajusta batch/threshold/top-N en la opción 65.12 y activa MusicBrainz (65.14) para sumar metadata oficial si hay conexión.
 
+## Ecosistema Astro1Deep
+
+**DJProducerTools** se centra en la organización y auditoría de bibliotecas musicales, metadatos, duplicados y flujos de trabajo DJ en macOS. Para preparar kits de batería y samples destinados a samplers, consulta **[BeatOS — The MakerLicious](https://github.com/Astro1Deep/BeatOS-TheMakerLicious)**, con navegador de muestras, rack de 16 pads y exportadores específicos para Akai MPC, Maschine, Roland SP-404 y Teenage Engineering. La compatibilidad y los formatos de cada destino se documentan en BeatOS.
+
+Proyecto de **Astro1Deep**, ingeniero de audio, productor musical y desarrollador.
+
 ## Documentación
 
 - Características: ver README.md/README_ES para resumen bilingüe.
