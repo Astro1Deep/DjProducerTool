@@ -22,6 +22,14 @@ It includes dual-language native interactive launchers:
 
 ---
 
+## Astro1Deep music-production ecosystem
+
+**DJProducerTools** focuses on DJ library management, music metadata, audio-file auditing, duplicate analysis, and macOS workflows for DJs and producers. For sample browsing, beatmaking and hardware-oriented drum-kit preparation, see **[BeatOS — The MakerLicious](https://github.com/Astro1Deep/BeatOS-TheMakerLicious)**. Its 16-pad rack prepares device-specific exports for Akai MPC, NI Maschine, Roland SP-404 and Teenage Engineering samplers; consult the BeatOS compatibility matrix before transferring files.
+
+Created by **Astro1Deep**, audio engineer, music producer and creative developer.
+
+---
+
 ## Key Features
 
 | Feature | Status | Details |
